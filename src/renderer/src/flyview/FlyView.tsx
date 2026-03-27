@@ -35,14 +35,14 @@ export function FlyView(): React.JSX.Element {
   const videoIsMain = mainView === 'video'
 
   useEffect(() => {
-    const unsub = window.qgcBridge?.onPopoutClosed(({ view }) => {
+    const unsub = window.bridge?.onPopoutClosed(({ view }) => {
       if (view === poppedOut) setPoppedOut(null)
     })
     return unsub
   }, [poppedOut])
 
   const handlePopout = useCallback((view: 'video' | 'map') => {
-    window.qgcBridge?.popoutOpen(view)
+    window.bridge?.popoutOpen(view)
     setPoppedOut(view)
   }, [])
 

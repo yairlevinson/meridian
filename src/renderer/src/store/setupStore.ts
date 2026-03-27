@@ -49,7 +49,7 @@ export const useSetupStore = create<SetupStore>((set) => ({
 
 // Wire IPC listeners when bridge is available
 setTimeout(() => {
-  const bridge = window.qgcBridge
+  const bridge = window.bridge
   if (!bridge) return
 
   if (bridge.onCalibrationStateChanged) {

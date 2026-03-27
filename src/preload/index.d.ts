@@ -1,7 +1,7 @@
-import type { QgcBridge } from './index'
+import type { Bridge } from './index'
 
 declare global {
   interface Window {
-    qgcBridge: QgcBridge
+    bridge: Bridge
   }
 }

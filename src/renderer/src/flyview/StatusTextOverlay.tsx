@@ -22,8 +22,8 @@ export function StatusTextOverlay(): React.JSX.Element {
   const [messages, setMessages] = useState<StatusMessage[]>([])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.qgcBridge) return
-    const unsubscribe = window.qgcBridge.onStatusText(({ severity, text }) => {
+    if (typeof window === 'undefined' || !window.bridge) return
+    const unsubscribe = window.bridge.onStatusText(({ severity, text }) => {
       setMessages((prev) => [...prev.slice(-19), { severity, text, timestamp: Date.now() }])
     })
     return unsubscribe

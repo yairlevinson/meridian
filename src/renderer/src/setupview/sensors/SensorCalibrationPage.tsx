@@ -142,7 +142,7 @@ export function SensorCalibrationPage(): React.JSX.Element {
   }, [parameters, loadState.parametersReady])
 
   const handleOrientationSave = useCallback(async () => {
-    const bridge = window.qgcBridge
+    const bridge = window.bridge
     if (!bridge) return
     await bridge.setParameter(1, 'AHRS_ORIENTATION', orientation)
     setOrientationDirty(false)

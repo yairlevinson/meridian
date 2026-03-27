@@ -2,13 +2,13 @@
 # Native ARM64 + AMD64 support.
 #
 # Build (one-time, ~5 min):
-#   docker build -t qgc-px4-sitl -f Dockerfile.px4-sitl .
+#   docker build -t meridian-px4-sitl -f Dockerfile.px4-sitl .
 #
 # Run:
-#   docker run --rm -p 5760:5760 qgc-px4-sitl
+#   docker run --rm -p 5760:5760 meridian-px4-sitl
 #
 # PX4 sends MAVLink on UDP 14550 internally.
-# MAVProxy bridges to TCP 5760 for external clients (QGC, E2E tests).
+# MAVProxy bridges to TCP 5760 for external clients (Meridian, E2E tests).
 
 FROM ubuntu:22.04 AS builder
 
@@ -52,7 +52,7 @@ COPY --from=builder /px4/test_data /px4/test_data
 
 WORKDIR /px4
 
-# TCP port for QGC/app connections (via MAVProxy bridge)
+# TCP port for Meridian/app connections (via MAVProxy bridge)
 EXPOSE 5760
 
 # PX4_SIM_MODEL=none tells PX4 not to wait for a physics sim

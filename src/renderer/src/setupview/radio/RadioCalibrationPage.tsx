@@ -27,19 +27,19 @@ export function RadioCalibrationPage(): React.JSX.Element {
   const isComplete = step === RcCalStep.Complete
 
   const handleStart = useCallback(() => {
-    window.qgcBridge?.rcCalibrationStart(vehicleId)
+    window.bridge?.rcCalibrationStart(vehicleId)
   }, [vehicleId])
 
   const handleNext = useCallback(() => {
-    window.qgcBridge?.rcCalibrationNextStep(vehicleId)
+    window.bridge?.rcCalibrationNextStep(vehicleId)
   }, [vehicleId])
 
   const handleCancel = useCallback(() => {
-    window.qgcBridge?.rcCalibrationCancel(vehicleId)
+    window.bridge?.rcCalibrationCancel(vehicleId)
   }, [vehicleId])
 
   const handleSave = useCallback(() => {
-    window.qgcBridge?.rcCalibrationSave(vehicleId)
+    window.bridge?.rcCalibrationSave(vehicleId)
   }, [vehicleId])
 
   const channels = rc?.channels ?? []

@@ -22,7 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:sitl": "QGC_E2E_SITL=1 playwright test",
+    "test:e2e:sitl": "GC_E2E_SITL=1 playwright test",
     "dev:sitl": "./scripts/dev-sitl.sh"
   },
   "dependencies": {

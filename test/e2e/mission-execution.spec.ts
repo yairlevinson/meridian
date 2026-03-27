@@ -78,7 +78,7 @@ test.describe('Mission Upload & Execution E2E', () => {
     await expect(statsCount).toHaveText('0')
 
     await page.evaluate(async (items) => {
-      return await window.qgcBridge.missionWrite(1, items)
+      return await window.bridge.missionWrite(1, items)
     }, threeWaypointMission())
 
     await page.waitForTimeout(3000)
@@ -92,7 +92,7 @@ test.describe('Mission Upload & Execution E2E', () => {
     await waitConnected(page)
 
     const uploadResult = await page.evaluate(async (items) => {
-      return await window.qgcBridge.missionWrite(1, items)
+      return await window.bridge.missionWrite(1, items)
     }, twoWaypointMission())
 
     expect(uploadResult).toBeDefined()
@@ -104,11 +104,11 @@ test.describe('Mission Upload & Execution E2E', () => {
     await waitConnected(page)
 
     await page.evaluate(async (items) => {
-      return await window.qgcBridge.missionWrite(1, items)
+      return await window.bridge.missionWrite(1, items)
     }, twoWaypointMission())
 
     const downloadResult = await page.evaluate(async () => {
-      return await window.qgcBridge.missionLoad(1)
+      return await window.bridge.missionLoad(1)
     })
 
     expect(downloadResult).toBeDefined()
@@ -132,14 +132,14 @@ test.describe('Mission Upload & Execution E2E', () => {
     await waitConnected(page)
 
     const uploadResult = await page.evaluate(async (items) => {
-      return await window.qgcBridge.missionWrite(1, items)
+      return await window.bridge.missionWrite(1, items)
     }, threeWaypointMission())
     expect((uploadResult as any).success).toBe(true)
 
     // Switch to AUTO mode
     const autoMode = String(profile.modes.auto)
     await page.evaluate(async (mode) => {
-      await window.qgcBridge.setFlightMode(1, mode)
+      await window.bridge.setFlightMode(1, mode)
     }, autoMode)
 
     // Wait for mission execution
@@ -162,7 +162,7 @@ test.describe('Mission Upload & Execution E2E', () => {
     }).toPass({ timeout: useSitl ? 30_000 : 10_000 })
 
     await page.evaluate(async (items) => {
-      return await window.qgcBridge.missionWrite(1, items)
+      return await window.bridge.missionWrite(1, items)
     }, twoWaypointMission())
 
     await page.click('button:has-text("Mission")')
@@ -193,12 +193,12 @@ test.describe('Mission Upload & Execution E2E', () => {
     }).toPass({ timeout: useSitl ? 30_000 : 10_000 })
 
     const uploadResult = await page.evaluate(async (items) => {
-      return await window.qgcBridge.missionWrite(1, items)
+      return await window.bridge.missionWrite(1, items)
     }, twoWaypointMission())
     expect((uploadResult as any)?.success).toBe(true)
 
     const downloadResult = await page.evaluate(async () => {
-      return await window.qgcBridge.missionLoad(1)
+      return await window.bridge.missionLoad(1)
     })
     expect((downloadResult as any)?.items).toHaveLength(2)
 
@@ -242,7 +242,7 @@ test.describe('Mission Upload & Execution E2E', () => {
 
     // Verify items reached the vehicle
     const downloadResult = await page.evaluate(async () => {
-      return await window.qgcBridge.missionLoad(1)
+      return await window.bridge.missionLoad(1)
     })
     expect((downloadResult as any)?.items).toHaveLength(2)
   })

@@ -9,7 +9,7 @@ import type { AutopilotProfile } from './AutopilotProfile'
 import { waitForHeartbeat, type ReadinessResult } from './readiness'
 
 const COMPOSE_FILE = path.resolve(__dirname, 'docker-compose.sitl.yml')
-const CONTAINER_NAME = 'qgc-e2e-sitl'
+const CONTAINER_NAME = 'meridian-e2e-sitl'
 
 export class SitlManager {
   private profile: AutopilotProfile | null = null
@@ -26,7 +26,7 @@ export class SitlManager {
       execSync('docker info', { stdio: 'pipe' })
     } catch {
       throw new Error(
-        'Docker is not available. Install Docker or set QGC_E2E_SITL=0 to skip SITL tests.'
+        'Docker is not available. Install Docker or set GC_E2E_SITL=0 to skip SITL tests.'
       )
     }
 
@@ -103,11 +103,11 @@ export class SitlManager {
 
     if (this.profile.connectionType === 'tcp') {
       return {
-        QGC_TCP_LINKS: `127.0.0.1:${this.profile.mavlinkPort}`
+        GC_TCP_LINKS: `127.0.0.1:${this.profile.mavlinkPort}`
       }
     }
     return {
-      QGC_UDP_PORT: String(this.profile.mavlinkPort)
+      GC_UDP_PORT: String(this.profile.mavlinkPort)
     }
   }
 

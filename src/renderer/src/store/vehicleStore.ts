@@ -55,20 +55,20 @@ export const useVehicleStore = create<VehicleStore>((set) => ({
 
 // Wire the IPC listeners once at module load, deferred to next tick
 // so React has time to mount before any store updates arrive.
-if (typeof window !== 'undefined' && window.qgcBridge) {
+if (typeof window !== 'undefined' && window.bridge) {
   setTimeout(() => {
-    window.qgcBridge.onVehicleDelta(({ vehicleId, delta, sentAt }) => {
+    window.bridge.onVehicleDelta(({ vehicleId, delta, sentAt }) => {
       useVehicleStore.getState().mergeDelta(vehicleId, delta, sentAt)
     })
 
-    if (window.qgcBridge.onVehicleAdded) {
-      window.qgcBridge.onVehicleAdded(({ vehicleId }) => {
+    if (window.bridge.onVehicleAdded) {
+      window.bridge.onVehicleAdded(({ vehicleId }) => {
         useVehicleStore.getState().addVehicle(vehicleId)
       })
     }
 
-    if (window.qgcBridge.onVehicleRemoved) {
-      window.qgcBridge.onVehicleRemoved(({ vehicleId }) => {
+    if (window.bridge.onVehicleRemoved) {
+      window.bridge.onVehicleRemoved(({ vehicleId }) => {
         useVehicleStore.getState().removeVehicle(vehicleId)
       })
     }

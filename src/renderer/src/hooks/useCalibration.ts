@@ -14,13 +14,13 @@ export function useCalibration(vehicleId?: number): {
 
   const startCalibration = useCallback(
     (sensor: CalibrationSensor) => {
-      window.qgcBridge?.calibrationStart(vid, sensor)
+      window.bridge?.calibrationStart(vid, sensor)
     },
     [vid]
   )
 
   const cancelCalibration = useCallback(() => {
-    window.qgcBridge?.calibrationCancel(vid)
+    window.bridge?.calibrationCancel(vid)
   }, [vid])
 
   return { calibrationState, startCalibration, cancelCalibration }

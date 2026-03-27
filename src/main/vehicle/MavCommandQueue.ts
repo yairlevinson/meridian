@@ -28,7 +28,7 @@ export interface PendingCommand {
 
 /**
  * Command queue with retry logic.
- * Mirrors MavCommandQueue from C++ QGC.
+ * Mirrors MavCommandQueue from C++ QGroundControl.
  */
 export class MavCommandQueue extends EventEmitter {
   private queue: PendingCommand[] = []

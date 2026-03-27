@@ -14,7 +14,7 @@ import type {
   FlightModeConfig
 } from '../shared-types/ipc/SetupTypes'
 
-export interface QgcBridge {
+export interface Bridge {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
@@ -99,7 +99,7 @@ export interface QgcBridge {
   onPopoutClosed: (cb: (payload: { view: string }) => void) => () => void
 }
 
-const bridge: QgcBridge = {
+const bridge: Bridge = {
   onVehicleDelta: (cb) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: VehicleDeltaPayload): void =>
       cb(payload)
@@ -311,4 +311,4 @@ const bridge: QgcBridge = {
   }
 }
 
-contextBridge.exposeInMainWorld('qgcBridge', bridge)
+contextBridge.exposeInMainWorld('bridge', bridge)

@@ -4,13 +4,13 @@
 #
 # Usage:
 #   ./scripts/dev-sitl.sh              # PX4 (default)
-#   QGC_SITL_IMAGE=other/image ./scripts/dev-sitl.sh
+#   GC_SITL_IMAGE=other/image ./scripts/dev-sitl.sh
 #
 set -euo pipefail
 
-CONTAINER_NAME="qgc-dev-sitl"
-SITL_IMAGE="${QGC_SITL_IMAGE:-qgc-px4-sitl:latest}"
-SITL_PORT="${QGC_SITL_PORT:-5760}"
+CONTAINER_NAME="meridian-dev-sitl"
+SITL_IMAGE="${GC_SITL_IMAGE:-meridian-px4-sitl:latest}"
+SITL_PORT="${GC_SITL_PORT:-5760}"
 HOME_LAT="${PX4_HOME_LAT:-42.3898}"
 HOME_LON="${PX4_HOME_LON:--71.1476}"
 HOME_ALT="${PX4_HOME_ALT:-14}"
@@ -50,5 +50,5 @@ for i in $(seq 1 60); do
   sleep 1
 done
 
-echo "[dev-sitl] Starting app with QGC_TCP_LINKS=127.0.0.1:$SITL_PORT"
-QGC_TCP_LINKS="127.0.0.1:$SITL_PORT" npx electron-vite dev
+echo "[dev-sitl] Starting app with GC_TCP_LINKS=127.0.0.1:$SITL_PORT"
+GC_TCP_LINKS="127.0.0.1:$SITL_PORT" npx electron-vite dev

@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useVehicleStore } from '../store/vehicleStore'
 
-/** Hook: typed command dispatchers via qgcBridge, targeting active vehicle */
+/** Hook: typed command dispatchers via bridge, targeting active vehicle */
 export function useCommand(vehicleIdOverride?: number): {
   arm: () => Promise<void> | undefined
   disarm: () => Promise<void> | undefined
@@ -17,48 +17,48 @@ export function useCommand(vehicleIdOverride?: number): {
   const vid = vehicleIdOverride ?? activeId ?? 1
 
   const arm = useCallback(() => {
-    return window.qgcBridge?.arm(vid)
+    return window.bridge?.arm(vid)
   }, [vid])
 
   const disarm = useCallback(() => {
-    return window.qgcBridge?.disarm(vid)
+    return window.bridge?.disarm(vid)
   }, [vid])
 
   const setFlightMode = useCallback(
     (modeName: string) => {
-      return window.qgcBridge?.setFlightMode(vid, modeName)
+      return window.bridge?.setFlightMode(vid, modeName)
     },
     [vid]
   )
 
   const guidedTakeoff = useCallback(
     (altitude: number) => {
-      return window.qgcBridge?.guidedTakeoff(vid, altitude)
+      return window.bridge?.guidedTakeoff(vid, altitude)
     },
     [vid]
   )
 
   const guidedRTL = useCallback(() => {
-    return window.qgcBridge?.guidedRTL(vid)
+    return window.bridge?.guidedRTL(vid)
   }, [vid])
 
   const guidedLand = useCallback(() => {
-    return window.qgcBridge?.guidedLand(vid)
+    return window.bridge?.guidedLand(vid)
   }, [vid])
 
   const guidedGoto = useCallback(
     (lat: number, lon: number, alt: number) => {
-      return window.qgcBridge?.guidedGoto(vid, lat, lon, alt)
+      return window.bridge?.guidedGoto(vid, lat, lon, alt)
     },
     [vid]
   )
 
   const guidedPause = useCallback(() => {
-    return window.qgcBridge?.guidedPause(vid)
+    return window.bridge?.guidedPause(vid)
   }, [vid])
 
   const emergencyStop = useCallback(() => {
-    return window.qgcBridge?.emergencyStop(vid)
+    return window.bridge?.emergencyStop(vid)
   }, [vid])
 
   return {

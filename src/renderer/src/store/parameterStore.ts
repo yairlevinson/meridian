@@ -41,7 +41,7 @@ export const useParameterStore = create<ParameterStore>((set) => ({
 
 // Wire IPC listeners when bridge is available
 setTimeout(() => {
-  const bridge = window.qgcBridge
+  const bridge = window.bridge
   if (!bridge) return
 
   bridge.onParameterChanged?.((payload) => {

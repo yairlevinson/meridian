@@ -105,7 +105,7 @@ export function FlightModesPage(): React.JSX.Element {
   }, [])
 
   const handleSave = useCallback(async () => {
-    const bridge = window.qgcBridge
+    const bridge = window.bridge
     if (!bridge) return
     await bridge.flightModesSet(vehicleId, {
       modeChannel,

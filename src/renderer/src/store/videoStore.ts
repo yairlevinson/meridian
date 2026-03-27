@@ -24,13 +24,13 @@ export const useVideoStore = create<VideoStore>((set) => ({
 }))
 
 // Wire IPC listener on module load
-if (typeof window !== 'undefined' && window.qgcBridge) {
-  window.qgcBridge.onVideoStateChanged((state) => {
+if (typeof window !== 'undefined' && window.bridge) {
+  window.bridge.onVideoStateChanged((state) => {
     useVideoStore.getState().setStreamState(state)
   })
 
   // Fetch initial state
-  window.qgcBridge.videoGetState().then((state) => {
+  window.bridge.videoGetState().then((state) => {
     if (state) useVideoStore.getState().setStreamState(state)
   })
 }

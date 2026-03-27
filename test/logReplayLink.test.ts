@@ -42,7 +42,7 @@ describe('LogReplayLink', () => {
   let link: LogReplayLink | null = null
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'qgc-replay-test-'))
+    tempDir = mkdtempSync(join(tmpdir(), 'meridian-replay-test-'))
   })
 
   afterEach(() => {

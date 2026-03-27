@@ -51,7 +51,7 @@ export function ParameterEditorPage(): React.JSX.Element {
   }, [])
 
   const handleSave = useCallback(async () => {
-    const bridge = window.qgcBridge
+    const bridge = window.bridge
     if (!bridge) return
     for (const [name, value] of pendingChanges) {
       await bridge.setParameter(vehicleId, name, value)
@@ -60,7 +60,7 @@ export function ParameterEditorPage(): React.JSX.Element {
   }, [pendingChanges, vehicleId])
 
   const handleRefresh = useCallback(() => {
-    window.qgcBridge?.refreshParameters(vehicleId)
+    window.bridge?.refreshParameters(vehicleId)
   }, [vehicleId])
 
   const isLoading = !loadState.parametersReady && loadState.totalCount > 0

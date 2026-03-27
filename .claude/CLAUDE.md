@@ -12,7 +12,7 @@ A ground control station (GCS) for MAVLink-based autonomous vehicles (ArduPilot/
 │  - VideoView (video stream display)                 │
 └─────────────────┬───────────────────────────────────┘
                   │ ipcRenderer.invoke / on
-                  │ (contextBridge exposed as window.qgcBridge)
+                  │ (contextBridge exposed as window.bridge)
 ┌─────────────────┴───────────────────────────────────┐
 │  Main Process (Node.js)                             │
 │  - LinkManager / UdpLink / TcpLink (network I/O)   │
@@ -54,7 +54,7 @@ src/
 │   ├── map/providers/      # Tile provider registry & URL resolution
 │   └── perf/               # Performance overlay (FPS, IPC latency)
 ├── shared-types/ipc/       # Shared type definitions (channels, events, VehicleState, etc.)
-└── preload/index.ts        # contextBridge → window.qgcBridge (35+ IPC methods)
+└── preload/index.ts        # contextBridge → window.bridge (35+ IPC methods)
 ```
 
 ## Key Concepts
@@ -63,7 +63,7 @@ src/
 Vehicle state is split into 15 groups (core, attitude, GPS, battery, RC, etc.), each with a `seq` counter. The main process pushes only groups whose `seq` changed to the renderer at 30Hz, reducing IPC bandwidth by ~80-90%.
 
 ### MAVLink Channel Pool
-Pool of 16 channels (matching C++ QGC). Each link allocates one channel. Per-sysid/compid sequence tracking enables packet loss detection.
+Pool of 16 channels (matching C++ QGroundControl). Each link allocates one channel. Per-sysid/compid sequence tracking enables packet loss detection.
 
 ### Multi-Vehicle
 VehicleManager auto-discovers vehicles on HEARTBEAT (autopilot compid=1). Each vehicle independently manages state, commands, and missions. Popout windows for map/video support multi-vehicle viewing.
@@ -96,8 +96,8 @@ npm run dev:sitl         # Dev with SITL via scripts/dev-sitl.sh
 
 ## Environment Variables
 
-- `QGC_UDP_PORT` — UDP listen port (default: 14550)
-- `QGC_TCP_LINKS` — Comma-separated TCP SITL targets (e.g., `127.0.0.1:5760,127.0.0.1:5761`)
+- `GC_UDP_PORT` — UDP listen port (default: 14550)
+- `GC_TCP_LINKS` — Comma-separated TCP SITL targets (e.g., `127.0.0.1:5760,127.0.0.1:5761`)
 
 ## Tech Stack
 
@@ -119,7 +119,7 @@ npm run dev:sitl         # Dev with SITL via scripts/dev-sitl.sh
 
 - Shared types live in `src/shared-types/` — no type duplication across process boundaries
 - IPC channels and events are defined as string enums for type safety
-- Preload interface (`QgcBridge`) is fully typed
+- Preload interface (`Bridge`) is fully typed
 - Socket errors (EPIPE, ECONNRESET) are caught at the app level
 - MAVLink decode errors skip the message rather than crash
 - Link abstraction (`LinkInterface`) allows adding serial/WebSocket transports

@@ -2,7 +2,7 @@
  * Shared Playwright fixtures for E2E tests.
  *
  * Provides `app`, `page`, `profile`, and optionally `syntheticVehicle`.
- * When QGC_E2E_SITL=1, connects the app to Docker SITL via TCP.
+ * When GC_E2E_SITL=1, connects the app to Docker SITL via TCP.
  * Otherwise, creates a SyntheticVehicle over UDP (default for local dev).
  *
  * Tests that need direct vehicle control (sending specific messages) can
@@ -19,7 +19,7 @@ import path from 'path'
 import { SyntheticVehicle } from '../helpers/SyntheticVehicle'
 import { getActiveProfile, type AutopilotProfile } from '../sitl/AutopilotProfile'
 
-export const useSitl = process.env.QGC_E2E_SITL === '1'
+export const useSitl = process.env.GC_E2E_SITL === '1'
 
 let nextPort = 14570
 
@@ -101,9 +101,9 @@ export const test = base.extend<VehicleFixtures>({
     }
 
     if (useSitl && profile.connectionType === 'tcp') {
-      appEnv.QGC_TCP_LINKS = `127.0.0.1:${profile.mavlinkPort}`
+      appEnv.GC_TCP_LINKS = `127.0.0.1:${profile.mavlinkPort}`
     } else {
-      appEnv.QGC_UDP_PORT = String(testPort)
+      appEnv.GC_UDP_PORT = String(testPort)
     }
 
     const app = await electron.launch({

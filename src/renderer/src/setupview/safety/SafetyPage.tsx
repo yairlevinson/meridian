@@ -38,7 +38,7 @@ export function SafetyPage(): React.JSX.Element {
   }, [])
 
   const handleSave = useCallback(async () => {
-    const bridge = window.qgcBridge
+    const bridge = window.bridge
     if (!bridge) return
     for (const [name, value] of Object.entries(edits)) {
       await bridge.setParameter(vehicleId, name, value)

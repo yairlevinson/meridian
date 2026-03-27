@@ -29,7 +29,7 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 
 ### Connectivity
 - **UDP mode**: Listen on a configurable port (default 14550) for MAVLink packets
-- **TCP mode**: Connect to multiple SITL instances simultaneously via `QGC_TCP_LINKS`
+- **TCP mode**: Connect to multiple SITL instances simultaneously via `GC_TCP_LINKS`
 - Automatic data stream requests for both ArduPilot and PX4 autopilots
 - GCS heartbeat broadcasting for PX4 compatibility
 
@@ -76,7 +76,7 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 ### Data Flow
 
 1. **Inbound telemetry**: MAVLink packets arrive via UDP or TCP → parsed by `node-mavlink` → routed through `VehicleManager` → state updates pushed to renderer via delta-encoded IPC → Zustand stores update → React re-renders
-2. **Outbound commands**: React component calls `window.qgcBridge.methodName()` → IPC to main process → serialized to MAVLink v2 → sent via the vehicle's command link (UDP/TCP)
+2. **Outbound commands**: React component calls `window.bridge.methodName()` → IPC to main process → serialized to MAVLink v2 → sent via the vehicle's command link (UDP/TCP)
 3. **Map tiles**: MapLibre requests `tile://tiles/{provider}/{z}/{x}/{y}` → Electron's custom protocol handler resolves the real HTTPS URL → fetches via `net.fetch` → caches in LRU → returns to renderer
 
 ## Getting Started
@@ -108,7 +108,7 @@ Meridian listens on UDP port 14550 by default. Point your vehicle or SITL to sen
 
 ```bash
 # Override the UDP port
-QGC_UDP_PORT=14551 npm run dev
+GC_UDP_PORT=14551 npm run dev
 ```
 
 #### Option 2: TCP (SITL)
@@ -117,10 +117,10 @@ Connect directly to one or more ArduPilot/PX4 SITL instances:
 
 ```bash
 # Single SITL
-QGC_TCP_LINKS=127.0.0.1:5760 npm run dev
+GC_TCP_LINKS=127.0.0.1:5760 npm run dev
 
 # Multiple SITLs
-QGC_TCP_LINKS=127.0.0.1:5760,127.0.0.1:5761,127.0.0.1:5762 npm run dev
+GC_TCP_LINKS=127.0.0.1:5760,127.0.0.1:5761,127.0.0.1:5762 npm run dev
 ```
 
 #### Option 3: TCP via Bridge
@@ -142,8 +142,8 @@ npm run dev
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `QGC_UDP_PORT` | `14550` | UDP port to listen for MAVLink |
-| `QGC_TCP_LINKS` | _(empty)_ | Comma-separated `host:port` pairs for TCP SITL connections |
+| `GC_UDP_PORT` | `14550` | UDP port to listen for MAVLink |
+| `GC_TCP_LINKS` | _(empty)_ | Comma-separated `host:port` pairs for TCP SITL connections |
 
 ## Testing
 
@@ -198,7 +198,7 @@ For full integration testing with ArduPilot SITL:
 sim_vehicle.py -v ArduCopter --no-mavproxy
 
 # In another terminal, connect Meridian via TCP
-QGC_TCP_LINKS=127.0.0.1:5760 npm run dev
+GC_TCP_LINKS=127.0.0.1:5760 npm run dev
 ```
 
 ## Build

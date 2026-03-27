@@ -3,7 +3,7 @@
  * Works with both SyntheticVehicle (default) and real PX4 SITL.
  *
  * Run with SyntheticVehicle:  npx playwright test sitl-mission
- * Run with PX4 SITL:          QGC_E2E_SITL=1 npx playwright test sitl-mission
+ * Run with PX4 SITL:          GC_E2E_SITL=1 npx playwright test sitl-mission
  */
 
 import { test, expect, useSitl } from './fixtures/vehicleFixture'
@@ -22,7 +22,7 @@ test.describe('Mission execution', () => {
   })
 
   test('vehicle appears on the map at its GPS position', async ({ page, syntheticVehicle }) => {
-    // PX4 SIH in 'none' mode has no GPS — no GLOBAL_POSITION_INT, same as real QGC behavior
+    // PX4 SIH in 'none' mode has no GPS — no GLOBAL_POSITION_INT, same as real QGroundControl behavior
     test.skip(useSitl, 'PX4 SIH (none sim) has no GPS — vehicle cannot appear on map')
     syntheticVehicle!.startStreaming({ lat: 42.3898, lon: -71.1476, alt: 14 })
     await waitConnected(page)
@@ -79,7 +79,7 @@ test.describe('Mission execution', () => {
           missionType: 0
         }
       ]
-      return await window.qgcBridge.missionWrite(1, items)
+      return await window.bridge.missionWrite(1, items)
     })
 
     expect((result as any)?.success).toBe(true)
@@ -122,11 +122,11 @@ test.describe('Mission execution', () => {
           missionType: 0
         }
       ]
-      return await window.qgcBridge.missionWrite(1, items)
+      return await window.bridge.missionWrite(1, items)
     })
 
     const downloaded = await page.evaluate(async () => {
-      return await window.qgcBridge.missionLoad(1)
+      return await window.bridge.missionLoad(1)
     })
 
     const items = (downloaded as any)?.items

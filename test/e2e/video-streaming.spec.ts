@@ -54,7 +54,7 @@ const test = base.extend<VideoFixtures>({
       env: {
         ...(process.env as Record<string, string>),
         NODE_ENV: 'production',
-        QGC_UDP_PORT: '14599' // unused port, no vehicle needed
+        GC_UDP_PORT: '14599' // unused port, no vehicle needed
       }
     })
 
@@ -354,7 +354,7 @@ test.describe('Video Streaming', () => {
 
     // Wait for streaming — verify via app state, not just UI text
     await expect(async () => {
-      const state = await page.evaluate(() => window.qgcBridge.videoGetState())
+      const state = await page.evaluate(() => window.bridge.videoGetState())
       expect(state.streaming).toBe(true)
     }).toPass({ timeout: 15_000 })
 
@@ -363,8 +363,8 @@ test.describe('Video Streaming', () => {
 
     // Start recording — retry if ffmpeg temporarily drops the stream
     await expect(async () => {
-      await page.evaluate((recPath) => window.qgcBridge.videoStartRecording(recPath), recordingPath)
-      const state = await page.evaluate(() => window.qgcBridge.videoGetState())
+      await page.evaluate((recPath) => window.bridge.videoStartRecording(recPath), recordingPath)
+      const state = await page.evaluate(() => window.bridge.videoGetState())
       expect(state.recording).toBe(true)
     }).toPass({ timeout: 10_000 })
 
@@ -373,7 +373,7 @@ test.describe('Video Streaming', () => {
 
     // Stop recording
     await page.evaluate(() => {
-      return window.qgcBridge.videoStopRecording()
+      return window.bridge.videoStopRecording()
     })
 
     // Wait for file stream to flush
@@ -428,7 +428,7 @@ const tcpTest = base.extend<TcpFixtures>({
       env: {
         ...(process.env as Record<string, string>),
         NODE_ENV: 'production',
-        QGC_UDP_PORT: '14599'
+        GC_UDP_PORT: '14599'
       }
     })
 
@@ -517,7 +517,7 @@ tcpTest.describe('Video Streaming — TCP MPEG-TS', () => {
 
       // Wait for app-level streaming state
       await expect(async () => {
-        const state = await page.evaluate(() => window.qgcBridge.videoGetState())
+        const state = await page.evaluate(() => window.bridge.videoGetState())
         expect(state.streaming).toBe(true)
       }).toPass({ timeout: 15_000 })
 
@@ -562,7 +562,7 @@ const rtspTest = base.extend<RtspFixtures>({
       env: {
         ...(process.env as Record<string, string>),
         NODE_ENV: 'production',
-        QGC_UDP_PORT: '14599'
+        GC_UDP_PORT: '14599'
       }
     })
 
@@ -698,7 +698,7 @@ rtspTest.describe('Video Streaming — RTSP', () => {
 
       // Wait for app-level streaming state
       await expect(async () => {
-        const state = await page.evaluate(() => window.qgcBridge.videoGetState())
+        const state = await page.evaluate(() => window.bridge.videoGetState())
         expect(state.streaming).toBe(true)
       }).toPass({ timeout: 15_000 })
 

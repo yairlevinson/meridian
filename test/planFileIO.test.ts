@@ -72,7 +72,7 @@ describe('validatePlanFile', () => {
 describe('savePlanFile / loadPlanFile round-trip', () => {
   it('saves and loads a plan file correctly', async () => {
     const plan = makePlan()
-    const filePath = join(tmpdir(), `qgc-test-${Date.now()}.plan`)
+    const filePath = join(tmpdir(), `meridian-test-${Date.now()}.plan`)
 
     await savePlanFile(filePath, plan)
     const loaded = await loadPlanFile(filePath)
@@ -90,7 +90,7 @@ describe('loadPlanFile error handling', () => {
   })
 
   it('throws on invalid JSON', async () => {
-    const filePath = join(tmpdir(), `qgc-bad-json-${Date.now()}.plan`)
+    const filePath = join(tmpdir(), `meridian-bad-json-${Date.now()}.plan`)
     await fs.writeFile(filePath, 'not valid json{{{', 'utf-8')
 
     await expect(loadPlanFile(filePath)).rejects.toThrow('Invalid JSON')
@@ -99,7 +99,7 @@ describe('loadPlanFile error handling', () => {
   })
 
   it('throws on valid JSON but invalid plan format', async () => {
-    const filePath = join(tmpdir(), `qgc-bad-plan-${Date.now()}.plan`)
+    const filePath = join(tmpdir(), `meridian-bad-plan-${Date.now()}.plan`)
     await fs.writeFile(filePath, JSON.stringify({ hello: 'world' }), 'utf-8')
 
     await expect(loadPlanFile(filePath)).rejects.toThrow('Invalid plan file format')

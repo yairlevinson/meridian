@@ -35,19 +35,19 @@ export function VideoControls(): React.JSX.Element {
   }, [])
 
   const handleStart = useCallback(() => {
-    window.qgcBridge?.videoStart(sourceType, uri)
+    window.bridge?.videoStart(sourceType, uri)
   }, [sourceType, uri])
 
   const handleStop = useCallback(() => {
-    window.qgcBridge?.videoStop()
+    window.bridge?.videoStop()
   }, [])
 
   const handleRecord = useCallback(() => {
     if (recording) {
-      window.qgcBridge?.videoStopRecording()
+      window.bridge?.videoStopRecording()
     } else {
       const ts = new Date().toISOString().replace(/[:.]/g, '-')
-      window.qgcBridge?.videoStartRecording(`video-${ts}.mp4`)
+      window.bridge?.videoStartRecording(`video-${ts}.mp4`)
     }
   }, [recording])
 

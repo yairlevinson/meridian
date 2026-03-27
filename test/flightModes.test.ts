@@ -86,7 +86,7 @@ describe('Flight mode slot PWM mapping', () => {
     expect(activeSlotForPwm(1500)).toBe(4)
   })
 
-  // Verify ArduPilot thresholds match QGC reference: [1230, 1360, 1490, 1620, 1749]
+  // Verify ArduPilot thresholds match QGroundControl reference: [1230, 1360, 1490, 1620, 1749]
   it('matches ArduPilot standard thresholds', () => {
     const thresholds = [1230, 1360, 1490, 1620, 1749]
     for (let i = 0; i < thresholds.length; i++) {

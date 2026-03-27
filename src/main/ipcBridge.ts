@@ -281,7 +281,7 @@ export function startIpcBridge(
       channel: IpcChannels.MissionSavePlan,
       handler: async (planData: PlanFile) => {
         const result = await dialog.showSaveDialog({
-          filters: [{ name: 'QGC Plan', extensions: ['plan'] }]
+          filters: [{ name: 'Plan', extensions: ['plan'] }]
         })
         if (result.canceled || !result.filePath) return { cancelled: true }
         await savePlanFile(result.filePath, planData)
@@ -292,7 +292,7 @@ export function startIpcBridge(
       channel: IpcChannels.MissionOpenPlan,
       handler: async () => {
         const result = await dialog.showOpenDialog({
-          filters: [{ name: 'QGC Plan', extensions: ['plan'] }],
+          filters: [{ name: 'Plan', extensions: ['plan'] }],
           properties: ['openFile']
         })
         if (result.canceled || result.filePaths.length === 0) return { cancelled: true }

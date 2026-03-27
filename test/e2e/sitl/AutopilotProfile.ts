@@ -50,7 +50,7 @@ export interface AutopilotProfile {
 export const PX4_COPTER: AutopilotProfile = {
   name: 'PX4 Copter SITL',
   serviceName: 'px4-sitl',
-  dockerImage: 'qgc-px4-sitl:latest',
+  dockerImage: 'meridian-px4-sitl:latest',
   mavlinkPort: 5760,
   containerPort: 5760,
   command: '', // image has its own entrypoint
@@ -97,11 +97,11 @@ const PROFILES: Record<string, AutopilotProfile> = {
 }
 
 /**
- * Get the active profile from QGC_SITL_PROFILE env var.
+ * Get the active profile from GC_SITL_PROFILE env var.
  * Defaults to 'px4'.
  */
 export function getActiveProfile(): AutopilotProfile {
-  const name = process.env.QGC_SITL_PROFILE || 'px4'
+  const name = process.env.GC_SITL_PROFILE || 'px4'
   const profile = PROFILES[name]
   if (!profile) {
     throw new Error(

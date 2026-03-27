@@ -1,6 +1,6 @@
 import { defineConfig } from '@playwright/test'
 
-const useSitl = process.env.QGC_E2E_SITL === '1'
+const useSitl = process.env.GC_E2E_SITL === '1'
 
 export default defineConfig({
   testDir: './test/e2e',

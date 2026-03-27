@@ -27,11 +27,11 @@ process.on('uncaughtException', (err) => {
   throw err
 })
 
-const UDP_PORT = parseInt(process.env.QGC_UDP_PORT || '14550', 10)
+const UDP_PORT = parseInt(process.env.GC_UDP_PORT || '14550', 10)
 
 // TCP SITL connections: comma-separated "host:port" pairs
-// e.g. QGC_TCP_LINKS="127.0.0.1:5760,127.0.0.1:5761,..."
-const TCP_LINKS = process.env.QGC_TCP_LINKS || ''
+// e.g. GC_TCP_LINKS="127.0.0.1:5760,127.0.0.1:5761,..."
+const TCP_LINKS = process.env.GC_TCP_LINKS || ''
 
 let _mainWindow: BrowserWindow | null = null
 

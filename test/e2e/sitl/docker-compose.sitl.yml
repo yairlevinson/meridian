@@ -1,7 +1,7 @@
 services:
   sitl:
-    image: ${SITL_IMAGE:-qgc-px4-sitl:latest}
-    container_name: ${SITL_CONTAINER_NAME:-qgc-e2e-sitl}
+    image: ${SITL_IMAGE:-meridian-px4-sitl:latest}
+    container_name: ${SITL_CONTAINER_NAME:-meridian-e2e-sitl}
     ports:
       - "${SITL_MAVLINK_PORT:-5760}:${SITL_CONTAINER_PORT:-5760}"
     environment:

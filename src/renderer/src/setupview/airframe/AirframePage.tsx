@@ -71,7 +71,7 @@ export function AirframePage(): React.JSX.Element {
   )
 
   const handleSave = useCallback(async () => {
-    const bridge = window.qgcBridge
+    const bridge = window.bridge
     if (!bridge) return
     await bridge.setParameter(vehicleId, 'FRAME_CLASS', frameClass)
     await bridge.setParameter(vehicleId, 'FRAME_TYPE', frameType)

@@ -20,7 +20,7 @@ export function useMission(): {
     const items = waypoints.map((wp, i) => waypointToMissionItem(wp, i))
     store.setProtocolState(MissionProtocolState.WritingCount)
     try {
-      const result = await window.qgcBridge?.missionWrite(vid, items)
+      const result = await window.bridge?.missionWrite(vid, items)
       useMissionStore.getState().setProtocolState(MissionProtocolState.Idle)
       return result
     } catch {
@@ -33,7 +33,7 @@ export function useMission(): {
     if (vid == null) return
     useMissionStore.getState().setProtocolState(MissionProtocolState.ReadingCount)
     try {
-      const result = await window.qgcBridge?.missionLoad(vid)
+      const result = await window.bridge?.missionLoad(vid)
       if (
         result &&
         typeof result === 'object' &&
@@ -51,7 +51,7 @@ export function useMission(): {
     const waypoints = useMissionStore.getState().editableWaypoints
     const items = waypoints.map((wp, i) => waypointToMissionItem(wp, i))
     await (
-      window.qgcBridge as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>
+      window.bridge as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>
     )?.savePlan({
       fileHeader: { version: 1, createdBy: 'meridian' },
       mission: { items }
@@ -60,7 +60,7 @@ export function useMission(): {
 
   const openPlan = useCallback(async () => {
     const result = await (
-      window.qgcBridge as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>
+      window.bridge as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>
     )?.openPlan()
     if (result && typeof result === 'object' && 'mission' in result) {
       useMissionStore

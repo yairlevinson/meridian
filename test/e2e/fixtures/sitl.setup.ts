@@ -1,5 +1,5 @@
 /**
- * Playwright globalSetup — starts PX4 SITL via Docker if QGC_E2E_SITL=1.
+ * Playwright globalSetup — starts PX4 SITL via Docker if GC_E2E_SITL=1.
  * Stores connection info in env vars for test files to consume.
  */
 
@@ -12,8 +12,8 @@ const manager = new SitlManager()
 ;(globalThis as any).__sitlManager = manager
 
 export default async function globalSetup(): Promise<void> {
-  if (process.env.QGC_E2E_SITL !== '1') {
-    console.log('[globalSetup] QGC_E2E_SITL not set — using SyntheticVehicle for E2E tests')
+  if (process.env.GC_E2E_SITL !== '1') {
+    console.log('[globalSetup] GC_E2E_SITL not set — using SyntheticVehicle for E2E tests')
     return
   }
 
@@ -31,7 +31,7 @@ export default async function globalSetup(): Promise<void> {
   // Store SITL metadata for test assertions
   process.env.__SITL_AUTOPILOT = String(result.autopilot)
   process.env.__SITL_VEHICLE_TYPE = String(result.type)
-  process.env.__SITL_PROFILE = process.env.QGC_SITL_PROFILE || 'px4'
+  process.env.__SITL_PROFILE = process.env.GC_SITL_PROFILE || 'px4'
 
   console.log(`[globalSetup] SITL ready, app env: ${JSON.stringify(appEnv)}`)
 }

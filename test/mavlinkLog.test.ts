@@ -10,7 +10,7 @@ describe('MAVLinkLogManager', () => {
   let tempDir: string
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), 'qgc-log-test-'))
+    tempDir = mkdtempSync(join(tmpdir(), 'meridian-log-test-'))
     logMgr = new MAVLinkLogManager(tempDir)
   })
 
