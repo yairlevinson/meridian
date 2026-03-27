@@ -49,13 +49,16 @@ const test = base.extend<VideoFixtures>({
       stdio: 'pipe'
     })
 
-    const app = await electron.launch({
-      args: [path.resolve(__dirname, '../../out/main/index.js')],
-      env: {
+    const appEnv: Record<string, string> = {
         ...(process.env as Record<string, string>),
         NODE_ENV: 'production',
         GC_UDP_PORT: '14599' // unused port, no vehicle needed
       }
+    delete appEnv.ELECTRON_RUN_AS_NODE
+
+    const app = await electron.launch({
+      args: [path.resolve(__dirname, '../../out/main/index.js')],
+      env: appEnv
     })
 
     await use(app)
@@ -423,13 +426,16 @@ const tcpTest = base.extend<TcpFixtures>({
       stdio: 'pipe'
     })
 
-    const app = await electron.launch({
-      args: [path.resolve(__dirname, '../../out/main/index.js')],
-      env: {
+    const tcpAppEnv: Record<string, string> = {
         ...(process.env as Record<string, string>),
         NODE_ENV: 'production',
         GC_UDP_PORT: '14599'
       }
+    delete tcpAppEnv.ELECTRON_RUN_AS_NODE
+
+    const app = await electron.launch({
+      args: [path.resolve(__dirname, '../../out/main/index.js')],
+      env: tcpAppEnv
     })
 
     await use(app)
@@ -557,13 +563,16 @@ const rtspTest = base.extend<RtspFixtures>({
       stdio: 'pipe'
     })
 
-    const app = await electron.launch({
-      args: [path.resolve(__dirname, '../../out/main/index.js')],
-      env: {
+    const tcpAppEnv: Record<string, string> = {
         ...(process.env as Record<string, string>),
         NODE_ENV: 'production',
         GC_UDP_PORT: '14599'
       }
+    delete tcpAppEnv.ELECTRON_RUN_AS_NODE
+
+    const app = await electron.launch({
+      args: [path.resolve(__dirname, '../../out/main/index.js')],
+      env: tcpAppEnv
     })
 
     await use(app)

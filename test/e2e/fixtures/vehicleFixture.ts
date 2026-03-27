@@ -17,9 +17,10 @@ import {
 } from '@playwright/test'
 import path from 'path'
 import { SyntheticVehicle } from '../helpers/SyntheticVehicle'
-import { getActiveProfile, type AutopilotProfile } from '../sitl/AutopilotProfile'
+import { getActiveProfile, PX4_EXTERNAL, type AutopilotProfile } from '../sitl/AutopilotProfile'
 
 export const useSitl = process.env.GC_E2E_SITL === '1'
+const useExternalSitl = process.env.GC_E2E_SITL_EXTERNAL === '1'
 
 let nextPort = 14570
 
@@ -53,7 +54,9 @@ export interface VehicleFixtures {
 
 export const test = base.extend<VehicleFixtures>({
   profile: async ({}, use) => {
-    if (useSitl) {
+    if (useExternalSitl) {
+      await use(PX4_EXTERNAL)
+    } else if (useSitl) {
       await use(getActiveProfile())
     } else {
       await use({
@@ -99,9 +102,13 @@ export const test = base.extend<VehicleFixtures>({
       ...(process.env as Record<string, string>),
       NODE_ENV: 'production'
     }
+    // Must be deleted or Electron runs as plain Node (no app API)
+    delete appEnv.ELECTRON_RUN_AS_NODE
 
     if (useSitl && profile.connectionType === 'tcp') {
       appEnv.GC_TCP_LINKS = `127.0.0.1:${profile.mavlinkPort}`
+    } else if (useSitl && profile.connectionType === 'udp') {
+      appEnv.GC_UDP_PORT = String(profile.mavlinkPort)
     } else {
       appEnv.GC_UDP_PORT = String(testPort)
     }

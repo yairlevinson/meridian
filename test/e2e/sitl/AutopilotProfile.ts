@@ -89,10 +89,20 @@ export const PX4_COPTER: AutopilotProfile = {
 //   connectionType: 'tcp',
 // }
 
+/** PX4 profile for connecting to an already-running external SITL (e.g. Gazebo) via UDP */
+export const PX4_EXTERNAL: AutopilotProfile = {
+  ...PX4_COPTER,
+  name: 'PX4 External SITL (UDP)',
+  mavlinkPort: 14550,
+  containerPort: 0,
+  connectionType: 'udp'
+}
+
 // ── Profile selection ─────────────────────────────────────────
 
 const PROFILES: Record<string, AutopilotProfile> = {
-  px4: PX4_COPTER
+  px4: PX4_COPTER,
+  'px4-external': PX4_EXTERNAL
   // ardupilot: ARDUPILOT_COPTER,
 }
 
