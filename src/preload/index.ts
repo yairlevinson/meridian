@@ -11,7 +11,8 @@ import type {
   CalibrationState,
   MagCalProgress,
   RcCalibrationState,
-  FlightModeConfig
+  FlightModeConfig,
+  FirmwareUpgradeState
 } from '../shared-types/ipc/SetupTypes'
 
 export interface Bridge {
@@ -92,6 +93,15 @@ export interface Bridge {
   // Flight Modes
   flightModesGet: (vehicleId: number) => Promise<FlightModeConfig>
   flightModesSet: (vehicleId: number, config: FlightModeConfig) => Promise<void>
+
+  // Firmware
+  firmwareUploadFile: (vehicleId: number, filePath: string) => Promise<void>
+  firmwareCancel: (vehicleId: number) => Promise<void>
+  firmwareReboot: (vehicleId: number) => Promise<void>
+  firmwareGetBoardInfo: (vehicleId: number) => Promise<unknown>
+  onFirmwareUpgradeStateChanged: (
+    cb: (payload: { vehicleId: number; state: FirmwareUpgradeState }) => void
+  ) => () => void
 
   // Popout windows
   popoutOpen: (view: 'video' | 'map') => Promise<void>
@@ -297,6 +307,26 @@ const bridge: Bridge = {
     ipcRenderer.invoke(IpcChannels.FlightModesGet, vehicleId),
   flightModesSet: (vehicleId, config) =>
     ipcRenderer.invoke(IpcChannels.FlightModesSet, { vehicleId, config }),
+
+  // Firmware
+  firmwareUploadFile: (vehicleId, filePath) =>
+    ipcRenderer.invoke(IpcChannels.FirmwareUploadFile, { vehicleId, filePath }),
+  firmwareCancel: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.FirmwareCancel, vehicleId),
+  firmwareReboot: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.FirmwareReboot, vehicleId),
+  firmwareGetBoardInfo: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.FirmwareGetBoardInfo, vehicleId),
+  onFirmwareUpgradeStateChanged: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number; state: FirmwareUpgradeState }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.FirmwareUpgradeStateChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.FirmwareUpgradeStateChanged, handler)
+    }
+  },
 
   // Popout windows
   popoutOpen: (view) => ipcRenderer.invoke(IpcChannels.PopoutOpen, view),

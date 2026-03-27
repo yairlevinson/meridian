@@ -97,5 +97,11 @@ export enum IpcChannels {
 
   // Flight Modes
   FlightModesGet = 'flightModes:get',
-  FlightModesSet = 'flightModes:set'
+  FlightModesSet = 'flightModes:set',
+
+  // Firmware
+  FirmwareUploadFile = 'firmware:uploadFile',
+  FirmwareCancel = 'firmware:cancel',
+  FirmwareReboot = 'firmware:reboot',
+  FirmwareGetBoardInfo = 'firmware:getBoardInfo'
 }

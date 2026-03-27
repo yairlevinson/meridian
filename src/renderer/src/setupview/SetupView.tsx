@@ -9,6 +9,7 @@ import { PowerPage } from './power/PowerPage'
 import { SafetyPage } from './safety/SafetyPage'
 import { AirframePage } from './airframe/AirframePage'
 import { TuningPage } from './tuning/TuningPage'
+import { FirmwarePage } from './firmware/FirmwarePage'
 import styles from './SetupView.module.css'
 
 function PageContent(): React.JSX.Element {
@@ -17,6 +18,8 @@ function PageContent(): React.JSX.Element {
   switch (activePage) {
     case 'summary':
       return <SummaryPage />
+    case 'firmware':
+      return <FirmwarePage />
     case 'parameters':
       return <ParameterEditorPage />
     case 'sensors':

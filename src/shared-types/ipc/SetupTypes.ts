@@ -98,9 +98,36 @@ export interface FlightModeConfig {
   activeSlot: number
 }
 
+/** Firmware upgrade status */
+export enum FirmwareUpgradeStatus {
+  Idle = 'idle',
+  Selecting = 'selecting',
+  Uploading = 'uploading',
+  Rebooting = 'rebooting',
+  Complete = 'complete',
+  Failed = 'failed'
+}
+
+/** Firmware upgrade state pushed to renderer */
+export interface FirmwareUpgradeState {
+  status: FirmwareUpgradeStatus
+  progress: number // 0..1
+  message: string
+  fileName?: string
+  fileSize?: number
+}
+
+/** Board info derived from AUTOPILOT_VERSION */
+export interface BoardInfo {
+  boardVendorId: number
+  boardProductId: number
+  uid: string
+}
+
 /** Setup view page identifiers */
 export type SetupPage =
   | 'summary'
+  | 'firmware'
   | 'sensors'
   | 'radio'
   | 'flightModes'

@@ -50,5 +50,8 @@ export enum IpcEvents {
   CalibrationMagReport = 'calibration:magReport',
 
   /** RC calibration state changed */
-  RcCalibrationStateChanged = 'rcCalibration:stateChanged'
+  RcCalibrationStateChanged = 'rcCalibration:stateChanged',
+
+  /** Firmware upgrade state changed */
+  FirmwareUpgradeStateChanged = 'firmware:stateChanged'
 }

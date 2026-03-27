@@ -6,6 +6,8 @@ import { MissionManager } from '../mission/MissionManager'
 import { ParameterManager } from '../parameters/ParameterManager'
 import { CalibrationManager } from '../calibration/CalibrationManager'
 import { RcCalibrationManager } from '../calibration/RcCalibrationManager'
+import { FirmwareManager } from '../firmware/FirmwareManager'
+import { FTPManager } from '../ftp/FTPManager'
 import type { LinkInterface } from '../links/LinkInterface'
 import type { DecodedMessage } from '../mavlink/MavlinkChannel'
 import { MavResult } from '@shared/ipc/MavCommandRequest'
@@ -24,6 +26,8 @@ export class Vehicle extends EventEmitter {
   readonly parameterManager: ParameterManager
   readonly calibrationManager: CalibrationManager
   readonly rcCalibrationManager: RcCalibrationManager
+  readonly firmwareManager: FirmwareManager
+  readonly ftpManager: FTPManager
   private _parametersRequested = false
 
   constructor(
@@ -40,6 +44,11 @@ export class Vehicle extends EventEmitter {
     this.calibrationManager = new CalibrationManager()
     this.rcCalibrationManager = new RcCalibrationManager()
     this.rcCalibrationManager.setParameterManager(this.parameterManager)
+    this.ftpManager = new FTPManager()
+    this.firmwareManager = new FirmwareManager()
+    this.firmwareManager.setFtpManager(this.ftpManager)
+    this.firmwareManager.setCommandQueue(this.commandQueue)
+    this.firmwareManager.setSysId(sysid)
     this.linkManager = new VehicleLinkManager(options)
 
     this.linkManager.on('communicationLost', () => {
@@ -322,6 +331,8 @@ export class Vehicle extends EventEmitter {
     this.parameterManager.destroy()
     this.calibrationManager.destroy()
     this.rcCalibrationManager.destroy()
+    this.firmwareManager.destroy()
+    this.ftpManager.destroy()
     this.linkManager.destroy()
   }
 }

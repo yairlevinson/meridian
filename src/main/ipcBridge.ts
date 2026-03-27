@@ -75,6 +75,11 @@ export function startIpcBridge(
       vehicle.rcCalibrationManager.on('stateChanged', (state) => {
         broadcast(IpcEvents.RcCalibrationStateChanged, { vehicleId: sysid, state })
       })
+
+      // Forward firmware upgrade events
+      vehicle.firmwareManager.on('stateChanged', (state) => {
+        broadcast(IpcEvents.FirmwareUpgradeStateChanged, { vehicleId: sysid, state })
+      })
     }
   })
 
@@ -425,6 +430,46 @@ export function startIpcBridge(
         for (const mode of req.config.modes) {
           pm.setParameter(`FLTMODE${mode.slot}`, mode.modeNumber)
         }
+      }
+    },
+    // Firmware upgrade
+    {
+      channel: IpcChannels.FirmwareUploadFile,
+      handler: async (req: { vehicleId: number; filePath: string }) => {
+        const vehicle = vehicleManager.getVehicle(req.vehicleId)
+        if (!vehicle) throw new Error('No vehicle')
+        await vehicle.firmwareManager.uploadFile(req.filePath)
+      }
+    },
+    {
+      channel: IpcChannels.FirmwareCancel,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.firmwareManager.cancel()
+      }
+    },
+    {
+      channel: IpcChannels.FirmwareReboot,
+      handler: async (vehicleId: number) => {
+        const vehicle = vehicleManager.getVehicle(vehicleId)
+        if (!vehicle) throw new Error('No vehicle')
+        await vehicle.firmwareManager.reboot()
+      }
+    },
+    {
+      channel: IpcChannels.FirmwareGetBoardInfo,
+      handler: (vehicleId: number) => {
+        const vehicle = vehicleManager.getVehicle(vehicleId)
+        if (!vehicle) return null
+        const core = vehicle.state.getDelta().core
+        return core
+          ? {
+              firmwareVersionMajor: core.firmwareVersionMajor,
+              firmwareVersionMinor: core.firmwareVersionMinor,
+              firmwareVersionPatch: core.firmwareVersionPatch,
+              vehicleType: core.vehicleType,
+              autopilot: core.autopilot
+            }
+          : null
       }
     }
   ]

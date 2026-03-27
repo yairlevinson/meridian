@@ -3,7 +3,8 @@ import type {
   SetupPage,
   CalibrationState,
   MagCalProgress,
-  RcCalibrationState
+  RcCalibrationState,
+  FirmwareUpgradeState
 } from '../../../shared-types/ipc/SetupTypes'
 import { CalibrationStatus } from '../../../shared-types/ipc/SetupTypes'
 
@@ -20,6 +21,9 @@ interface SetupStore {
 
   rcCalibrationState: RcCalibrationState | null
   setRcCalibrationState: (state: RcCalibrationState | null) => void
+
+  firmwareUpgradeState: FirmwareUpgradeState | null
+  setFirmwareUpgradeState: (state: FirmwareUpgradeState | null) => void
 }
 
 export const useSetupStore = create<SetupStore>((set) => ({
@@ -44,7 +48,10 @@ export const useSetupStore = create<SetupStore>((set) => ({
     }),
 
   rcCalibrationState: null,
-  setRcCalibrationState: (state) => set({ rcCalibrationState: state })
+  setRcCalibrationState: (state) => set({ rcCalibrationState: state }),
+
+  firmwareUpgradeState: null,
+  setFirmwareUpgradeState: (state) => set({ firmwareUpgradeState: state })
 }))
 
 // Wire IPC listeners when bridge is available
@@ -79,6 +86,14 @@ setTimeout(() => {
     bridge.onRcCalibrationStateChanged(
       (payload: { vehicleId: number; state: RcCalibrationState }) => {
         useSetupStore.getState().setRcCalibrationState(payload.state)
+      }
+    )
+  }
+
+  if (bridge.onFirmwareUpgradeStateChanged) {
+    bridge.onFirmwareUpgradeStateChanged(
+      (payload: { vehicleId: number; state: FirmwareUpgradeState }) => {
+        useSetupStore.getState().setFirmwareUpgradeState(payload.state)
       }
     )
   }

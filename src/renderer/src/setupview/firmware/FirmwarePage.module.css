@@ -1,0 +1,212 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.noVehicle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  color: var(--text-dimmed);
+  padding: 32px 0;
+}
+
+.section {
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 4px;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.infoLabel {
+  color: var(--text-dimmed);
+}
+
+.infoValue {
+  color: var(--text-primary);
+}
+
+/* ── Upload area ── */
+
+.uploadArea {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fileSelect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.browseBtn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.browseBtn:hover {
+  background: var(--bg-elevated);
+}
+
+.fileName {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Progress ── */
+
+.progressWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progressBar {
+  height: 8px;
+  background: var(--bg-input);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent-green);
+  border-radius: 4px;
+  transition: width 0.2s ease;
+}
+
+.progressFillError {
+  background: var(--accent-red);
+}
+
+.progressMsg {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+/* ── Actions ── */
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--bg-elevated);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btnPrimary {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.btnDanger {
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+/* ── Status badge ── */
+
+.statusBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.statusIdle {
+  background: var(--bg-input);
+  color: var(--text-dimmed);
+}
+
+.statusUploading {
+  background: rgba(33, 150, 243, 0.2);
+  color: #64b5f6;
+}
+
+.statusComplete {
+  background: rgba(0, 230, 118, 0.15);
+  color: #00e676;
+}
+
+.statusFailed {
+  background: rgba(255, 82, 82, 0.15);
+  color: #ff5252;
+}
+
+.statusRebooting {
+  background: rgba(255, 171, 64, 0.15);
+  color: #ffab40;
+}
+
+/* ── Warning ── */
+
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 171, 64, 0.1);
+  border: 1px solid rgba(255, 171, 64, 0.3);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: #ffab40;
+}
