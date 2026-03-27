@@ -9,16 +9,22 @@ import { GpsStatus } from './GpsStatus'
 import { BatteryStatus } from './BatteryStatus'
 import { FlightModeButton } from './FlightModeButton'
 import { ArmedIndicator } from './ArmedIndicator'
+import { PreFlightChecklist } from './PreFlightChecklist'
 import { GuidedActions } from './GuidedActions'
 import { LinkQuality } from './LinkQuality'
 import { StatusTextOverlay } from './StatusTextOverlay'
 import { VehicleSelector } from './VehicleSelector'
 import { PerfOverlay } from '../perf/PerfOverlay'
+import { useTelemetry } from '../hooks/useVehicle'
+import { useCommand } from '../hooks/useCommand'
 import styles from './FlyView.module.css'
 
 type MainView = 'map' | 'video'
 
 export function FlyView(): React.JSX.Element {
+  const core = useTelemetry('core')
+  const armed = core?.armed ?? false
+  const { arm } = useCommand()
   const [mainView, setMainView] = useState<MainView>('map')
   const [poppedOut, setPoppedOut] = useState<'video' | 'map' | null>(null)
   const [pipMinimized, setPipMinimized] = useState(false)
@@ -216,6 +222,7 @@ export function FlyView(): React.JSX.Element {
         <VehicleSelector />
         <FlightModeButton />
         <ArmedIndicator />
+        {!armed && <PreFlightChecklist onComplete={() => arm()} />}
 
         <div className="section-label">ATTITUDE</div>
         <AttitudeIndicator />
