@@ -4,6 +4,7 @@ import { LinkType } from '@shared/ipc/LinkState'
 import { LinkInterface } from './LinkInterface'
 import { UdpLink } from './UdpLink'
 import { TcpLink } from './TcpLink'
+import { SerialLink } from './SerialLink'
 import { MavlinkProtocol } from '../mavlink/MavlinkProtocol'
 import type { DecodedMessage } from '../mavlink/MavlinkChannel'
 
@@ -28,6 +29,9 @@ export class LinkManager extends EventEmitter {
         break
       case LinkType.TCP:
         link = new TcpLink(id, config)
+        break
+      case LinkType.Serial:
+        link = new SerialLink(id, config)
         break
       default:
         throw new Error(`Unsupported link type: ${config.type}`)

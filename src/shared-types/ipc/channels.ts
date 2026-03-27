@@ -20,6 +20,9 @@ export enum IpcChannels {
   LinksRemoveConfig = 'links:removeConfiguration',
   LinksGetAll = 'links:getAll',
 
+  // Serial ports
+  SerialListPorts = 'serial:listPorts',
+
   // Mission
   MissionLoad = 'mission:load',
   MissionWrite = 'mission:write',

@@ -64,6 +64,15 @@ export type LinkConfig =
   | LogReplayLinkConfig
   | MockLinkConfig
 
+/** Serial port info returned by enumeration */
+export interface SerialPortInfo {
+  path: string
+  manufacturer?: string
+  serialNumber?: string
+  vendorId?: string
+  productId?: string
+}
+
 /** Runtime state of a link */
 export interface LinkState {
   id: string

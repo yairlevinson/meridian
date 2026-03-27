@@ -310,7 +310,7 @@ app.whenReady().then(async () => {
       }
     })
 
-    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager)
+    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager)
 
     // Connect to each TCP target
     for (const target of tcpTargets) {
@@ -371,17 +371,45 @@ app.whenReady().then(async () => {
     // ---- UDP mode: listen for incoming MAVLink (SyntheticVehicle / single SITL) ----
     const udpLink = new UdpLink(UDP_PORT)
 
+    // Create LinkManager so serial (and future) links can be added via IPC
+    const mavlinkProtocol = new MavlinkProtocol()
+    const linkManager = new LinkManager(mavlinkProtocol)
+
+    linkManager.on('message', (msg, link) => {
+      vehicleManager.handleMessage(msg, link.id)
+    })
+
+    const vehicleToLink = new Map<number, string>()
+    linkManager.on('message', (msg, link) => {
+      if (!vehicleToLink.has(msg.sysid)) {
+        vehicleToLink.set(msg.sysid, link.id)
+      }
+    })
+
     // Wrap UdpLink as a WritableLink for command queue
     const udpWritable = { writeBytes: (buf: Buffer) => udpLink.send(buf) }
 
     const streamRequestedFor = new Set<number>()
     vehicleManager.on('vehicleAdded', (sysid: number) => {
       console.log(`[main] Vehicle added: sysid=${sysid}`)
-      // Give the vehicle a way to send commands back
-      vehicleManager.getVehicle(sysid)?.setCommandLink(udpWritable)
+      // Check if vehicle came from a managed link (e.g. serial)
+      const linkId = vehicleToLink.get(sysid)
+      const managedLink = linkId ? linkManager.getLink(linkId) : undefined
+      if (managedLink) {
+        vehicleManager
+          .getVehicle(sysid)
+          ?.setCommandLink({ writeBytes: (buf) => managedLink.writeBytes(buf) })
+      } else {
+        // Default to UDP
+        vehicleManager.getVehicle(sysid)?.setCommandLink(udpWritable)
+      }
       if (!streamRequestedFor.has(sysid)) {
         streamRequestedFor.add(sysid)
-        requestStreams((buf) => udpLink.send(buf), sysid)
+        if (managedLink) {
+          requestStreams((buf) => managedLink.writeBytes(buf), sysid, linkId!)
+        } else {
+          requestStreams((buf) => udpLink.send(buf), sysid)
+        }
       }
     })
 
@@ -389,7 +417,7 @@ app.whenReady().then(async () => {
       vehicleManager.handleMessage(msg, 'udp-0')
     })
 
-    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager)
+    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager)
 
     await udpLink.bind()
     udpLink.unref()
@@ -398,6 +426,8 @@ app.whenReady().then(async () => {
     app.on('before-quit', () => {
       cleanupIpcBridge()
       cleanupPipeline()
+      linkManager.disconnectAll()
+      mavlinkProtocol.destroy()
       vehicleManager.destroy()
       videoManager.destroy()
       udpLink.close()

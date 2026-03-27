@@ -1,10 +1,13 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import type { VehicleManager } from './vehicle/VehicleManager'
 import type { VideoManager } from './video/VideoManager'
+import type { LinkManager } from './links/LinkManager'
+import { SerialPort } from 'serialport'
 import { IpcChannels } from '@shared/ipc/channels'
 import { IpcEvents } from '@shared/ipc/events'
 import type { IpcHandler } from '@shared/ipc/geo'
 import type { MavCommandRequest, FlightModeRequest } from '@shared/ipc/MavCommandRequest'
+import type { LinkConfig } from '@shared/ipc/LinkState'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
@@ -21,7 +24,8 @@ function broadcast(channel: string, ...args: unknown[]): void {
 
 export function startIpcBridge(
   vehicleManager: VehicleManager,
-  videoManager?: VideoManager
+  videoManager?: VideoManager,
+  linkManager?: LinkManager
 ): () => void {
   let sentCount = 0
   let skippedCount = 0
@@ -44,6 +48,13 @@ export function startIpcBridge(
   vehicleManager.on('vehicleRemoved', (sysid: number) => {
     broadcast(IpcEvents.VehicleRemoved, { vehicleId: sysid })
   })
+
+  // Forward link state changes to all renderer windows
+  if (linkManager) {
+    linkManager.on('linkStateChanged', () => {
+      broadcast(IpcEvents.LinkStateChanged, linkManager.getAllStates())
+    })
+  }
 
   // Forward video state changes to all renderer windows
   if (videoManager) {
@@ -258,6 +269,37 @@ export function startIpcBridge(
     {
       channel: IpcChannels.VideoGetState,
       handler: () => videoManager?.state ?? null
+    },
+    // Serial port enumeration
+    {
+      channel: IpcChannels.SerialListPorts,
+      handler: async () => {
+        const ports = await SerialPort.list()
+        return ports.map((p) => ({
+          path: p.path,
+          manufacturer: p.manufacturer,
+          serialNumber: p.serialNumber,
+          vendorId: p.vendorId,
+          productId: p.productId
+        }))
+      }
+    },
+    // Link management
+    {
+      channel: IpcChannels.LinksCreate,
+      handler: async (config: LinkConfig) => {
+        if (!linkManager) throw new Error('LinkManager not available')
+        const link = await linkManager.createLink(config)
+        return { id: link.id, status: link.status }
+      }
+    },
+    {
+      channel: IpcChannels.LinksDisconnect,
+      handler: (id: string) => linkManager?.disconnectLink(id)
+    },
+    {
+      channel: IpcChannels.LinksGetAll,
+      handler: () => linkManager?.getAllStates() ?? []
     }
   ]
 

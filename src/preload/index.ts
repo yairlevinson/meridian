@@ -4,6 +4,7 @@ import { IpcChannels } from '../shared-types/ipc/channels'
 import { IpcEvents } from '../shared-types/ipc/events'
 import type { MavCommandRequest } from '../shared-types/ipc/MavCommandRequest'
 import type { VideoStreamState } from '../shared-types/ipc/VideoTypes'
+import type { LinkConfig, LinkState, SerialPortInfo } from '../shared-types/ipc/LinkState'
 
 export interface QgcBridge {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
@@ -43,6 +44,13 @@ export interface QgcBridge {
   videoStopRecording: () => Promise<void>
   videoGetState: () => Promise<VideoStreamState>
   onVideoStateChanged: (cb: (state: VideoStreamState) => void) => () => void
+
+  // Links
+  serialListPorts: () => Promise<SerialPortInfo[]>
+  linksCreate: (config: LinkConfig) => Promise<{ id: string; status: string }>
+  linksDisconnect: (id: string) => Promise<void>
+  linksGetAll: () => Promise<LinkState[]>
+  onLinkStateChanged: (cb: (states: LinkState[]) => void) => () => void
 
   // Popout windows
   popoutOpen: (view: 'video' | 'map') => Promise<void>
@@ -148,6 +156,19 @@ const bridge: QgcBridge = {
     ipcRenderer.on(IpcEvents.VideoStateChanged, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.VideoStateChanged, handler)
+    }
+  },
+
+  // Links
+  serialListPorts: () => ipcRenderer.invoke(IpcChannels.SerialListPorts),
+  linksCreate: (config) => ipcRenderer.invoke(IpcChannels.LinksCreate, config),
+  linksDisconnect: (id) => ipcRenderer.invoke(IpcChannels.LinksDisconnect, id),
+  linksGetAll: () => ipcRenderer.invoke(IpcChannels.LinksGetAll),
+  onLinkStateChanged: (cb) => {
+    const handler = (_event: Electron.IpcRendererEvent, states: LinkState[]): void => cb(states)
+    ipcRenderer.on(IpcEvents.LinkStateChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.LinkStateChanged, handler)
     }
   },
 
