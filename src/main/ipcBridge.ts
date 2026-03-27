@@ -195,6 +195,10 @@ export function startIpcBridge(
       handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.guidedPause()
     },
     {
+      channel: IpcChannels.VehicleEmergencyStop,
+      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.emergencyStop()
+    },
+    {
       channel: IpcChannels.ParametersRefresh,
       handler: (...args: unknown[]) => {
         const vehicleId = args[0] as number

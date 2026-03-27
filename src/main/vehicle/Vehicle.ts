@@ -307,6 +307,15 @@ export class Vehicle extends EventEmitter {
     )
   }
 
+  emergencyStop(): Promise<MavResult> {
+    return this.commandQueue.sendCommand(
+      400, // MAV_CMD_COMPONENT_ARM_DISARM
+      this.sysid,
+      0,
+      { p1: 0, p2: 21196 } // 0 = disarm, 21196 = force/emergency
+    )
+  }
+
   destroy(): void {
     this.commandQueue.clear()
     this.missionManager.destroy()

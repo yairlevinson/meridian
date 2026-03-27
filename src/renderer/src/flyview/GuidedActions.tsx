@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { HoldButton } from '../components/HoldButton'
 import { useCommand } from '../hooks/useCommand'
 import { useMission } from '../hooks/useMission'
 import { useTelemetry } from '../hooks/useVehicle'
@@ -6,10 +7,12 @@ import { useMissionStore } from '../store/missionStore'
 import styles from './GuidedActions.module.css'
 
 export function GuidedActions(): React.JSX.Element {
-  const { guidedTakeoff, guidedRTL, guidedLand, guidedPause, setFlightMode } = useCommand()
+  const { guidedTakeoff, guidedRTL, guidedLand, guidedPause, setFlightMode, emergencyStop } =
+    useCommand()
   const { uploadMission } = useMission()
   const core = useTelemetry('core')
   const armed = core?.armed ?? false
+  const flying = armed && core?.systemStatus === 4 // MAV_STATE_ACTIVE
   const isAuto = core?.flightMode === 3
   const waypointCount = useMissionStore((s) => s.editableWaypoints.length)
   const [uploading, setUploading] = useState(false)
@@ -78,6 +81,15 @@ export function GuidedActions(): React.JSX.Element {
           >
             Pause
           </button>
+          {flying && (
+            <HoldButton
+              className={styles.btn}
+              style={{ color: '#ff0000', borderColor: '#ff0000' }}
+              onConfirm={() => emergencyStop()}
+            >
+              Emergency Stop
+            </HoldButton>
+          )}
         </>
       )}
     </div>

@@ -13,6 +13,7 @@ export enum IpcChannels {
   VehicleGuidedLand = 'vehicle:guidedModeLand',
   VehicleGuidedGoto = 'vehicle:guidedModeGotoLocation',
   VehicleGuidedPause = 'vehicle:guidedModePause',
+  VehicleEmergencyStop = 'vehicle:emergencyStop',
 
   // Links
   LinksCreate = 'links:createConnectedLink',

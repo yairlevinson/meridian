@@ -11,6 +11,7 @@ export function useCommand(vehicleIdOverride?: number): {
   guidedLand: () => Promise<void> | undefined
   guidedGoto: (lat: number, lon: number, alt: number) => Promise<void> | undefined
   guidedPause: () => Promise<void> | undefined
+  emergencyStop: () => Promise<void> | undefined
 } {
   const activeId = useVehicleStore((s) => s.activeVehicleId)
   const vid = vehicleIdOverride ?? activeId ?? 1
@@ -56,6 +57,10 @@ export function useCommand(vehicleIdOverride?: number): {
     return window.qgcBridge?.guidedPause(vid)
   }, [vid])
 
+  const emergencyStop = useCallback(() => {
+    return window.qgcBridge?.emergencyStop(vid)
+  }, [vid])
+
   return {
     arm,
     disarm,
@@ -64,6 +69,7 @@ export function useCommand(vehicleIdOverride?: number): {
     guidedRTL,
     guidedLand,
     guidedGoto,
-    guidedPause
+    guidedPause,
+    emergencyStop
   }
 }

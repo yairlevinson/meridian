@@ -27,6 +27,7 @@ export interface QgcBridge {
   guidedLand: (vehicleId: number) => Promise<void>
   guidedGoto: (vehicleId: number, lat: number, lon: number, alt: number) => Promise<void>
   guidedPause: (vehicleId: number) => Promise<void>
+  emergencyStop: (vehicleId: number) => Promise<void>
   onStatusText: (
     cb: (payload: { vehicleId: number; severity: number; text: string }) => void
   ) => () => void
@@ -135,6 +136,7 @@ const bridge: QgcBridge = {
   guidedGoto: (vehicleId, lat, lon, alt) =>
     ipcRenderer.invoke(IpcChannels.VehicleGuidedGoto, { vehicleId, lat, lon, alt }),
   guidedPause: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleGuidedPause, vehicleId),
+  emergencyStop: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleEmergencyStop, vehicleId),
   onStatusText: (cb) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
