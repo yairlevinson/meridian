@@ -1,0 +1,21 @@
+.btn {
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  font-weight: bold;
+  cursor: pointer;
+  width: 100%;
+}
+
+.armed {
+  background: var(--armed-bg);
+  color: var(--accent-red);
+  border: 1px solid var(--accent-red);
+}
+
+.disarmed {
+  background: var(--disarmed-bg);
+  color: var(--accent-green);
+  border: 1px solid var(--accent-green);
+}

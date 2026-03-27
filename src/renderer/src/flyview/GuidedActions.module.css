@@ -1,0 +1,18 @@
+.root {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.btn {
+  background: var(--bg-input);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  flex: 1;
+  border-width: 1px;
+  border-style: solid;
+}

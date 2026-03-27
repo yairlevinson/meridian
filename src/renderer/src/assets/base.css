@@ -1,0 +1,20 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+ul {
+  list-style: none;
+}
+
+body {
+  min-height: 100vh;
+  color: var(--text-primary);
+  background: var(--bg-base);
+  line-height: 1.6;
+  font-family: var(--font-mono);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}

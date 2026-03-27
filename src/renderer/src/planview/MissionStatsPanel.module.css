@@ -1,0 +1,30 @@
+.root {
+  width: 100%;
+  padding: 8px 0;
+  border-top: 1px solid var(--border-default);
+}
+
+.title {
+  font-size: var(--fs-sm);
+  color: var(--text-disabled);
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  text-align: center;
+  padding-bottom: 6px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+}
+
+.label {
+  color: var(--text-dimmed);
+}
+
+.value {
+  color: var(--text-secondary);
+}

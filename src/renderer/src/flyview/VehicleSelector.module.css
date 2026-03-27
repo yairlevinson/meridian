@@ -1,0 +1,25 @@
+.root {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  width: 100%;
+}
+
+.btn {
+  min-width: 32px;
+  flex: 1 0 auto;
+  background: var(--bg-input);
+  color: var(--text-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.btnActive {
+  background: var(--active-bg);
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+}

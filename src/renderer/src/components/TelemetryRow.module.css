@@ -1,0 +1,20 @@
+.root {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xl);
+}
+
+.label {
+  color: var(--text-muted);
+}
+
+.value {
+  font-weight: bold;
+}
+
+.unit {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+  margin-left: 2px;
+}

@@ -1,0 +1,46 @@
+.root {
+  position: relative;
+  width: 100%;
+}
+
+.trigger {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-muted);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  cursor: pointer;
+  width: 100%;
+  text-align: center;
+}
+
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-input);
+  border: 1px solid var(--border-muted);
+  border-radius: 4px;
+  z-index: 100;
+  margin-top: 2px;
+}
+
+.option {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  padding: 6px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  text-align: left;
+}
+
+.optionActive {
+  background: var(--accent-blue);
+}

@@ -1,0 +1,81 @@
+.controls {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.select, .input {
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-size: 12px;
+  outline: none;
+}
+
+.select {
+  min-width: 100px;
+}
+
+.input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.btn {
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.recording {
+  background: rgba(255, 0, 0, 0.4);
+  border-color: #f44;
+  color: #faa;
+}
+
+.active {
+  background: rgba(0, 150, 255, 0.3);
+  border-color: #09f;
+}
+
+.status {
+  font-size: 11px;
+  color: #0f0;
+  text-transform: uppercase;
+}
+
+.error {
+  font-size: 11px;
+  color: #f66;
+  max-width: 300px;
+}

@@ -1,0 +1,122 @@
+/* ── QGC Design Tokens ── */
+:root {
+  /* Background */
+  --bg-base: #0d0d0d;
+  --bg-surface: #111;
+  --bg-elevated: #1a1a1a;
+  --bg-input: #222;
+  --bg-hover: #2a2a2a;
+
+  /* Borders */
+  --border-subtle: #222;
+  --border-default: #333;
+  --border-strong: #444;
+  --border-muted: #555;
+
+  /* Text */
+  --text-primary: #fff;
+  --text-secondary: #ccc;
+  --text-muted: #888;
+  --text-dimmed: #777;
+  --text-faint: #666;
+  --text-disabled: #555;
+
+  /* Accent */
+  --accent-blue: #4a9eff;
+  --accent-green: #00ff88;
+  --accent-red: #ff4444;
+  --accent-orange: #ff6644;
+  --accent-yellow: #ffaa00;
+
+  /* Semantic */
+  --armed-bg: #5c1010;
+  --disarmed-bg: #103010;
+  --active-bg: #1a3a5c;
+  --selected-bg: #1a2a3a;
+
+  /* Sizing */
+  --sidebar-width: 220px;
+  --plan-sidebar-width: 260px;
+  --topbar-height: 32px;
+
+  /* Font */
+  --font-mono: monospace;
+  --fs-xs: 9px;
+  --fs-sm: 10px;
+  --fs-md: 11px;
+  --fs-lg: 12px;
+  --fs-xl: 13px;
+}
+
+/* ── Shared Classes ── */
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Buttons */
+.btn {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  background: var(--bg-input);
+  border: 1px solid var(--border-muted);
+  color: var(--text-secondary);
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+}
+
+.btn-danger {
+  color: var(--accent-orange);
+}
+
+/* Inputs */
+.input {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Section labels (sidebar dividers) */
+.section-label {
+  font-size: var(--fs-sm);
+  color: var(--text-disabled);
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  width: 100%;
+  text-align: center;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+/* Sidebar */
+.sidebar {
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-default);
+  overflow-y: auto;
+}
+
+/* Panel */
+.panel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+}
+
+/* No-data placeholder */
+.no-data {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  color: var(--text-faint);
+}

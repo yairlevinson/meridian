@@ -1,0 +1,18 @@
+.noData {
+  width: 150px;
+  height: 150px;
+  flex-shrink: 0;
+  background: #1a1a2e;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: var(--fs-lg);
+  font-family: var(--font-mono);
+}
+
+.svg {
+  display: block;
+  flex-shrink: 0;
+}

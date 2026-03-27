@@ -1,0 +1,39 @@
+.root {
+  position: fixed;
+  top: 8px;
+  right: 228px;
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--accent-green);
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  padding: 8px 12px;
+  border-radius: 6px;
+  z-index: 9999;
+  line-height: 1.7;
+  min-width: 200px;
+  pointer-events: none;
+}
+
+.connected {
+  color: var(--accent-green);
+  font-weight: bold;
+}
+
+.disconnected {
+  color: var(--accent-red);
+  font-weight: bold;
+}
+
+.section {
+  border-top: 1px solid var(--border-default);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.warnOk {
+  color: var(--accent-green);
+}
+
+.warnBad {
+  color: var(--accent-yellow);
+}

@@ -1,0 +1,209 @@
+.root {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.mapArea {
+  flex: 1;
+  position: relative;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 8px;
+  gap: 12px;
+  border-left: 1px solid var(--border-default);
+  overflow-y: auto;
+}
+
+.guidedActionsArea {
+  margin-top: auto;
+  width: 100%;
+}
+
+.mainLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* ── PiP container (toolbar + content as children) ─────── */
+
+.pipContainer {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 240px;
+  z-index: 10;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: border-color 0.15s;
+  touch-action: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.pipContainer:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.pipToolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.75);
+  cursor: grab;
+  user-select: none;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.pipToolbar:active {
+  cursor: grabbing;
+}
+
+.pipDragHandle {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1;
+}
+
+.pipTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  flex: 1;
+}
+
+.pipActions {
+  display: flex;
+  gap: 2px;
+}
+
+.pipActionBtn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s;
+}
+
+.pipActionBtn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.pipBody {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.resizeHandle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 1;
+  touch-action: none;
+}
+
+.resizeHandle::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid rgba(255, 255, 255, 0.5);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+}
+
+/* ── View toggle ──────────────────────────────────────────── */
+
+.viewToggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 0;
+  z-index: 20;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.toggleBtn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.6);
+  transition: background 0.15s, color 0.15s;
+}
+
+.toggleBtn:hover {
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+}
+
+.toggleActive {
+  background: rgba(0, 120, 255, 0.7);
+  color: #fff;
+}
+
+.hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.popoutBtnMain {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: background 0.15s;
+}
+
+.popoutBtnMain:hover {
+  background: rgba(0, 0, 0, 0.85);
+}

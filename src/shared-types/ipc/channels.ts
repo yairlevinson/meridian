@@ -1,0 +1,82 @@
+/**
+ * All ipcMain.handle() channel names.
+ * Both main and renderer reference this single enum.
+ */
+export enum IpcChannels {
+  // Vehicle commands
+  VehicleArm = 'vehicle:arm',
+  VehicleDisarm = 'vehicle:disarm',
+  VehicleSendMavCommand = 'vehicle:sendMavCommand',
+  VehicleSetFlightMode = 'vehicle:setFlightMode',
+  VehicleGuidedTakeoff = 'vehicle:guidedModeTakeoff',
+  VehicleGuidedRTL = 'vehicle:guidedModeRTL',
+  VehicleGuidedLand = 'vehicle:guidedModeLand',
+  VehicleGuidedGoto = 'vehicle:guidedModeGotoLocation',
+  VehicleGuidedPause = 'vehicle:guidedModePause',
+
+  // Links
+  LinksCreate = 'links:createConnectedLink',
+  LinksDisconnect = 'links:disconnect',
+  LinksRemoveConfig = 'links:removeConfiguration',
+  LinksGetAll = 'links:getAll',
+
+  // Mission
+  MissionLoad = 'mission:load',
+  MissionWrite = 'mission:write',
+  MissionRemoveAll = 'mission:removeAll',
+  MissionGetItems = 'mission:getItems',
+
+  // GeoFence
+  GeoFenceLoad = 'geofence:load',
+  GeoFenceWrite = 'geofence:write',
+  GeoFenceRemoveAll = 'geofence:removeAll',
+
+  // Rally
+  RallyLoad = 'rally:load',
+  RallyWrite = 'rally:write',
+  RallyRemoveAll = 'rally:removeAll',
+
+  // Parameters
+  ParametersRefresh = 'parameters:refresh',
+  ParametersSet = 'parameters:set',
+  ParametersGet = 'parameters:get',
+  ParametersGetAll = 'parameters:getAll',
+
+  // Signing
+  SigningAddKey = 'signing:addKey',
+  SigningRemoveKey = 'signing:removeKey',
+  SigningEnable = 'signing:enable',
+
+  // FTP
+  FtpDownload = 'ftp:download',
+  FtpUpload = 'ftp:upload',
+  FtpListDirectory = 'ftp:listDirectory',
+
+  // Log management
+  LogList = 'log:list',
+  LogDownload = 'log:download',
+  LogUpload = 'log:upload',
+
+  // Map tiles
+  MapFetchTile = 'map:fetchTile',
+
+  // Settings
+  SettingsGet = 'settings:get',
+  SettingsSet = 'settings:set',
+  SettingsGetAll = 'settings:getAll',
+
+  // Mission file I/O
+  MissionSavePlan = 'mission:savePlan',
+  MissionOpenPlan = 'mission:openPlan',
+
+  // Video streaming
+  VideoStart = 'video:start',
+  VideoStop = 'video:stop',
+  VideoStartRecording = 'video:startRecording',
+  VideoStopRecording = 'video:stopRecording',
+  VideoGetState = 'video:getState',
+
+  // Popout windows
+  PopoutOpen = 'popout:open',
+  PopoutClose = 'popout:close'
+}

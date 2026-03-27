@@ -1,0 +1,13 @@
+.root {
+  display: flex;
+  width: 100%;
+  flex: 1;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.mapArea {
+  flex: 1;
+  position: relative;
+}

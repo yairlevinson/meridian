@@ -1,0 +1,34 @@
+.root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  background: var(--bg-surface);
+  height: var(--topbar-height);
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.tab {
+  background: transparent;
+  color: var(--text-dimmed);
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  padding: 0 16px;
+  height: 100%;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+.tabActive {
+  background: var(--active-bg);
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+}

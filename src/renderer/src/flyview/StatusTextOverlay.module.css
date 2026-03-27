@@ -1,0 +1,12 @@
+.root {
+  position: absolute;
+  bottom: 40px;
+  left: 8px;
+  max-width: 400px;
+  max-height: 200px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  pointer-events: none;
+}
