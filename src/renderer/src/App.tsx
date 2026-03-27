@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { FlyView } from './flyview/FlyView'
 import { PlanView } from './planview/PlanView'
+import { SetupView } from './setupview/SetupView'
 import { PopoutView } from './flyview/PopoutView'
 import styles from './App.module.css'
 
-type ViewMode = 'fly' | 'plan'
+type ViewMode = 'fly' | 'plan' | 'setup'
 
 // Check if this window is a popout
 const popoutView = new URLSearchParams(window.location.search).get('popout')
@@ -30,6 +31,12 @@ function ViewSwitcher({
       >
         PLAN
       </button>
+      <button
+        className={`${styles.tab} ${view === 'setup' ? styles.tabActive : ''}`}
+        onClick={() => setView('setup')}
+      >
+        SETUP
+      </button>
     </div>
   )
 }
@@ -45,7 +52,9 @@ function App(): React.JSX.Element {
   return (
     <div className={styles.root}>
       <ViewSwitcher view={view} setView={setView} />
-      {view === 'fly' ? <FlyView /> : <PlanView />}
+      {view === 'fly' && <FlyView />}
+      {view === 'plan' && <PlanView />}
+      {view === 'setup' && <SetupView />}
     </div>
   )
 }

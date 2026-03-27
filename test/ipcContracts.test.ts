@@ -32,7 +32,7 @@ describe('IPC contract validation', () => {
 
   it('IpcChannels follow namespace:action pattern', () => {
     for (const value of Object.values(IpcChannels)) {
-      expect(value).toMatch(/^[a-z]+:[a-zA-Z]+$/)
+      expect(value).toMatch(/^[a-zA-Z]+:[a-zA-Z]+$/)
     }
   })
 

@@ -81,5 +81,20 @@ export enum IpcChannels {
 
   // Popout windows
   PopoutOpen = 'popout:open',
-  PopoutClose = 'popout:close'
+  PopoutClose = 'popout:close',
+
+  // Calibration
+  CalibrationStart = 'calibration:start',
+  CalibrationCancel = 'calibration:cancel',
+  CalibrationGetState = 'calibration:getState',
+
+  // RC Calibration
+  RcCalibrationStart = 'rcCalibration:start',
+  RcCalibrationNextStep = 'rcCalibration:nextStep',
+  RcCalibrationCancel = 'rcCalibration:cancel',
+  RcCalibrationSave = 'rcCalibration:save',
+
+  // Flight Modes
+  FlightModesGet = 'flightModes:get',
+  FlightModesSet = 'flightModes:set'
 }

@@ -3,6 +3,9 @@ import { VehicleState, type VehicleDelta } from '../vehicleState'
 import { MavCommandQueue, type WritableLink } from './MavCommandQueue'
 import { VehicleLinkManager } from './VehicleLinkManager'
 import { MissionManager } from '../mission/MissionManager'
+import { ParameterManager } from '../parameters/ParameterManager'
+import { CalibrationManager } from '../calibration/CalibrationManager'
+import { RcCalibrationManager } from '../calibration/RcCalibrationManager'
 import type { LinkInterface } from '../links/LinkInterface'
 import type { DecodedMessage } from '../mavlink/MavlinkChannel'
 import { MavResult } from '@shared/ipc/MavCommandRequest'
@@ -18,6 +21,10 @@ export class Vehicle extends EventEmitter {
   readonly commandQueue: MavCommandQueue
   readonly linkManager: VehicleLinkManager
   readonly missionManager: MissionManager
+  readonly parameterManager: ParameterManager
+  readonly calibrationManager: CalibrationManager
+  readonly rcCalibrationManager: RcCalibrationManager
+  private _parametersRequested = false
 
   constructor(
     sysid: number,
@@ -29,6 +36,10 @@ export class Vehicle extends EventEmitter {
     this.state.setSysId(sysid)
     this.commandQueue = new MavCommandQueue()
     this.missionManager = new MissionManager()
+    this.parameterManager = new ParameterManager()
+    this.calibrationManager = new CalibrationManager()
+    this.rcCalibrationManager = new RcCalibrationManager()
+    this.rcCalibrationManager.setParameterManager(this.parameterManager)
     this.linkManager = new VehicleLinkManager(options)
 
     this.linkManager.on('communicationLost', () => {
@@ -45,6 +56,10 @@ export class Vehicle extends EventEmitter {
       this.commandQueue.setLink(link)
       this.missionManager.setLink(link)
       this.missionManager.setTarget(sysid, 1)
+      this.parameterManager.setLink(link)
+      this.parameterManager.setTarget(sysid, 1)
+      this.calibrationManager.setLink(link)
+      this.calibrationManager.setTarget(sysid)
       this.emit('primaryLinkChanged', link)
     })
   }
@@ -56,6 +71,10 @@ export class Vehicle extends EventEmitter {
       this.commandQueue.setLink(link)
       this.missionManager.setLink(link)
       this.missionManager.setTarget(this.sysid, 1)
+      this.parameterManager.setLink(link)
+      this.parameterManager.setTarget(this.sysid, 1)
+      this.calibrationManager.setLink(link)
+      this.calibrationManager.setTarget(this.sysid)
     }
   }
 
@@ -65,6 +84,10 @@ export class Vehicle extends EventEmitter {
     // PlanManager only calls writeBytes() on the link, so a plain WritableLink works fine.
     this.missionManager.setLink(link as LinkInterface)
     this.missionManager.setTarget(this.sysid, 1)
+    this.parameterManager.setLink(link as LinkInterface)
+    this.parameterManager.setTarget(this.sysid, 1)
+    this.calibrationManager.setLink(link as LinkInterface)
+    this.calibrationManager.setTarget(this.sysid)
   }
 
   /** Handle a decoded MAVLink message */
@@ -78,6 +101,85 @@ export class Vehicle extends EventEmitter {
     if (msg.msgid === 77) {
       const ack = msg.data as { command: number; result: number }
       this.commandQueue.handleCommandAck(ack)
+    }
+
+    // PARAM_VALUE (22) is handled by the parameter manager
+    if (msg.msgid === 22) {
+      const pv = msg.data as {
+        paramId: string
+        paramValue: number
+        paramType: number
+        paramCount: number
+        paramIndex: number
+      }
+      this.parameterManager.handleParamValue(pv)
+    }
+
+    // COMMAND_ACK — also forward calibration-related ACKs
+    if (msg.msgid === 77) {
+      const ack = msg.data as { command: number; result: number }
+      this.calibrationManager.handleCommandAck(ack.command, ack.result)
+    }
+
+    // STATUSTEXT (253) — emit for calibration and UI status display
+    if (msg.msgid === 253) {
+      const st = msg.data as { severity: number; text: string }
+      const text = st.text.replace(/\0/g, '')
+      this.emit('statusText', { severity: st.severity, text })
+      this.calibrationManager.handleStatusText(text, st.severity)
+    }
+
+    // MAG_CAL_PROGRESS (191)
+    if (msg.msgid === 191) {
+      this.calibrationManager.handleMagCalProgress(
+        msg.data as {
+          compassId: number
+          calMask: number
+          calStatus: number
+          attempt: number
+          completionPct: number
+          completionMask: number[]
+          directionX: number
+          directionY: number
+          directionZ: number
+        }
+      )
+    }
+
+    // MAG_CAL_REPORT (192)
+    if (msg.msgid === 192) {
+      this.calibrationManager.handleMagCalReport(
+        msg.data as {
+          compassId: number
+          calMask: number
+          calStatus: number
+          autosaved: number
+          fitness: number
+          ofsX: number
+          ofsY: number
+          ofsZ: number
+        }
+      )
+    }
+
+    // RC_CHANNELS (65) — feed live data to RC calibration manager
+    if (msg.msgid === 65) {
+      const rc = msg.data as { chancount: number; chan1Raw: number; chan2Raw: number; chan3Raw: number; chan4Raw: number; chan5Raw: number; chan6Raw: number; chan7Raw: number; chan8Raw: number; chan9Raw: number; chan10Raw: number; chan11Raw: number; chan12Raw: number; chan13Raw: number; chan14Raw: number; chan15Raw: number; chan16Raw: number; chan17Raw: number; chan18Raw: number }
+      const channels = [
+        rc.chan1Raw, rc.chan2Raw, rc.chan3Raw, rc.chan4Raw,
+        rc.chan5Raw, rc.chan6Raw, rc.chan7Raw, rc.chan8Raw,
+        rc.chan9Raw, rc.chan10Raw, rc.chan11Raw, rc.chan12Raw,
+        rc.chan13Raw, rc.chan14Raw, rc.chan15Raw, rc.chan16Raw,
+        rc.chan17Raw, rc.chan18Raw
+      ]
+      this.rcCalibrationManager.updateChannels(channels, rc.chancount)
+    }
+
+    // Auto-request parameters after first heartbeat
+    if (msg.msgid === 0 && !this._parametersRequested) {
+      this._parametersRequested = true
+      // Delay slightly to let the link stabilize
+      setTimeout(() => this.parameterManager.requestAllParameters(), 1000)
     }
 
     // Mission protocol messages
@@ -208,6 +310,9 @@ export class Vehicle extends EventEmitter {
   destroy(): void {
     this.commandQueue.clear()
     this.missionManager.destroy()
+    this.parameterManager.destroy()
+    this.calibrationManager.destroy()
+    this.rcCalibrationManager.destroy()
     this.linkManager.destroy()
   }
 }

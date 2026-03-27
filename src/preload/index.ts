@@ -5,6 +5,14 @@ import { IpcEvents } from '../shared-types/ipc/events'
 import type { MavCommandRequest } from '../shared-types/ipc/MavCommandRequest'
 import type { VideoStreamState } from '../shared-types/ipc/VideoTypes'
 import type { LinkConfig, LinkState, SerialPortInfo } from '../shared-types/ipc/LinkState'
+import type { Parameter, ParameterLoadState } from '../shared-types/ipc/ParameterTypes'
+import type {
+  CalibrationSensor,
+  CalibrationState,
+  MagCalProgress,
+  RcCalibrationState,
+  FlightModeConfig
+} from '../shared-types/ipc/SetupTypes'
 
 export interface QgcBridge {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
@@ -51,6 +59,38 @@ export interface QgcBridge {
   linksDisconnect: (id: string) => Promise<void>
   linksGetAll: () => Promise<LinkState[]>
   onLinkStateChanged: (cb: (states: LinkState[]) => void) => () => void
+
+  // Parameters (events)
+  onParameterChanged: (
+    cb: (payload: { vehicleId: number; parameter: Parameter }) => void
+  ) => () => void
+  onParametersReady: (cb: (payload: { vehicleId: number }) => void) => () => void
+  onParametersProgress: (
+    cb: (payload: { vehicleId: number; loadState: ParameterLoadState }) => void
+  ) => () => void
+
+  // Calibration
+  calibrationStart: (vehicleId: number, sensor: CalibrationSensor) => Promise<void>
+  calibrationCancel: (vehicleId: number) => Promise<void>
+  onCalibrationStateChanged: (
+    cb: (payload: { vehicleId: number; state: CalibrationState }) => void
+  ) => () => void
+  onCalibrationMagProgress: (
+    cb: (payload: { vehicleId: number } & MagCalProgress) => void
+  ) => () => void
+
+  // RC Calibration
+  rcCalibrationStart: (vehicleId: number) => Promise<void>
+  rcCalibrationNextStep: (vehicleId: number) => Promise<void>
+  rcCalibrationCancel: (vehicleId: number) => Promise<void>
+  rcCalibrationSave: (vehicleId: number) => Promise<void>
+  onRcCalibrationStateChanged: (
+    cb: (payload: { vehicleId: number; state: RcCalibrationState }) => void
+  ) => () => void
+
+  // Flight Modes
+  flightModesGet: (vehicleId: number) => Promise<FlightModeConfig>
+  flightModesSet: (vehicleId: number, config: FlightModeConfig) => Promise<void>
 
   // Popout windows
   popoutOpen: (view: 'video' | 'map') => Promise<void>
@@ -171,6 +211,90 @@ const bridge: QgcBridge = {
       ipcRenderer.removeListener(IpcEvents.LinkStateChanged, handler)
     }
   },
+
+  // Parameters (events)
+  onParameterChanged: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number; parameter: Parameter }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.ParameterChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.ParameterChanged, handler)
+    }
+  },
+  onParametersReady: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.ParametersReady, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.ParametersReady, handler)
+    }
+  },
+  onParametersProgress: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number; loadState: ParameterLoadState }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.ParametersProgress, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.ParametersProgress, handler)
+    }
+  },
+
+  // Calibration
+  calibrationStart: (vehicleId, sensor) =>
+    ipcRenderer.invoke(IpcChannels.CalibrationStart, { vehicleId, sensor }),
+  calibrationCancel: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.CalibrationCancel, vehicleId),
+  onCalibrationStateChanged: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number; state: CalibrationState }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.CalibrationStateChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.CalibrationStateChanged, handler)
+    }
+  },
+  onCalibrationMagProgress: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number } & MagCalProgress
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.CalibrationMagProgress, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.CalibrationMagProgress, handler)
+    }
+  },
+
+  // RC Calibration
+  rcCalibrationStart: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.RcCalibrationStart, vehicleId),
+  rcCalibrationNextStep: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.RcCalibrationNextStep, vehicleId),
+  rcCalibrationCancel: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.RcCalibrationCancel, vehicleId),
+  rcCalibrationSave: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.RcCalibrationSave, vehicleId),
+  onRcCalibrationStateChanged: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number; state: RcCalibrationState }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.RcCalibrationStateChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.RcCalibrationStateChanged, handler)
+    }
+  },
+
+  // Flight Modes
+  flightModesGet: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.FlightModesGet, vehicleId),
+  flightModesSet: (vehicleId, config) =>
+    ipcRenderer.invoke(IpcChannels.FlightModesSet, { vehicleId, config }),
 
   // Popout windows
   popoutOpen: (view) => ipcRenderer.invoke(IpcChannels.PopoutOpen, view),

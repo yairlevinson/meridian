@@ -40,5 +40,15 @@ export enum IpcEvents {
   VideoStateChanged = 'video:stateChanged',
 
   /** A popout window was closed */
-  PopoutClosed = 'popout:closed'
+  PopoutClosed = 'popout:closed',
+
+  /** Sensor calibration state changed */
+  CalibrationStateChanged = 'calibration:stateChanged',
+  /** Compass calibration progress */
+  CalibrationMagProgress = 'calibration:magProgress',
+  /** Compass calibration report */
+  CalibrationMagReport = 'calibration:magReport',
+
+  /** RC calibration state changed */
+  RcCalibrationStateChanged = 'rcCalibration:stateChanged'
 }

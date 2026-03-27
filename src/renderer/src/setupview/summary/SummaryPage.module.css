@@ -1,0 +1,93 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  padding-bottom: 24px;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.noVehicle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  color: var(--text-dimmed);
+  padding: 32px 0;
+}
+
+.section {
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: 4px;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 4px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.infoLabel {
+  color: var(--text-dimmed);
+}
+
+.infoValue {
+  color: var(--text-primary);
+}
+
+.sensorGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sensorRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.sensorLabel {
+  color: var(--text-secondary);
+}
+
+.sensorStatus {
+  font-weight: 600;
+}
+
+.statusOK {
+  color: #00e676;
+}
+
+.statusFail {
+  color: #ff5252;
+}
+
+.statusWarn {
+  color: #ffab40;
+}
+
+.statusNA {
+  color: var(--text-dimmed);
+}

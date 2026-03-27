@@ -1,0 +1,263 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.calBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  transition: background 0.15s;
+}
+
+.calBtn:hover {
+  background: var(--bg-hover);
+}
+
+.calBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.calBtnLabel {
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+}
+
+.calBtnDesc {
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+  text-align: center;
+}
+
+.calBtnCalibrated {
+  border-color: #00e676;
+}
+
+.calBtnNotCalibrated {
+  border-color: #ffab40;
+}
+
+.calStatusOk {
+  font-size: var(--fs-xs);
+  color: #00e676;
+  font-weight: 600;
+}
+
+.calStatusWarn {
+  font-size: var(--fs-xs);
+  color: #ffab40;
+  font-weight: 600;
+}
+
+.orientationSection {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+}
+
+.orientationLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.orientationSelect {
+  flex: 1;
+  max-width: 320px;
+  padding: 4px 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.orientationSaveBtn {
+  background: var(--accent-blue);
+  border: 1px solid var(--accent-blue);
+  border-radius: 4px;
+  padding: 4px 14px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.orientationParamName {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+}
+
+.wizardOverlay {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.wizardSensor {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--accent-blue);
+  letter-spacing: 1px;
+}
+
+.wizardStatus {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  text-align: center;
+  max-width: 500px;
+}
+
+.wizardMessage {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+  text-align: center;
+  max-width: 500px;
+  min-height: 40px;
+}
+
+.progressBarWrap {
+  width: 300px;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: var(--accent-blue);
+  transition: width 0.3s ease;
+}
+
+.progressComplete {
+  background: #00e676;
+}
+
+.progressFailed {
+  background: #ff5252;
+}
+
+.orientations {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.orientationBadge {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  background: var(--bg-elevated);
+  color: var(--text-dimmed);
+  border: 1px solid var(--border-default);
+}
+
+.orientationDone {
+  background: #1b5e20;
+  color: #a5d6a7;
+  border-color: #1b5e20;
+}
+
+.orientationCurrent {
+  background: var(--accent-blue);
+  color: #fff;
+  border-color: var(--accent-blue);
+}
+
+.cancelBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 8px 20px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.cancelBtn:hover {
+  background: var(--bg-hover);
+}
+
+.magProgressGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 300px;
+}
+
+.magProgressItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.magProgressLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.magProgressPct {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.doneBtn {
+  background: var(--accent-blue);
+  border: 1px solid var(--accent-blue);
+  border-radius: 4px;
+  padding: 8px 20px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  margin-top: 8px;
+}

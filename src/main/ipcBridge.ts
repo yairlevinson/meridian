@@ -9,6 +9,7 @@ import type { IpcHandler } from '@shared/ipc/geo'
 import type { MavCommandRequest, FlightModeRequest } from '@shared/ipc/MavCommandRequest'
 import type { LinkConfig } from '@shared/ipc/LinkState'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
+import { CalibrationSensor } from '@shared/ipc/SetupTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
 
@@ -41,6 +42,38 @@ export function startIpcBridge(
       })
       vehicle.missionManager.on('currentChanged', (seq: number) => {
         broadcast('mission:currentChanged', { vehicleId: sysid, seq })
+      })
+
+      // Forward parameter events
+      vehicle.parameterManager.on('parameterReceived', (param) => {
+        broadcast(IpcEvents.ParameterChanged, { vehicleId: sysid, parameter: param })
+      })
+      vehicle.parameterManager.on('parametersReady', () => {
+        broadcast(IpcEvents.ParametersReady, { vehicleId: sysid })
+      })
+      vehicle.parameterManager.on('progress', (loadState) => {
+        broadcast(IpcEvents.ParametersProgress, { vehicleId: sysid, loadState })
+      })
+
+      // Forward STATUSTEXT
+      vehicle.on('statusText', (payload: { severity: number; text: string }) => {
+        broadcast(IpcEvents.StatusText, { vehicleId: sysid, ...payload })
+      })
+
+      // Forward calibration events
+      vehicle.calibrationManager.on('stateChanged', (state) => {
+        broadcast(IpcEvents.CalibrationStateChanged, { vehicleId: sysid, state })
+      })
+      vehicle.calibrationManager.on('magProgress', (progress) => {
+        broadcast(IpcEvents.CalibrationMagProgress, { vehicleId: sysid, ...progress })
+      })
+      vehicle.calibrationManager.on('magReport', (report) => {
+        broadcast(IpcEvents.CalibrationMagReport, { vehicleId: sysid, ...report })
+      })
+
+      // Forward RC calibration events
+      vehicle.rcCalibrationManager.on('stateChanged', (state) => {
+        broadcast(IpcEvents.RcCalibrationStateChanged, { vehicleId: sysid, state })
       })
     }
   })
@@ -163,15 +196,30 @@ export function startIpcBridge(
     },
     {
       channel: IpcChannels.ParametersRefresh,
-      handler: () => console.log('[IPC] params refresh requested')
+      handler: (...args: unknown[]) => {
+        const vehicleId = args[0] as number
+        const vehicle = vehicleManager.getVehicle(vehicleId)
+        if (!vehicle) return
+        vehicle.parameterManager.requestAllParameters()
+      }
     },
     {
       channel: IpcChannels.ParametersSet,
-      handler: () => console.log('[IPC] param set requested')
+      handler: (...args: unknown[]) => {
+        const req = args[0] as { vehicleId: number; componentId: number; name: string; value: number }
+        const vehicle = vehicleManager.getVehicle(req.vehicleId)
+        if (!vehicle) return
+        vehicle.parameterManager.setParameter(req.name, req.value)
+      }
     },
     {
       channel: IpcChannels.ParametersGetAll,
-      handler: () => ({})
+      handler: (...args: unknown[]) => {
+        const vehicleId = args[0] as number
+        const vehicle = vehicleManager.getVehicle(vehicleId)
+        if (!vehicle) return []
+        return vehicle.parameterManager.getAllParameters()
+      }
     },
     {
       channel: IpcChannels.MissionLoad,
@@ -300,6 +348,80 @@ export function startIpcBridge(
     {
       channel: IpcChannels.LinksGetAll,
       handler: () => linkManager?.getAllStates() ?? []
+    },
+    // Calibration
+    {
+      channel: IpcChannels.CalibrationStart,
+      handler: (req: { vehicleId: number; sensor: string }) => {
+        const vehicle = vehicleManager.getVehicle(req.vehicleId)
+        if (!vehicle) return
+        vehicle.calibrationManager.startCalibration(req.sensor as CalibrationSensor)
+      }
+    },
+    {
+      channel: IpcChannels.CalibrationCancel,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.calibrationManager.cancelCalibration()
+      }
+    },
+    {
+      channel: IpcChannels.CalibrationGetState,
+      handler: (vehicleId: number) => {
+        return vehicleManager.getVehicle(vehicleId)?.calibrationManager.state ?? null
+      }
+    },
+    // RC Calibration
+    {
+      channel: IpcChannels.RcCalibrationStart,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.start()
+      }
+    },
+    {
+      channel: IpcChannels.RcCalibrationNextStep,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.nextStep()
+      }
+    },
+    {
+      channel: IpcChannels.RcCalibrationCancel,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.cancel()
+      }
+    },
+    {
+      channel: IpcChannels.RcCalibrationSave,
+      handler: (vehicleId: number) => {
+        return vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.save()
+      }
+    },
+    // Flight Modes
+    {
+      channel: IpcChannels.FlightModesGet,
+      handler: (vehicleId: number) => {
+        const vehicle = vehicleManager.getVehicle(vehicleId)
+        if (!vehicle) return null
+        const pm = vehicle.parameterManager
+        const modeChannel = pm.getParameter('FLTMODE_CH')?.value ?? 5
+        const modes: Array<{ slot: number; modeNumber: number; modeName: string }> = []
+        for (let i = 1; i <= 6; i++) {
+          const modeNum = pm.getParameter(`FLTMODE${i}`)?.value ?? 0
+          modes.push({ slot: i, modeNumber: modeNum, modeName: '' })
+        }
+        return { modeChannel, modes, activeSlot: 0 }
+      }
+    },
+    {
+      channel: IpcChannels.FlightModesSet,
+      handler: (req: { vehicleId: number; config: { modeChannel: number; modes: Array<{ slot: number; modeNumber: number }> } }) => {
+        const vehicle = vehicleManager.getVehicle(req.vehicleId)
+        if (!vehicle) return
+        const pm = vehicle.parameterManager
+        pm.setParameter('FLTMODE_CH', req.config.modeChannel)
+        for (const mode of req.config.modes) {
+          pm.setParameter(`FLTMODE${mode.slot}`, mode.modeNumber)
+        }
+      }
     }
   ]
 

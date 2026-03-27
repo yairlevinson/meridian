@@ -38,3 +38,21 @@ export const useParameterStore = create<ParameterStore>((set) => ({
       loadState: { ...prev.loadState, ...partial }
     }))
 }))
+
+// Wire IPC listeners when bridge is available
+setTimeout(() => {
+  const bridge = window.qgcBridge
+  if (!bridge) return
+
+  bridge.onParameterChanged?.((payload) => {
+    useParameterStore.getState().updateParameter(payload.parameter)
+  })
+
+  bridge.onParametersReady?.(() => {
+    useParameterStore.getState().setLoadState({ parametersReady: true })
+  })
+
+  bridge.onParametersProgress?.((payload) => {
+    useParameterStore.getState().setLoadState(payload.loadState)
+  })
+}, 0)

@@ -25,5 +25,6 @@ export interface StreamRequest {
 /** IPC handler registration */
 export interface IpcHandler {
   channel: string
-  handler: (...args: unknown[]) => unknown
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  handler: (...args: any[]) => any
 }
