@@ -170,6 +170,40 @@ Unit tests cover:
 - GeoFence and Rally Point protocols
 - Tile provider URL resolution
 - Zustand store logic
+- Tlog replay integration (see below)
+
+### Integration Tests (Tlog Replay)
+
+Integration tests feed real MAVLink captures (tlogs) through the production `MavlinkChannel` → `Vehicle` pipeline, verifying telemetry state without a live autopilot.
+
+```bash
+# Run tlog replay tests (uses synthetic data if real captures aren't available)
+npm test -- test/tlogReplay.test.ts
+```
+
+Tests cover: heartbeat/vehicle detection, GPS position, armed/disarmed tracking, altitude changes, flight mode resolution, attitude, and GPS fix type.
+
+#### Generating Real Captures from PX4 SITL
+
+To replace the synthetic fallback with real PX4 telemetry:
+
+```bash
+# 1. Install Python dependencies
+pip3 install mavsdk pymavlink
+
+# 2. Start PX4 SITL (in the PX4-Autopilot directory)
+make px4_sitl gz_x500
+
+# 3. In another terminal, run all capture scenarios
+python3 scripts/capture-tlog.py --scenario all
+
+# 4. List available scenarios
+python3 scripts/capture-tlog.py --list
+```
+
+This generates `.tlog` files in `test/fixtures/captures/` for 4 scenarios: `arm-takeoff-land`, `rtl`, `gps-startup`, and `mode-changes`. The capture script uses MAVSDK for vehicle control and pymavlink for raw MAVLink recording.
+
+> **Note:** PX4 v1.17+ defaults `COM_ARMABLE=0` (safety mode). The capture script sets this automatically via MAVSDK params.
 
 ### End-to-End Tests
 
