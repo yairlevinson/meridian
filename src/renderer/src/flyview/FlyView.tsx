@@ -14,6 +14,7 @@ import { GuidedActions } from './GuidedActions'
 import { LinkQuality } from './LinkQuality'
 import { StatusTextOverlay } from './StatusTextOverlay'
 import { VehicleSelector } from './VehicleSelector'
+import { CameraPanel } from './CameraPanel'
 import { PerfOverlay } from '../perf/PerfOverlay'
 import { useTelemetry } from '../hooks/useVehicle'
 import { useCommand } from '../hooks/useCommand'
@@ -241,6 +242,8 @@ export function FlyView(): React.JSX.Element {
 
         <div className="section-label">RADIO</div>
         <LinkQuality />
+
+        <CameraPanel />
 
         <div className={styles.guidedActionsArea}>
           <GuidedActions />

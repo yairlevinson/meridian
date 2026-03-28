@@ -53,5 +53,10 @@ export enum IpcEvents {
   RcCalibrationStateChanged = 'rcCalibration:stateChanged',
 
   /** Firmware upgrade state changed */
-  FirmwareUpgradeStateChanged = 'firmware:stateChanged'
+  FirmwareUpgradeStateChanged = 'firmware:stateChanged',
+
+  /** Camera state changed */
+  CameraStateChanged = 'camera:stateChanged',
+  /** Image captured event */
+  CameraImageCaptured = 'camera:imageCaptured'
 }

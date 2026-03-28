@@ -1,0 +1,92 @@
+.panel {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cameraName {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #e0e0e0;
+}
+
+.storage {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.modeToggle {
+  display: flex;
+  gap: 4px;
+}
+
+.modeBtn {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid #444;
+  background: #2a2a2a;
+  color: #aaa;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.modeBtn:hover {
+  background: #333;
+}
+
+.modeActive {
+  background: #1a73e8;
+  color: #fff;
+  border-color: #1a73e8;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.captureBtn {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 4px;
+  background: #1a73e8;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.captureBtn:hover {
+  background: #1565c0;
+}
+
+.recording {
+  background: #d32f2f;
+}
+
+.recording:hover {
+  background: #b71c1c;
+}
+
+.photoCount {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.recTime {
+  font-size: 0.8rem;
+  color: #d32f2f;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

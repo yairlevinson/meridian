@@ -8,6 +8,7 @@ import { CalibrationManager } from '../calibration/CalibrationManager'
 import { RcCalibrationManager } from '../calibration/RcCalibrationManager'
 import { FirmwareManager } from '../firmware/FirmwareManager'
 import { FTPManager } from '../ftp/FTPManager'
+import { CameraManager } from '../camera/CameraManager'
 import type { LinkInterface } from '../links/LinkInterface'
 import type { DecodedMessage } from '../mavlink/MavlinkChannel'
 import { MavResult } from '@shared/ipc/MavCommandRequest'
@@ -28,6 +29,7 @@ export class Vehicle extends EventEmitter {
   readonly rcCalibrationManager: RcCalibrationManager
   readonly firmwareManager: FirmwareManager
   readonly ftpManager: FTPManager
+  readonly cameraManager: CameraManager
   private _parametersRequested = false
 
   constructor(
@@ -49,6 +51,7 @@ export class Vehicle extends EventEmitter {
     this.firmwareManager.setFtpManager(this.ftpManager)
     this.firmwareManager.setCommandQueue(this.commandQueue)
     this.firmwareManager.setSysId(sysid)
+    this.cameraManager = new CameraManager()
     this.linkManager = new VehicleLinkManager(options)
 
     this.linkManager.on('communicationLost', () => {
@@ -69,6 +72,8 @@ export class Vehicle extends EventEmitter {
       this.parameterManager.setTarget(sysid, 1)
       this.calibrationManager.setLink(link)
       this.calibrationManager.setTarget(sysid)
+      this.cameraManager.setLink(link)
+      this.cameraManager.setTarget(sysid)
       this.emit('primaryLinkChanged', link)
     })
   }
@@ -84,6 +89,8 @@ export class Vehicle extends EventEmitter {
       this.parameterManager.setTarget(this.sysid, 1)
       this.calibrationManager.setLink(link)
       this.calibrationManager.setTarget(this.sysid)
+      this.cameraManager.setLink(link)
+      this.cameraManager.setTarget(this.sysid)
     }
   }
 
@@ -97,6 +104,8 @@ export class Vehicle extends EventEmitter {
     this.parameterManager.setTarget(this.sysid, 1)
     this.calibrationManager.setLink(link as LinkInterface)
     this.calibrationManager.setTarget(this.sysid)
+    this.cameraManager.setLink(link as LinkInterface)
+    this.cameraManager.setTarget(this.sysid)
   }
 
   /** Handle a decoded MAVLink message */
@@ -182,6 +191,30 @@ export class Vehicle extends EventEmitter {
         rc.chan17Raw, rc.chan18Raw
       ]
       this.rcCalibrationManager.updateChannels(channels, rc.chancount)
+    }
+
+    // Camera protocol messages
+    if (msg.msgid === 0) {
+      // Heartbeat from a camera component (compid 100-105)
+      const compid = (msg.data as { targetComponent?: number }).targetComponent
+      if (compid !== undefined && compid >= 100 && compid <= 105) {
+        this.cameraManager.handleCameraHeartbeat()
+      }
+    }
+    if (msg.msgid === 259) {
+      this.cameraManager.handleCameraInformation(msg.data as Record<string, unknown>)
+    }
+    if (msg.msgid === 260) {
+      this.cameraManager.handleCameraSettings(msg.data as Record<string, number>)
+    }
+    if (msg.msgid === 261) {
+      this.cameraManager.handleStorageInformation(msg.data as Record<string, number>)
+    }
+    if (msg.msgid === 262) {
+      this.cameraManager.handleCaptureStatus(msg.data as Record<string, number>)
+    }
+    if (msg.msgid === 263) {
+      this.cameraManager.handleImageCaptured(msg.data as Record<string, number>)
     }
 
     // Auto-request parameters after first heartbeat
@@ -333,6 +366,7 @@ export class Vehicle extends EventEmitter {
     this.rcCalibrationManager.destroy()
     this.firmwareManager.destroy()
     this.ftpManager.destroy()
+    this.cameraManager.destroy()
     this.linkManager.destroy()
   }
 }

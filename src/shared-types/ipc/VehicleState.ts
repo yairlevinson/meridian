@@ -165,6 +165,20 @@ export interface TerrainGroup {
   seq: number
 }
 
+// ── Camera ───────────────────────────────────────────────────────
+export interface CameraGroup {
+  discovered: boolean
+  mode: number // CameraMode enum
+  isRecordingVideo: boolean
+  isCapturingImage: boolean
+  photoCount: number
+  videoRecordingTimeMs: number
+  availableCapacityMib: number
+  hasCapVideo: boolean
+  hasCapImage: boolean
+  seq: number
+}
+
 // ── Full snapshot ─────────────────────────────────────────────────
 export interface VehicleSnapshot {
   core: CoreGroup
@@ -182,6 +196,7 @@ export interface VehicleSnapshot {
   extendedState: ExtendedStateGroup
   missionStatus: MissionStatusGroup
   terrain: TerrainGroup
+  camera: CameraGroup
 }
 
 /** Names of all vehicle state groups — used for delta tracking */

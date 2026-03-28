@@ -33,6 +33,15 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 - Automatic data stream requests for both ArduPilot and PX4 autopilots
 - GCS heartbeat broadcasting for PX4 compatibility
 
+### Camera Control
+- MAVLink Camera Protocol v2 (CAMERA_INFORMATION, CAMERA_SETTINGS, CAMERA_CAPTURE_STATUS)
+- Photo capture (single shot and interval/timelapse)
+- Video recording start/stop with recording time tracking
+- Camera mode switching (photo/video)
+- Storage information and format commands
+- Auto-discovery from camera component heartbeats with retry logic
+- Adaptive capture status polling (QGC-compatible intervals)
+
 ### Additional Systems
 - Gimbal control with quaternion-to-Euler conversion
 - GeoFence and Rally Point management
@@ -167,6 +176,7 @@ Unit tests cover:
 - TCP/UDP link lifecycle and error handling
 - ADS-B vehicle tracking and unit conversions
 - Gimbal quaternion math and command sending
+- MAVLink camera protocol (discovery, capture, recording, polling)
 - GeoFence and Rally Point protocols
 - Tile provider URL resolution
 - Zustand store logic
@@ -281,6 +291,8 @@ meridian/
 │   │   ├── mavlink/
 │   │   │   ├── MavlinkProtocol.ts
 │   │   │   └── constants.ts
+│   │   ├── camera/
+│   │   │   └── CameraManager.ts     # MAVLink camera protocol (discovery, capture, recording)
 │   │   ├── vehicle/
 │   │   │   ├── VehicleManager.ts    # Multi-vehicle registry
 │   │   │   ├── Vehicle.ts           # Per-vehicle state & message handling
@@ -304,6 +316,7 @@ meridian/
 │   │       ├── store/
 │   │       │   ├── vehicleStore.ts
 │   │       │   ├── missionStore.ts
+│   │       │   ├── cameraStore.ts     # Per-vehicle camera state
 │   │       │   └── settingsStore.ts
 │   │       └── map/providers/
 │   │           └── ProviderRegistry.ts
@@ -431,7 +444,7 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 |---------|--------|-------|
 | Video Streaming | ✅ | UDP H.264/H.265, RTSP, TCP MPEG-TS via ffmpeg |
 | Video Recording | ✅ | MKV, MOV, MP4 formats |
-| MAVLink Camera Protocol | ❌ | Photo capture, camera settings, zoom |
+| MAVLink Camera Protocol | ✅ | Discovery, photo/video capture, mode switching, storage info |
 | Multiple Simultaneous Streams | ❌ | |
 
 ### Analysis & Logging

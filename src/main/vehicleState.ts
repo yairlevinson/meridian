@@ -17,7 +17,8 @@ import type {
   VibrationGroup,
   ExtendedStateGroup,
   MissionStatusGroup,
-  TerrainGroup
+  TerrainGroup,
+  CameraGroup
 } from '@shared/ipc/VehicleState'
 
 export type { VehicleSnapshot, VehicleDelta, VehicleGroupName }
@@ -126,6 +127,20 @@ function defaultMissionStatus(): MissionStatusGroup {
 function defaultTerrain(): TerrainGroup {
   return { terrainAltitude: 0, terrainValid: false, distanceToGround: 0, seq: 0 }
 }
+function defaultCamera(): CameraGroup {
+  return {
+    discovered: false,
+    mode: 0,
+    isRecordingVideo: false,
+    isCapturingImage: false,
+    photoCount: 0,
+    videoRecordingTimeMs: 0,
+    availableCapacityMib: 0,
+    hasCapVideo: false,
+    hasCapImage: false,
+    seq: 0
+  }
+}
 
 export function defaultSnapshot(): VehicleSnapshot {
   return {
@@ -143,7 +158,8 @@ export function defaultSnapshot(): VehicleSnapshot {
     vibration: defaultVibration(),
     extendedState: defaultExtendedState(),
     missionStatus: defaultMissionStatus(),
-    terrain: defaultTerrain()
+    terrain: defaultTerrain(),
+    camera: defaultCamera()
   }
 }
 
@@ -166,6 +182,9 @@ const MSG_WIND = 168 // ArduPilot-specific
 const MSG_TERRAIN_REPORT = 136
 const MSG_LOCAL_POSITION_NED = 32
 const MSG_MISSION_CURRENT = 42
+const MSG_CAMERA_INFORMATION = 259
+const MSG_CAMERA_SETTINGS = 260
+const MSG_CAMERA_CAPTURE_STATUS = 262
 
 export class VehicleState {
   private state: VehicleSnapshot = defaultSnapshot()
@@ -184,7 +203,8 @@ export class VehicleState {
     vibration: false,
     extendedState: false,
     missionStatus: false,
-    terrain: false
+    terrain: false,
+    camera: false
   }
   private dirtyCount = 0
 
@@ -247,6 +267,15 @@ export class VehicleState {
         break
       case MSG_MISSION_CURRENT:
         this._handleMissionCurrent(data as common.MissionCurrent)
+        break
+      case MSG_CAMERA_INFORMATION:
+        this._handleCameraInformation(data as Record<string, unknown>)
+        break
+      case MSG_CAMERA_SETTINGS:
+        this._handleCameraSettings(data as Record<string, number>)
+        break
+      case MSG_CAMERA_CAPTURE_STATUS:
+        this._handleCameraCaptureStatus(data as Record<string, number>)
         break
       case MSG_COMMAND_ACK:
         // Handled by MavCommandQueue in Phase 3
@@ -506,6 +535,42 @@ export class VehicleState {
     this.markDirty('missionStatus')
   }
 
+  private _handleCameraInformation(ci: Record<string, unknown>): void {
+    const flags = (ci['flags'] as number) ?? 0
+    this.state.camera = {
+      ...this.state.camera,
+      discovered: true,
+      hasCapVideo: !!(flags & 1), // CAMERA_CAP_FLAGS_CAPTURE_VIDEO
+      hasCapImage: !!(flags & 2), // CAMERA_CAP_FLAGS_CAPTURE_IMAGE
+      seq: this.state.camera.seq + 1
+    }
+    this.markDirty('camera')
+  }
+
+  private _handleCameraSettings(cs: Record<string, number>): void {
+    this.state.camera = {
+      ...this.state.camera,
+      mode: cs['modeId'] ?? 0,
+      seq: this.state.camera.seq + 1
+    }
+    this.markDirty('camera')
+  }
+
+  private _handleCameraCaptureStatus(cs: Record<string, number>): void {
+    const imageStatus = cs['imageStatus'] ?? 0
+    const videoStatus = cs['videoStatus'] ?? 0
+    this.state.camera = {
+      ...this.state.camera,
+      isCapturingImage: imageStatus === 1 || imageStatus === 3,
+      isRecordingVideo: videoStatus === 1,
+      photoCount: cs['imageCount'] ?? this.state.camera.photoCount,
+      videoRecordingTimeMs: cs['recordingTimeMs'] ?? 0,
+      availableCapacityMib: cs['availableCapacity'] ?? 0,
+      seq: this.state.camera.seq + 1
+    }
+    this.markDirty('camera')
+  }
+
   setSysId(sysid: number): void {
     if (this.state.core.sysid !== sysid) {
       this.state.core.sysid = sysid
@@ -528,6 +593,15 @@ export class VehicleState {
       this.state.core.seq++
       this.markDirty('core')
     }
+  }
+
+  updateCamera(partial: Partial<CameraGroup>): void {
+    this.state.camera = {
+      ...this.state.camera,
+      ...partial,
+      seq: this.state.camera.seq + 1
+    }
+    this.markDirty('camera')
   }
 
   setFlightModeName(name: string): void {
@@ -602,6 +676,9 @@ export class VehicleState {
       case 'terrain':
         delta.terrain = { ...this.state.terrain }
         break
+      case 'camera':
+        delta.camera = { ...this.state.camera }
+        break
     }
   }
 
@@ -621,7 +698,8 @@ export class VehicleState {
       vibration: { ...this.state.vibration },
       extendedState: { ...this.state.extendedState },
       missionStatus: { ...this.state.missionStatus },
-      terrain: { ...this.state.terrain }
+      terrain: { ...this.state.terrain },
+      camera: { ...this.state.camera }
     }
   }
 

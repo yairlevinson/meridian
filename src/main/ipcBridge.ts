@@ -10,6 +10,7 @@ import type { MavCommandRequest, FlightModeRequest } from '@shared/ipc/MavComman
 import type { LinkConfig } from '@shared/ipc/LinkState'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { CalibrationSensor } from '@shared/ipc/SetupTypes'
+import { CameraMode } from '@shared/ipc/CameraTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
 
@@ -79,6 +80,14 @@ export function startIpcBridge(
       // Forward firmware upgrade events
       vehicle.firmwareManager.on('stateChanged', (state) => {
         broadcast(IpcEvents.FirmwareUpgradeStateChanged, { vehicleId: sysid, state })
+      })
+
+      // Forward camera events
+      vehicle.cameraManager.on('stateChanged', (state) => {
+        broadcast(IpcEvents.CameraStateChanged, { vehicleId: sysid, state })
+      })
+      vehicle.cameraManager.on('imageCaptured', (data) => {
+        broadcast(IpcEvents.CameraImageCaptured, { vehicleId: sysid, ...data })
       })
     }
   })
@@ -453,6 +462,55 @@ export function startIpcBridge(
         const vehicle = vehicleManager.getVehicle(vehicleId)
         if (!vehicle) throw new Error('No vehicle')
         await vehicle.firmwareManager.reboot()
+      }
+    },
+    // Camera
+    {
+      channel: IpcChannels.CameraRequestInfo,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.cameraManager.handleCameraHeartbeat()
+      }
+    },
+    {
+      channel: IpcChannels.CameraTakePhoto,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.cameraManager.takePhoto()
+      }
+    },
+    {
+      channel: IpcChannels.CameraStopCapture,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.cameraManager.stopCapture()
+      }
+    },
+    {
+      channel: IpcChannels.CameraStartRecording,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.cameraManager.startRecording()
+      }
+    },
+    {
+      channel: IpcChannels.CameraStopRecording,
+      handler: (vehicleId: number) => {
+        vehicleManager.getVehicle(vehicleId)?.cameraManager.stopRecording()
+      }
+    },
+    {
+      channel: IpcChannels.CameraSetMode,
+      handler: (req: { vehicleId: number; mode: number }) => {
+        vehicleManager.getVehicle(req.vehicleId)?.cameraManager.setMode(req.mode as CameraMode)
+      }
+    },
+    {
+      channel: IpcChannels.CameraFormatStorage,
+      handler: (req: { vehicleId: number; storageId?: number }) => {
+        vehicleManager.getVehicle(req.vehicleId)?.cameraManager.formatStorage(req.storageId)
+      }
+    },
+    {
+      channel: IpcChannels.CameraGetState,
+      handler: (vehicleId: number) => {
+        return vehicleManager.getVehicle(vehicleId)?.cameraManager.state ?? null
       }
     },
     {

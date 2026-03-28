@@ -103,5 +103,15 @@ export enum IpcChannels {
   FirmwareUploadFile = 'firmware:uploadFile',
   FirmwareCancel = 'firmware:cancel',
   FirmwareReboot = 'firmware:reboot',
-  FirmwareGetBoardInfo = 'firmware:getBoardInfo'
+  FirmwareGetBoardInfo = 'firmware:getBoardInfo',
+
+  // Camera
+  CameraRequestInfo = 'camera:requestInfo',
+  CameraTakePhoto = 'camera:takePhoto',
+  CameraStopCapture = 'camera:stopCapture',
+  CameraStartRecording = 'camera:startRecording',
+  CameraStopRecording = 'camera:stopRecording',
+  CameraSetMode = 'camera:setMode',
+  CameraFormatStorage = 'camera:formatStorage',
+  CameraGetState = 'camera:getState'
 }

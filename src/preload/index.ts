@@ -14,6 +14,7 @@ import type {
   FlightModeConfig,
   FirmwareUpgradeState
 } from '../shared-types/ipc/SetupTypes'
+import type { CameraState } from '../shared-types/ipc/CameraTypes'
 
 export interface Bridge {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
@@ -101,6 +102,29 @@ export interface Bridge {
   firmwareGetBoardInfo: (vehicleId: number) => Promise<unknown>
   onFirmwareUpgradeStateChanged: (
     cb: (payload: { vehicleId: number; state: FirmwareUpgradeState }) => void
+  ) => () => void
+
+  // Camera
+  cameraRequestInfo: (vehicleId: number) => Promise<void>
+  cameraTakePhoto: (vehicleId: number) => Promise<void>
+  cameraStopCapture: (vehicleId: number) => Promise<void>
+  cameraStartRecording: (vehicleId: number) => Promise<void>
+  cameraStopRecording: (vehicleId: number) => Promise<void>
+  cameraSetMode: (vehicleId: number, mode: number) => Promise<void>
+  cameraFormatStorage: (vehicleId: number, storageId?: number) => Promise<void>
+  cameraGetState: (vehicleId: number) => Promise<CameraState | null>
+  onCameraStateChanged: (
+    cb: (payload: { vehicleId: number; state: CameraState }) => void
+  ) => () => void
+  onCameraImageCaptured: (
+    cb: (payload: {
+      vehicleId: number
+      lat: number
+      lon: number
+      alt: number
+      imageIndex: number
+      captureResult: number
+    }) => void
   ) => () => void
 
   // Popout windows
@@ -325,6 +349,51 @@ const bridge: Bridge = {
     ipcRenderer.on(IpcEvents.FirmwareUpgradeStateChanged, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.FirmwareUpgradeStateChanged, handler)
+    }
+  },
+
+  // Camera
+  cameraRequestInfo: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.CameraRequestInfo, vehicleId),
+  cameraTakePhoto: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.CameraTakePhoto, vehicleId),
+  cameraStopCapture: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.CameraStopCapture, vehicleId),
+  cameraStartRecording: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.CameraStartRecording, vehicleId),
+  cameraStopRecording: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.CameraStopRecording, vehicleId),
+  cameraSetMode: (vehicleId, mode) =>
+    ipcRenderer.invoke(IpcChannels.CameraSetMode, { vehicleId, mode }),
+  cameraFormatStorage: (vehicleId, storageId) =>
+    ipcRenderer.invoke(IpcChannels.CameraFormatStorage, { vehicleId, storageId }),
+  cameraGetState: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.CameraGetState, vehicleId),
+  onCameraStateChanged: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number; state: CameraState }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.CameraStateChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.CameraStateChanged, handler)
+    }
+  },
+  onCameraImageCaptured: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: {
+        vehicleId: number
+        lat: number
+        lon: number
+        alt: number
+        imageIndex: number
+        captureResult: number
+      }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.CameraImageCaptured, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.CameraImageCaptured, handler)
     }
   },
 
