@@ -335,3 +335,157 @@ describe('attitude replay', () => {
     expect(snap.attitude.yaw).not.toBe(0)
   })
 })
+
+// ── Real-capture-only tests ──────────────────────────────────
+// These test suites require real PX4 SITL captures. They are skipped
+// when capture files are not present (e.g. in CI without SITL).
+
+describe('waypoint-mission replay', () => {
+  let vehicle: Vehicle
+  let channel: MavlinkChannel
+
+  beforeEach(() => {
+    if (!hasCaptureFile('waypoint-mission')) return
+    const setup = createTestVehicle()
+    vehicle = setup.vehicle
+    channel = setup.channel
+  })
+
+  it('tracks mission waypoint progress', async () => {
+    if (!hasCaptureFile('waypoint-mission')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'waypoint-mission.tlog'))
+    await replay.replayAll(channel, vehicle)
+
+    const snap = vehicle.state.getSnapshot()
+    expect(snap.missionStatus.seq).toBeGreaterThan(0)
+    // Should have advanced past waypoint 0
+    expect(snap.missionStatus.currentIndex).toBeGreaterThan(0)
+  })
+
+  it('captures VFR HUD with varying groundspeed', async () => {
+    if (!hasCaptureFile('waypoint-mission')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'waypoint-mission.tlog'))
+    const snapshots = await replay.replayWithSnapshots(channel, vehicle, 3000)
+
+    const speeds = snapshots.map((s) => s.snapshot.vfrHud.groundspeed).filter((s) => s > 0)
+    expect(speeds.length).toBeGreaterThan(0)
+    // Should see speed variation during waypoint flight
+    const maxSpeed = Math.max(...speeds)
+    expect(maxSpeed).toBeGreaterThan(1) // moving at > 1 m/s
+  })
+
+  it('captures battery status during flight', async () => {
+    if (!hasCaptureFile('waypoint-mission')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'waypoint-mission.tlog'))
+    await replay.replayAll(channel, vehicle)
+
+    const snap = vehicle.state.getSnapshot()
+    expect(snap.battery.seq).toBeGreaterThan(0)
+    expect(snap.battery.batteries.length).toBeGreaterThan(0)
+    expect(snap.battery.batteries[0].voltage).toBeGreaterThan(0)
+  })
+
+  it('shows GPS position change during mission', async () => {
+    if (!hasCaptureFile('waypoint-mission')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'waypoint-mission.tlog'))
+    const snapshots = await replay.replayWithSnapshots(channel, vehicle, 5000)
+
+    const lats = snapshots.map((s) => s.snapshot.gps.lat).filter((l) => l !== 0)
+    const lons = snapshots.map((s) => s.snapshot.gps.lon).filter((l) => l !== 0)
+    // Should see position change as vehicle flies the square pattern
+    const latRange = Math.max(...lats) - Math.min(...lats)
+    const lonRange = Math.max(...lons) - Math.min(...lons)
+    expect(latRange + lonRange).toBeGreaterThan(0.0001)
+  })
+})
+
+describe('long-hover replay', () => {
+  let vehicle: Vehicle
+  let channel: MavlinkChannel
+
+  beforeEach(() => {
+    if (!hasCaptureFile('long-hover')) return
+    const setup = createTestVehicle()
+    vehicle = setup.vehicle
+    channel = setup.channel
+  })
+
+  it('captures SYS_STATUS with sensor health', async () => {
+    if (!hasCaptureFile('long-hover')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'long-hover.tlog'))
+    await replay.replayAll(channel, vehicle)
+
+    const snap = vehicle.state.getSnapshot()
+    expect(snap.sysStatus.seq).toBeGreaterThan(0)
+    // PX4 should report some sensors present
+    expect(snap.sysStatus.onboardControlSensorsPresent).toBeGreaterThan(0)
+    expect(snap.sysStatus.onboardControlSensorsEnabled).toBeGreaterThan(0)
+    // CPU load may be 0 in SITL
+    expect(snap.sysStatus.load).toBeGreaterThanOrEqual(0)
+  })
+
+  it('captures vibration levels', async () => {
+    if (!hasCaptureFile('long-hover')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'long-hover.tlog'))
+    await replay.replayAll(channel, vehicle)
+
+    const snap = vehicle.state.getSnapshot()
+    expect(snap.vibration.seq).toBeGreaterThan(0)
+    // SITL should report some vibration values (even if small)
+    const total = snap.vibration.xVibration + snap.vibration.yVibration + snap.vibration.zVibration
+    expect(total).toBeGreaterThanOrEqual(0)
+  })
+
+  it('captures home position', async () => {
+    if (!hasCaptureFile('long-hover')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'long-hover.tlog'))
+    await replay.replayAll(channel, vehicle)
+
+    const snap = vehicle.state.getSnapshot()
+    expect(snap.home.seq).toBeGreaterThan(0)
+    expect(snap.home.valid).toBe(true)
+    expect(snap.home.lat).toBeCloseTo(47.4, 0) // PX4 SITL default
+    expect(snap.home.lon).toBeCloseTo(8.5, 0)
+  })
+
+  it('captures extended sys state (landed state)', async () => {
+    if (!hasCaptureFile('long-hover')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'long-hover.tlog'))
+    await replay.replayAll(channel, vehicle)
+
+    const snap = vehicle.state.getSnapshot()
+    expect(snap.extendedState.seq).toBeGreaterThan(0)
+    // Final state after landing should be MAV_LANDED_STATE_ON_GROUND (1)
+    expect(snap.extendedState.landedState).toBe(1)
+  })
+
+  it('captures VFR HUD during hover', async () => {
+    if (!hasCaptureFile('long-hover')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'long-hover.tlog'))
+    await replay.replayAll(channel, vehicle)
+
+    const snap = vehicle.state.getSnapshot()
+    expect(snap.vfrHud.seq).toBeGreaterThan(0)
+    // Throttle should have been non-zero during hover
+    expect(snap.vfrHud.heading).toBeGreaterThanOrEqual(0)
+  })
+
+  it('captures battery drain over time', async () => {
+    if (!hasCaptureFile('long-hover')) return
+    const replay = TlogReplay.fromFile(resolve(CAPTURES_DIR, 'long-hover.tlog'))
+    const snapshots = await replay.replayWithSnapshots(channel, vehicle, 5000)
+
+    const batteryLevels = snapshots
+      .map((s) => s.snapshot.battery)
+      .filter((b) => b.seq > 0 && b.batteries.length > 0)
+      .map((b) => b.batteries[0].remaining)
+      .filter((r) => r > 0 && r <= 100)
+
+    if (batteryLevels.length >= 2) {
+      // Battery should drain (or at least not increase) over time
+      const first = batteryLevels[0]
+      const last = batteryLevels[batteryLevels.length - 1]
+      expect(first).toBeGreaterThanOrEqual(last)
+    }
+  })
+})

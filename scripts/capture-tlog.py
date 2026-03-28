@@ -133,9 +133,17 @@ async def configure_for_sitl(drone: System):
         except Exception as e:
             print(f'    {name}: {e}')
 
-    # Wait for PX4 to process param changes and update health
-    print('  Waiting for param changes to take effect...')
-    await asyncio.sleep(5)
+    # Wait for PX4 to process param changes and report armable
+    print('  Waiting for vehicle to become armable...')
+    deadline = asyncio.get_event_loop().time() + 30
+    async for health in drone.telemetry.health():
+        if health.is_armable:
+            print('  Vehicle is armable')
+            break
+        if asyncio.get_event_loop().time() > deadline:
+            print('  WARNING: Timed out waiting for armable, proceeding anyway')
+            break
+        await asyncio.sleep(0.5)
 
 
 async def arm_vehicle(drone: System):
@@ -241,6 +249,101 @@ async def scenario_mode_changes_async(drone: System):
     await asyncio.sleep(3)
 
 
+async def scenario_waypoint_mission_async(drone: System):
+    """Upload a 4-waypoint mission, fly it, wait for completion.
+
+    Covers MISSION_CURRENT, VFR_HUD (varying speeds), BATTERY_STATUS drain,
+    plus richer GPS/attitude data during actual movement.
+    """
+    await configure_for_sitl(drone)
+
+    from mavsdk.mission import MissionItem
+
+    # Square pattern ~50m each side, 15m altitude
+    home_lat = 47.397742
+    home_lon = 8.545594
+    offset = 0.0005  # ~50m
+
+    waypoints = [
+        MissionItem(home_lat + offset, home_lon, 15, 5, True, float('nan'), float('nan'),
+                    MissionItem.CameraAction.NONE, float('nan'), float('nan'), float('nan'),
+                    float('nan'), float('nan'), MissionItem.VehicleAction.NONE),
+        MissionItem(home_lat + offset, home_lon + offset, 15, 5, True, float('nan'), float('nan'),
+                    MissionItem.CameraAction.NONE, float('nan'), float('nan'), float('nan'),
+                    float('nan'), float('nan'), MissionItem.VehicleAction.NONE),
+        MissionItem(home_lat, home_lon + offset, 15, 5, True, float('nan'), float('nan'),
+                    MissionItem.CameraAction.NONE, float('nan'), float('nan'), float('nan'),
+                    float('nan'), float('nan'), MissionItem.VehicleAction.NONE),
+        MissionItem(home_lat, home_lon, 15, 5, True, float('nan'), float('nan'),
+                    MissionItem.CameraAction.NONE, float('nan'), float('nan'), float('nan'),
+                    float('nan'), float('nan'), MissionItem.VehicleAction.NONE),
+    ]
+
+    print(f'  Uploading {len(waypoints)}-waypoint mission...')
+    from mavsdk.mission import MissionPlan
+    await drone.mission.upload_mission(MissionPlan(waypoints))
+
+    await arm_vehicle(drone)
+
+    print('  Starting mission...')
+    await drone.mission.start_mission()
+
+    print('  Waiting for mission completion...')
+    async for progress in drone.mission.mission_progress():
+        print(f'    Waypoint {progress.current}/{progress.total}')
+        if progress.current == progress.total:
+            break
+
+    print('  Mission complete, landing...')
+    await drone.action.land()
+
+    print('  Waiting for landing/disarm...')
+    async for armed in drone.telemetry.armed():
+        if not armed:
+            print('  Disarmed!')
+            break
+
+    await asyncio.sleep(3)
+
+
+async def scenario_long_hover_async(drone: System):
+    """Arm → takeoff to 20m → hover 30s → land.
+
+    Extended hover captures steady-state telemetry: BATTERY_STATUS drain,
+    SYS_STATUS sensor health, VIBRATION levels, HOME_POSITION,
+    EXTENDED_SYS_STATE, and VFR_HUD.
+    """
+    await configure_for_sitl(drone)
+
+    print('  Setting takeoff altitude...')
+    await drone.action.set_takeoff_altitude(20)
+
+    await arm_vehicle(drone)
+
+    print('  Taking off...')
+    await drone.action.takeoff()
+
+    print('  Waiting for altitude...')
+    async for position in drone.telemetry.position():
+        if position.relative_altitude_m > 18:
+            print(f'  Reached altitude: {position.relative_altitude_m:.1f}m')
+            break
+
+    print('  Hovering for 30s (capturing steady-state telemetry)...')
+    await asyncio.sleep(30)
+
+    print('  Landing...')
+    await drone.action.land()
+
+    print('  Waiting for landing/disarm...')
+    async for armed in drone.telemetry.armed():
+        if not armed:
+            print('  Disarmed!')
+            break
+
+    await asyncio.sleep(3)
+
+
 # ── Scenario registry ─────────────────────────────────────
 
 SCENARIOS = {
@@ -248,6 +351,8 @@ SCENARIOS = {
     'rtl': ('Arm, takeoff, RTL, land', scenario_rtl_async),
     'gps-startup': ('Record GPS fix progression on startup', scenario_gps_startup_async),
     'mode-changes': ('Cycle PX4 flight modes without arming', scenario_mode_changes_async),
+    'waypoint-mission': ('Fly a 4-waypoint square mission', scenario_waypoint_mission_async),
+    'long-hover': ('Extended hover for steady-state telemetry', scenario_long_hover_async),
 }
 
 
