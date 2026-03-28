@@ -61,7 +61,7 @@ export function useVideoStream(
       if (destroyed) return
       console.log('[VideoStream] sourceopen')
       try {
-        sb = ms.addSourceBuffer('video/mp4; codecs="avc1.42E01E"')
+        sb = ms.addSourceBuffer('video/mp4; codecs="avc1.4D0029"')
         sb.mode = 'segments'
         sb.addEventListener('updateend', () => {
           tryPlay()
