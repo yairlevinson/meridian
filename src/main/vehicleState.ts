@@ -46,8 +46,35 @@ const COPTER_MODE_NAMES: Record<number, string> = {
   21: 'SmartRTL'
 }
 
+// PX4 main mode is bits 16-23, sub-mode is bits 24-31
+const PX4_MODE_NAMES: Record<number, Record<number, string>> = {
+  1: { 0: 'Manual' },
+  2: { 0: 'AltCtl' },
+  3: { 0: 'PosCtl' },
+  4: { 1: 'Auto:Ready', 2: 'Auto:Takeoff', 3: 'Auto:Loiter', 4: 'Auto:Mission', 5: 'Auto:RTL', 6: 'Auto:Land' },
+  5: { 1: 'Acro' },
+  6: { 0: 'Offboard' },
+  7: { 0: 'Stabilized' },
+  8: { 0: 'Rattitude' }
+}
+
+function px4ModeName(customMode: number): string {
+  const mainMode = (customMode >> 16) & 0xff
+  const subMode = (customMode >> 24) & 0xff
+  const sub = PX4_MODE_NAMES[mainMode]
+  if (sub) {
+    return sub[subMode] ?? sub[0] ?? `PX4:${mainMode}.${subMode}`
+  }
+  return `Unknown (${customMode})`
+}
+
 function copterModeName(customMode: number): string {
-  return COPTER_MODE_NAMES[customMode] ?? `Mode ${customMode}`
+  // ArduPilot modes fit in a small range (0-21)
+  if (customMode <= 21) {
+    return COPTER_MODE_NAMES[customMode] ?? `Unknown (${customMode})`
+  }
+  // Large values are likely PX4 custom_mode bitfield
+  return px4ModeName(customMode)
 }
 
 // ── Default group factories ─────────────────────────────────────

@@ -23,19 +23,19 @@ function ViewSwitcher({
         className={`${styles.tab} ${view === 'fly' ? styles.tabActive : ''}`}
         onClick={() => setView('fly')}
       >
-        FLY
+        <span aria-hidden="true">&#x2708;</span> FLY
       </button>
       <button
         className={`${styles.tab} ${view === 'plan' ? styles.tabActive : ''}`}
         onClick={() => setView('plan')}
       >
-        PLAN
+        <span aria-hidden="true">&#x2637;</span> PLAN
       </button>
       <button
         className={`${styles.tab} ${view === 'setup' ? styles.tabActive : ''}`}
         onClick={() => setView('setup')}
       >
-        SETUP
+        <span aria-hidden="true">&#x2699;</span> SETUP
       </button>
     </div>
   )

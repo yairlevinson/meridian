@@ -1,5 +1,6 @@
 import { useTelemetry } from '../hooks/useVehicle'
 import { useCommand } from '../hooks/useCommand'
+import { HoldButton } from '../components/HoldButton'
 import styles from './ArmedIndicator.module.css'
 
 export function ArmedIndicator(): React.JSX.Element {
@@ -7,20 +8,24 @@ export function ArmedIndicator(): React.JSX.Element {
   const { arm, disarm } = useCommand()
   const armed = core?.armed ?? false
 
-  const handleClick = (): void => {
-    if (armed) {
-      disarm()
-    } else {
-      arm()
-    }
+  if (!armed) {
+    return (
+      <HoldButton
+        className={`${styles.btn} ${styles.disarmed}`}
+        onConfirm={() => arm()}
+        holdDurationMs={1000}
+      >
+        Hold to ARM
+      </HoldButton>
+    )
   }
 
   return (
     <button
-      onClick={handleClick}
-      className={`${styles.btn} ${armed ? styles.armed : styles.disarmed}`}
+      onClick={() => disarm()}
+      className={`${styles.btn} ${styles.armed}`}
     >
-      {armed ? 'ARMED' : 'DISARMED'}
+      ARMED
     </button>
   )
 }

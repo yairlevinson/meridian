@@ -43,6 +43,7 @@ interface MissionStore {
   removeWaypoint: (seq: number) => void
   updateWaypointAlt: (seq: number, alt: number) => void
   updateWaypointAltMode: (seq: number, mode: AltitudeMode) => void
+  updateWaypointCommand: (seq: number, command: number, commandName: string) => void
   selectWaypoint: (seq: number | null) => void
   clearMission: () => void
   loadFromItems: (items: MissionItem[]) => void
@@ -134,6 +135,14 @@ export const useMissionStore = create<MissionStore>((set) => ({
         missionStats: computeMissionStats(updated),
         isDirty: true
       }
+    }),
+
+  updateWaypointCommand: (seq, command, commandName) =>
+    set((state) => {
+      const updated = state.editableWaypoints.map((wp) =>
+        wp.seq === seq ? { ...wp, command, commandName } : wp
+      )
+      return { editableWaypoints: updated, isDirty: true }
     }),
 
   selectWaypoint: (seq) => set({ selectedWaypointSeq: seq }),

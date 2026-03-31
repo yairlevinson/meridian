@@ -3,11 +3,11 @@ import styles from './AttitudeIndicator.module.css'
 
 const RAD_TO_DEG = 180 / Math.PI
 
-export function AttitudeIndicator(): React.JSX.Element {
+export function AttitudeIndicator({ size = 150 }: { size?: number }): React.JSX.Element {
   const attitude = useTelemetry('attitude')
 
   if (!attitude) {
-    return <div className={styles.noData}>No data</div>
+    return <div className={styles.noData} style={{ width: size, height: size }}>No data</div>
   }
 
   const rollDeg = attitude.roll * RAD_TO_DEG
@@ -16,8 +16,8 @@ export function AttitudeIndicator(): React.JSX.Element {
 
   return (
     <svg
-      width={150}
-      height={150}
+      width={size}
+      height={size}
       viewBox="-100 -100 200 200"
       aria-label={`Attitude: roll ${rollDeg.toFixed(1)}° pitch ${pitchDeg.toFixed(1)}°`}
       className={styles.svg}

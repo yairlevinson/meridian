@@ -147,15 +147,10 @@ test.describe('Multi-Vehicle E2E', () => {
     await page.waitForTimeout(3000)
 
     const text = await page.textContent('body')
-    const fpsMatch = text?.match(/FPS:\s*(\d+)/)
+    const fpsMatch = text?.match(/FPS\s+(\d+)/)
     expect(fpsMatch).toBeTruthy()
     const fps = parseInt(fpsMatch![1], 10)
     expect(fps).toBeGreaterThan(30)
-
-    const mergeMatch = text?.match(/Store merges:(\d+)/)
-    expect(mergeMatch).toBeTruthy()
-    const merges = parseInt(mergeMatch![1], 10)
-    expect(merges).toBeGreaterThan(50)
   })
 
   test('takes a multi-vehicle screenshot', async ({ page, testPort }) => {

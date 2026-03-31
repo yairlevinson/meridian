@@ -10,12 +10,12 @@ const CARD_DIRS = [
 
 const TICK_COUNT = 36 // every 10°
 
-export function Compass(): React.JSX.Element {
+export function Compass({ size = 150 }: { size?: number }): React.JSX.Element {
   const vfrHud = useTelemetry('vfrHud')
   const heading = vfrHud?.heading ?? null
 
   if (heading === null) {
-    return <div className={styles.noData}>No data</div>
+    return <div className={styles.noData} style={{ width: size, height: size }}>No data</div>
   }
 
   const r = 96 // compass dial radius
@@ -26,8 +26,8 @@ export function Compass(): React.JSX.Element {
 
   return (
     <svg
-      width={150}
-      height={150}
+      width={size}
+      height={size}
       viewBox="-100 -100 200 200"
       aria-label={`Heading ${heading.toFixed(0)}°`}
       className={styles.svg}

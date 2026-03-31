@@ -13,7 +13,6 @@ export function PerfOverlay(): React.JSX.Element {
   }, [])
 
   const ipcLatency = useVehicleStore((s) => s.ipcLatency)
-  const mergeCount = useVehicleStore((s) => s.mergeCount)
   const connected = useConnected()
   const attitude = useTelemetry('attitude')
   const gps = useTelemetry('gps')
@@ -53,34 +52,31 @@ export function PerfOverlay(): React.JSX.Element {
 
   const RAD_TO_DEG = 180 / Math.PI
 
+  const modeName = core?.flightModeName || (core ? `M${core.flightMode}` : '')
+
   return (
     <div className={styles.root}>
-      <div className={connected ? styles.connected : styles.disconnected}>
-        {connected ? '● CONNECTED' : '○ WAITING…'}
-      </div>
-      <div>FPS: {fps}</div>
-      <div>IPC latency: {ipcLatency}ms</div>
-      <div>Store merges:{mergeCount}</div>
-      <div className={longTasks > 0 ? styles.warnBad : styles.warnOk}>Long tasks: {longTasks}</div>
+      <span className={connected ? styles.connected : styles.disconnected} data-testid="conn-status">
+        {connected ? 'CONNECTED' : 'WAITING'}
+      </span>
+      <span className={styles.sep}>FPS {fps}</span>
+      <span className={styles.sep}>IPC {ipcLatency}ms</span>
       {attitude && (
-        <>
-          <div className={styles.section}>Roll: {(attitude.roll * RAD_TO_DEG).toFixed(1)}°</div>
-          <div>Pitch: {(attitude.pitch * RAD_TO_DEG).toFixed(1)}°</div>
-          <div>Yaw: {(attitude.yaw * RAD_TO_DEG).toFixed(1)}°</div>
-        </>
+        <span className={styles.sep}>
+          Roll: {(attitude.roll * RAD_TO_DEG).toFixed(1)} Pitch: {(attitude.pitch * RAD_TO_DEG).toFixed(1)} Yaw: {(attitude.yaw * RAD_TO_DEG).toFixed(1)}
+        </span>
       )}
       {gps && (
-        <>
-          <div className={styles.section}>Lat: {gps.lat.toFixed(6)}</div>
-          <div>Lon: {gps.lon.toFixed(6)}</div>
-          <div>Alt: {gps.alt.toFixed(1)}m</div>
-        </>
+        <span className={styles.sep}>
+          Lat: {gps.lat.toFixed(5)} Lon: {gps.lon.toFixed(5)} Alt: {gps.alt.toFixed(0)}m
+        </span>
       )}
       {core && (
-        <div className={styles.section}>
-          {core.armed ? 'ARMED' : 'DISARMED'} | mode:{core.flightMode}
-        </div>
+        <span className={styles.sep}>
+          {core.armed ? 'ARMED' : 'DISARMED'} {modeName}
+        </span>
       )}
+      {longTasks > 0 && <span className={styles.warnBad}>LT:{longTasks}</span>}
     </div>
   )
 }

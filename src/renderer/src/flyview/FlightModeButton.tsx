@@ -18,7 +18,7 @@ export function FlightModeButton(): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  const modeName = core?.flightModeName || `Mode ${core?.flightMode ?? '--'}`
+  const modeName = core?.flightModeName || (core?.flightMode != null ? `Unknown` : 'Mode ---')
 
   useEffect(() => {
     if (!open) return
