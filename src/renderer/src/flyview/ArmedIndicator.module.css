@@ -1,11 +1,16 @@
 .btn {
   border-radius: 4px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   font-family: var(--font-mono);
   font-size: var(--fs-lg);
   font-weight: bold;
   cursor: pointer;
   width: 100%;
+  min-height: 34px;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 .armed {

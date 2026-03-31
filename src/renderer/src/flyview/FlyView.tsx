@@ -15,6 +15,7 @@ import { LinkQuality } from './LinkQuality'
 import { StatusTextOverlay } from './StatusTextOverlay'
 import { VehicleSelector } from './VehicleSelector'
 import { CameraPanel } from './CameraPanel'
+import { SystemHealthStrip } from './SystemHealthStrip'
 import { PerfOverlay } from '../perf/PerfOverlay'
 import { useTelemetry } from '../hooks/useVehicle'
 import { useCommand } from '../hooks/useCommand'
@@ -170,10 +171,10 @@ export function FlyView(): React.JSX.Element {
                 className={styles.pipBody}
                 style={{ height: pipSize.h }}
                 onClick={() => setMainView(videoIsMain ? 'map' : 'video')}
-                title="Click to switch"
                 data-testid="pip-body"
               >
                 {pipEl}
+                <div className={styles.pipSwapOverlay}>&#x21C5;</div>
                 <div
                   className={styles.resizeHandle}
                   onPointerDown={onResizePointerDown}
@@ -220,30 +221,33 @@ export function FlyView(): React.JSX.Element {
       </div>
 
       <div className={styles.sidebar}>
-        <VehicleSelector />
-        <FlightModeButton />
-        <ArmedIndicator />
-        {!armed && <PreFlightChecklist onComplete={() => arm()} />}
+        <div className={styles.sidebarScroll}>
+          <VehicleSelector />
+          <FlightModeButton />
+          <ArmedIndicator />
+          {!armed && <PreFlightChecklist onComplete={() => arm()} />}
+          {armed && <SystemHealthStrip />}
 
-        <div className="section-label">ATTITUDE</div>
-        <AttitudeIndicator />
+          <div className="section-label">ATTITUDE</div>
+          <AttitudeIndicator size={140} />
 
-        <div className="section-label">COMPASS</div>
-        <Compass />
+          <div className="section-label">COMPASS</div>
+          <Compass size={140} />
 
-        <div className="section-label">INSTRUMENTS</div>
-        <InstrumentPanel />
+          <div className="section-label">INSTRUMENTS</div>
+          <InstrumentPanel />
 
-        <div className="section-label">GPS</div>
-        <GpsStatus />
+          <div className="section-label">GPS</div>
+          <GpsStatus />
 
-        <div className="section-label">BATTERY</div>
-        <BatteryStatus />
+          <div className="section-label">BATTERY</div>
+          <BatteryStatus />
 
-        <div className="section-label">RADIO</div>
-        <LinkQuality />
+          <div className="section-label">RADIO</div>
+          <LinkQuality />
 
-        <CameraPanel />
+          <CameraPanel />
+        </div>
 
         <div className={styles.guidedActionsArea}>
           <GuidedActions />

@@ -184,7 +184,7 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
         data-testid="map-provider-selector"
         style={{
           position: 'absolute',
-          top: 8,
+          top: 'calc(var(--perf-bar-height) + 8px)',
           right: 8,
           zIndex: 10,
           padding: '4px 8px',

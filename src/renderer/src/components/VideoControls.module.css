@@ -1,6 +1,6 @@
 .controls {
   position: absolute;
-  top: 12px;
+  top: calc(var(--perf-bar-height) + 8px);
   left: 12px;
   display: flex;
   flex-direction: column;

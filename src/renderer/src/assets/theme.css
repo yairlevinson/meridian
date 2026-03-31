@@ -38,6 +38,7 @@
   --sidebar-width: 220px;
   --plan-sidebar-width: 260px;
   --topbar-height: 32px;
+  --perf-bar-height: 22px;
 
   /* Font */
   --font-mono: monospace;
@@ -97,6 +98,10 @@
   text-align: center;
   border-top: 1px solid var(--border-subtle);
   padding-top: 8px;
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  z-index: 1;
 }
 
 /* Sidebar */
