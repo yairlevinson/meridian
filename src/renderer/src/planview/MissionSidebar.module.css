@@ -122,6 +122,21 @@
   color: #1b1b1b;
 }
 
+.homeBadge {
+  min-width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  color: #00e676;
+  border: 2px solid #00e676;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-md);
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
 .wpInfo {
   flex: 1;
   overflow: hidden;

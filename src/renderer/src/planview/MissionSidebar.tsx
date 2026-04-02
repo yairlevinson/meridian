@@ -1,4 +1,5 @@
 import { useMissionStore } from '../store/missionStore'
+import { useHomePosition } from '../hooks/useVehicle'
 import { AltitudeMode } from '../../../shared-types/ipc/MissionTypes'
 import { WaypointEditor } from './WaypointEditor'
 import { MissionStatsPanel } from './MissionStatsPanel'
@@ -20,6 +21,7 @@ export function MissionSidebar(): React.JSX.Element {
   const selectedSeq = useMissionStore((s) => s.selectedWaypointSeq)
   const selectWaypoint = useMissionStore((s) => s.selectWaypoint)
   const removeWaypoint = useMissionStore((s) => s.removeWaypoint)
+  const home = useHomePosition()
 
   return (
     <div className={styles.root}>
@@ -33,6 +35,17 @@ export function MissionSidebar(): React.JSX.Element {
 
       {/* Waypoint list */}
       <div className={styles.list}>
+        {home && (
+          <div className={styles.wpItem} style={{ opacity: 0.7 }}>
+            <div className={styles.homeBadge}>H</div>
+            <div className={styles.wpInfo}>
+              <div className={styles.wpCoords}>
+                {home.lat.toFixed(6)}, {home.lon.toFixed(6)}
+              </div>
+              <div className={styles.wpAlt}>{home.alt.toFixed(0)}m AMSL</div>
+            </div>
+          </div>
+        )}
         {waypoints.length === 0 && (
           <div className={styles.emptyState}>
             <div className={styles.emptyIcon}>+</div>

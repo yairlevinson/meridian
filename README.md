@@ -6,17 +6,20 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 
 ### Live Telemetry
 - Real-time attitude (roll, pitch, yaw), GPS position, altitude, and velocity display
+- Distance-to-home instrument with automatic m/km unit switching
 - Delta-encoded IPC for efficient main→renderer telemetry streaming
 - Support for multiple simultaneous vehicles with independent telemetry streams
 
 ### Interactive Map (Fly View)
 - MapLibre GL-powered map with live vehicle position tracking
+- Home position marker ("H") displayed when the vehicle reports a valid home location
 - Multiple tile providers: Google Satellite, Google Hybrid, Bing Aerial, Esri World Imagery, OpenStreetMap, Statkart Topo, and Mapbox Satellite
 - Custom `tile://` protocol proxy bypasses CORS restrictions with an LRU cache (500 tiles)
 - Prominent vehicle indicators with color-coded active/inactive states
 
 ### Mission Planning (Plan View)
 - Interactive waypoint editing with drag-and-drop on the map
+- Home position displayed as waypoint 0 in the mission sidebar
 - Full MAVLink mission protocol: upload, download, and clear missions
 - Save/load `.plan` files (QGroundControl-compatible format)
 - Visual mission path overlay with numbered waypoint markers
@@ -428,7 +431,7 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Setup View | ✅ | 10-page setup with sidebar navigation |
+| Setup View | ✅ | 11-page setup with sidebar navigation |
 | Airframe Selection | ✅ | 11 frame classes, 18+ frame types |
 | Sensor Calibration | ✅ | Accel, compass, gyro, level horizon, baro, ESC (8 types) |
 | Radio/RC Calibration | ✅ | 16-channel stick detection, min/max/trim, reversal |
@@ -497,8 +500,8 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Video Streaming | ✅ | UDP H.264/H.265, RTSP, TCP MPEG-TS via ffmpeg |
-| Video Recording | ✅ | MKV, MOV, MP4 formats |
+| Video Streaming | ✅ | UDP H.264/H.265, RTSP, TCP MPEG-TS via ffmpeg; settings in Setup > Video |
+| Video Recording | ✅ | MKV, MOV, MP4 formats; compact Record overlay on fly view |
 | MAVLink Camera Protocol | ✅ | Discovery, photo/video capture, mode switching, storage info |
 | Multiple Simultaneous Streams | ❌ | |
 
@@ -556,6 +559,21 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 | Android / iOS | ❌ | Desktop only (macOS, Windows, Linux) |
 | Plugin / Branding System | ❌ | |
 | Audio Alerts | ❌ | |
+
+### Key Functional Gaps (vs QGroundControl)
+
+The feature parity table above covers all individual items. The most significant gaps that affect day-to-day usability are:
+
+1. **Survey/Scan mission types** — No automated camera survey, structure scan, or corridor scan patterns. Only basic waypoint missions are supported.
+2. **RTK GPS / NTRIP** — No differential GPS support for precision operations.
+3. **MAVLink Inspector & Console** — No real-time message viewer or serial console for debugging.
+4. **In-flight adjustments** — Cannot change altitude, heading, or speed mid-flight from the UI (only via guided actions like Go-To, RTL, Land).
+5. **Orbit / Follow Me** — No circle-around-point or GPS-follow modes.
+6. **Advanced mission commands** — No DO_JUMP, speed/delay, servo/relay, camera trigger, or ROI commands in the mission editor.
+7. **Offline maps** — Only a 500-tile LRU cache; no bulk region download for field use.
+8. **Mobile platforms** — Desktop only (macOS, Windows, Linux); no Android/iOS.
+9. **Multiple video streams** — Only a single video stream at a time.
+10. **Log analysis** — Can record logs but has no built-in viewer, download browser, or vibration analysis.
 
 ## License
 

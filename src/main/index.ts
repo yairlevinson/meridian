@@ -152,6 +152,7 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
     { msgId: 74, rate: 4 }, // VFR_HUD
     { msgId: 1, rate: 2 }, // SYS_STATUS
     { msgId: 24, rate: 2 }, // GPS_RAW_INT
+    { msgId: 242, rate: 0.2 }, // HOME_POSITION (every 5s)
     { msgId: 0, rate: 1 } // HEARTBEAT (keep-alive)
   ]
 
@@ -174,6 +175,21 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
   console.log(
     `[main] requested PX4 message intervals for sysid=${targetSysId}${label ? ` on ${label}` : ''}`
   )
+
+  // Request HOME_POSITION once (works on both ArduPilot and PX4)
+  const reqHome = new common.CommandLong()
+  reqHome.targetSystem = targetSysId
+  reqHome.targetComponent = 0
+  reqHome.command = 512 // MAV_CMD_REQUEST_MESSAGE
+  reqHome.confirmation = 0
+  reqHome.param1 = 242 // HOME_POSITION message id
+  reqHome.param2 = 0
+  reqHome.param3 = 0
+  reqHome.param4 = 0
+  reqHome.param5 = 0
+  reqHome.param6 = 0
+  reqHome.param7 = 0
+  writeFn(proto.serialize(reqHome, seq++))
 }
 
 // Register a custom protocol that proxies OSM tile requests from the main process,

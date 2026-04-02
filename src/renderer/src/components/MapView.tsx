@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { useAllVehiclePositions, useActiveVehicleId } from '../hooks/useVehicle'
+import { useAllVehiclePositions, useActiveVehicleId, useHomePosition } from '../hooks/useVehicle'
 import { useMissionMapLayers } from '../hooks/useMissionMapLayers'
 import { useSettingsStore } from '../store/settingsStore'
 import { providers, getProviderNames } from '../map/providers/ProviderRegistry'
@@ -40,6 +40,20 @@ function createMarkerEl(vehicleId: number, active: boolean, hdg = 0): HTMLDivEle
   return el
 }
 
+function createHomeMarkerEl(): HTMLDivElement {
+  const size = 32
+  const el = document.createElement('div')
+  el.style.cssText = `width: ${size}px; height: ${size}px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));`
+  el.innerHTML = `
+    <svg viewBox="0 0 32 32" width="${size}" height="${size}">
+      <circle cx="16" cy="16" r="14" fill="#fff" stroke="#00e676" stroke-width="3"/>
+      <text x="16" y="21" text-anchor="middle" fill="#00e676" font-size="16" font-weight="bold" font-family="monospace">H</text>
+    </svg>
+  `
+  el.title = 'Home'
+  return el
+}
+
 function buildStyle(providerName: string): maplibregl.StyleSpecification {
   const provider = providers[providerName] ?? providers.osm!
   return {
@@ -64,12 +78,14 @@ interface MapViewProps {
 export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Element {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<Map<number, maplibregl.Marker>>(new Map())
+  const homeMarkerRef = useRef<maplibregl.Marker | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
   const hasCenteredRef = useRef(false)
 
   const positions = useAllVehiclePositions()
   const activeVehicleId = useActiveVehicleId()
+  const homePos = useHomePosition()
   const mapProvider =
     (useSettingsStore((s) => s.settings.mapProvider) as string) || DEFAULT_PROVIDER
   const setSetting = useSettingsStore((s) => s.setSetting)
@@ -94,6 +110,8 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
 
     const markers = markersRef.current
     return () => {
+      homeMarkerRef.current?.remove()
+      homeMarkerRef.current = null
       mapRef.current?.remove()
       mapRef.current = null
       setMapInstance(null)
@@ -167,6 +185,24 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
       hasCenteredRef.current = true
     }
   }, [positions, activeVehicleId])
+
+  // Home marker
+  useEffect(() => {
+    if (!mapRef.current) return
+
+    if (homePos) {
+      if (homeMarkerRef.current) {
+        homeMarkerRef.current.setLngLat([homePos.lon, homePos.lat])
+      } else {
+        homeMarkerRef.current = new maplibregl.Marker({ element: createHomeMarkerEl() })
+          .setLngLat([homePos.lon, homePos.lat])
+          .addTo(mapRef.current)
+      }
+    } else if (homeMarkerRef.current) {
+      homeMarkerRef.current.remove()
+      homeMarkerRef.current = null
+    }
+  }, [homePos])
 
   const onProviderChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
