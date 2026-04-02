@@ -113,5 +113,9 @@ export enum IpcChannels {
   CameraStopRecording = 'camera:stopRecording',
   CameraSetMode = 'camera:setMode',
   CameraFormatStorage = 'camera:formatStorage',
-  CameraGetState = 'camera:getState'
+  CameraGetState = 'camera:getState',
+
+  // Actuator testing
+  ActuatorMotorTest = 'actuator:motorTest',
+  ActuatorServoTest = 'actuator:servoTest'
 }

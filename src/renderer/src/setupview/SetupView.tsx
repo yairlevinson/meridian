@@ -9,6 +9,7 @@ import { PowerPage } from './power/PowerPage'
 import { SafetyPage } from './safety/SafetyPage'
 import { AirframePage } from './airframe/AirframePage'
 import { TuningPage } from './tuning/TuningPage'
+import { ActuatorsPage } from './actuators/ActuatorsPage'
 import { FirmwarePage } from './firmware/FirmwarePage'
 import styles from './SetupView.module.css'
 
@@ -36,6 +37,8 @@ function PageContent(): React.JSX.Element {
       return <AirframePage />
     case 'tuning':
       return <TuningPage />
+    case 'actuators':
+      return <ActuatorsPage />
   }
 }
 

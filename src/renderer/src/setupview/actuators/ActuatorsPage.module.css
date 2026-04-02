@@ -1,0 +1,432 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  gap: 20px;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+}
+
+/* Warning / status banners */
+.warningBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 171, 64, 0.15);
+  border: 1px solid rgba(255, 171, 64, 0.4);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: #ffab40;
+}
+
+.armedBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(244, 67, 54, 0.15);
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: #f44336;
+}
+
+/* Section containers */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Safety switch */
+.safetyRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+}
+
+.safetyLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.safetyToggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.safetyToggle::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--text-dimmed);
+  border-radius: 50%;
+  transition:
+    transform 0.2s,
+    background 0.2s;
+}
+
+.safetyToggleOn {
+  background: rgba(255, 171, 64, 0.3);
+  border-color: #ffab40;
+}
+
+.safetyToggleOn::after {
+  transform: translateX(18px);
+  background: #ffab40;
+}
+
+/* Actuator slider rows */
+.sliderRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--bg-elevated);
+  border-radius: 4px;
+  border: 1px solid var(--border-default);
+}
+
+.sliderLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.slider {
+  flex: 1;
+  height: 6px;
+  appearance: none;
+  background: var(--bg-base);
+  border-radius: 3px;
+  outline: none;
+}
+
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent-blue);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.slider:disabled::-webkit-slider-thumb {
+  background: var(--text-dimmed);
+  cursor: not-allowed;
+}
+
+.sliderValue {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  width: 60px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Timeout / config inline row */
+.configLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+}
+
+.configInput {
+  width: 60px;
+  padding: 4px 8px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-align: right;
+}
+
+.configInput:disabled {
+  opacity: 0.4;
+}
+
+/* Output configuration table */
+.configTable {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.configHeaderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-default);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+  font-weight: 600;
+}
+
+.configRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.configRow:last-child {
+  border-bottom: none;
+}
+
+.configColChannel {
+  width: 70px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.configColFunction {
+  flex: 1;
+  min-width: 140px;
+}
+
+.configColNum {
+  width: 70px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.configColRev {
+  width: 32px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.configSelect {
+  width: 100%;
+  padding: 3px 6px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.configNumInput {
+  width: 70px;
+  padding: 3px 6px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-align: right;
+}
+
+.configCheckbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-blue);
+  cursor: pointer;
+  margin: 0 auto;
+}
+
+.configEdited {
+  border-color: #ffab40;
+}
+
+.configActions {
+  display: flex;
+  gap: 8px;
+}
+
+.configLoading {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+  padding: 12px 0;
+}
+
+.saveBtn {
+  background: var(--accent-blue);
+  border: 1px solid var(--accent-blue);
+  border-radius: 4px;
+  padding: 4px 14px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.saveBtn:hover {
+  opacity: 0.9;
+}
+
+.discardBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 4px 14px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.discardBtn:hover {
+  background: var(--bg-hover);
+}
+
+/* Buttons */
+.stopBtn {
+  background: #f44336;
+  border: 1px solid #f44336;
+  border-radius: 4px;
+  padding: 6px 16px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.stopBtn:hover {
+  opacity: 0.9;
+}
+
+.stopBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.centerBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 4px 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.centerBtn:hover {
+  background: var(--bg-hover);
+}
+
+.centerBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Live output bars */
+.outputRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 12px;
+}
+
+.outputLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.outputBarContainer {
+  flex: 1;
+  height: 10px;
+  background: var(--bg-base);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.outputBar {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 5px;
+  transition: width 0.1s ease;
+}
+
+.outputValue {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  width: 55px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Motor count selector */
+.motorCountRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+}
+
+.motorCountLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+}
+
+.motorCountSelect {
+  padding: 2px 6px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}

@@ -152,6 +152,36 @@ describe('Vehicle setup message routing', () => {
     expect(spy.mock.calls[0][1]).toBe(4)
   })
 
+  // --- SERVO_OUTPUT_RAW (36) -> VehicleState ---
+
+  it('routes SERVO_OUTPUT_RAW (36) to vehicle state', () => {
+    sendMessage(36, {
+      timeUsec: 0,
+      port: 0,
+      servo1Raw: 1100,
+      servo2Raw: 1200,
+      servo3Raw: 1300,
+      servo4Raw: 1400,
+      servo5Raw: 0,
+      servo6Raw: 0,
+      servo7Raw: 0,
+      servo8Raw: 0,
+      servo9Raw: 0,
+      servo10Raw: 0,
+      servo11Raw: 0,
+      servo12Raw: 0,
+      servo13Raw: 0,
+      servo14Raw: 0,
+      servo15Raw: 0,
+      servo16Raw: 0
+    })
+
+    const delta = vehicle.getDelta()
+    expect(delta.servoOutput).toBeDefined()
+    expect(delta.servoOutput?.outputs[0]).toBe(1100)
+    expect(delta.servoOutput?.outputs[3]).toBe(1400)
+  })
+
   // --- Auto parameter request on first heartbeat ---
 
   it('auto-requests parameters after first heartbeat', () => {

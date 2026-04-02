@@ -179,6 +179,13 @@ export interface CameraGroup {
   seq: number
 }
 
+// ── Servo outputs ────────────────────────────────────────────────
+export interface ServoOutputGroup {
+  port: number // 0=MAIN, 1=AUX
+  outputs: number[] // PWM values (up to 16 channels)
+  seq: number
+}
+
 // ── Full snapshot ─────────────────────────────────────────────────
 export interface VehicleSnapshot {
   core: CoreGroup
@@ -197,6 +204,7 @@ export interface VehicleSnapshot {
   missionStatus: MissionStatusGroup
   terrain: TerrainGroup
   camera: CameraGroup
+  servoOutput: ServoOutputGroup
 }
 
 /** Names of all vehicle state groups — used for delta tracking */

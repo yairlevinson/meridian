@@ -6,6 +6,7 @@ const MSG_HEARTBEAT = 0
 const MSG_ATTITUDE = 30
 const MSG_GLOBAL_POSITION_INT = 33
 const MSG_SYS_STATUS = 1
+const MSG_SERVO_OUTPUT_RAW = 36
 const MSG_BATTERY_STATUS = 147
 const MSG_VFR_HUD = 74
 
@@ -250,5 +251,148 @@ describe('VehicleState — delta encoding', () => {
     vs.setCommunicationLost(true)
     const delta = vs.getDelta()
     expect(delta.core?.communicationLost).toBe(true)
+  })
+
+  // --- SERVO_OUTPUT_RAW (36) ---
+
+  it('handles SERVO_OUTPUT_RAW message', () => {
+    vs.handleMessage(MSG_SERVO_OUTPUT_RAW, {
+      timeUsec: 12345,
+      port: 0,
+      servo1Raw: 1100,
+      servo2Raw: 1200,
+      servo3Raw: 1300,
+      servo4Raw: 1400,
+      servo5Raw: 0,
+      servo6Raw: 0,
+      servo7Raw: 0,
+      servo8Raw: 0,
+      servo9Raw: 0,
+      servo10Raw: 0,
+      servo11Raw: 0,
+      servo12Raw: 0,
+      servo13Raw: 0,
+      servo14Raw: 0,
+      servo15Raw: 0,
+      servo16Raw: 0
+    })
+    const delta = vs.getDelta()
+
+    expect(delta.servoOutput).toBeDefined()
+    expect(delta.servoOutput?.port).toBe(0)
+    expect(delta.servoOutput?.outputs).toHaveLength(16)
+    expect(delta.servoOutput?.outputs[0]).toBe(1100)
+    expect(delta.servoOutput?.outputs[1]).toBe(1200)
+    expect(delta.servoOutput?.outputs[2]).toBe(1300)
+    expect(delta.servoOutput?.outputs[3]).toBe(1400)
+  })
+
+  it('only includes servoOutput in delta when only SERVO_OUTPUT_RAW received', () => {
+    vs.handleMessage(MSG_SERVO_OUTPUT_RAW, {
+      timeUsec: 0,
+      port: 0,
+      servo1Raw: 1500,
+      servo2Raw: 1500,
+      servo3Raw: 1500,
+      servo4Raw: 1500,
+      servo5Raw: 0,
+      servo6Raw: 0,
+      servo7Raw: 0,
+      servo8Raw: 0,
+      servo9Raw: 0,
+      servo10Raw: 0,
+      servo11Raw: 0,
+      servo12Raw: 0,
+      servo13Raw: 0,
+      servo14Raw: 0,
+      servo15Raw: 0,
+      servo16Raw: 0
+    })
+    const delta = vs.getDelta()
+
+    expect(delta.servoOutput).toBeDefined()
+    expect(delta.attitude).toBeUndefined()
+    expect(delta.core).toBeUndefined()
+    expect(delta.gps).toBeUndefined()
+  })
+
+  it('servoOutput seq increments on each SERVO_OUTPUT_RAW', () => {
+    const msg = {
+      timeUsec: 0,
+      port: 0,
+      servo1Raw: 1500,
+      servo2Raw: 1500,
+      servo3Raw: 1500,
+      servo4Raw: 1500,
+      servo5Raw: 0,
+      servo6Raw: 0,
+      servo7Raw: 0,
+      servo8Raw: 0,
+      servo9Raw: 0,
+      servo10Raw: 0,
+      servo11Raw: 0,
+      servo12Raw: 0,
+      servo13Raw: 0,
+      servo14Raw: 0,
+      servo15Raw: 0,
+      servo16Raw: 0
+    }
+    vs.handleMessage(MSG_SERVO_OUTPUT_RAW, msg)
+    const d1 = vs.getDelta()
+    vs.handleMessage(MSG_SERVO_OUTPUT_RAW, { ...msg, servo1Raw: 1600 })
+    const d2 = vs.getDelta()
+
+    expect(d2.servoOutput!.seq).toBe(d1.servoOutput!.seq + 1)
+    expect(d2.servoOutput!.outputs[0]).toBe(1600)
+  })
+
+  it('servoOutput outputs array is a copy (not shared reference)', () => {
+    vs.handleMessage(MSG_SERVO_OUTPUT_RAW, {
+      timeUsec: 0,
+      port: 0,
+      servo1Raw: 1500,
+      servo2Raw: 1500,
+      servo3Raw: 1500,
+      servo4Raw: 1500,
+      servo5Raw: 0,
+      servo6Raw: 0,
+      servo7Raw: 0,
+      servo8Raw: 0,
+      servo9Raw: 0,
+      servo10Raw: 0,
+      servo11Raw: 0,
+      servo12Raw: 0,
+      servo13Raw: 0,
+      servo14Raw: 0,
+      servo15Raw: 0,
+      servo16Raw: 0
+    })
+    const d1 = vs.getDelta()
+    d1.servoOutput!.outputs[0] = 9999
+
+    vs.handleMessage(MSG_SERVO_OUTPUT_RAW, {
+      timeUsec: 0,
+      port: 0,
+      servo1Raw: 1500,
+      servo2Raw: 1500,
+      servo3Raw: 1500,
+      servo4Raw: 1500,
+      servo5Raw: 0,
+      servo6Raw: 0,
+      servo7Raw: 0,
+      servo8Raw: 0,
+      servo9Raw: 0,
+      servo10Raw: 0,
+      servo11Raw: 0,
+      servo12Raw: 0,
+      servo13Raw: 0,
+      servo14Raw: 0,
+      servo15Raw: 0,
+      servo16Raw: 0
+    })
+    const d2 = vs.getDelta()
+
+    // Should not be affected by mutation of d1
+    expect(d2.servoOutput!.outputs[0]).toBe(1500)
   })
 })

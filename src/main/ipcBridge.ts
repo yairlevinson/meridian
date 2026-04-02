@@ -224,7 +224,12 @@ export function startIpcBridge(
     {
       channel: IpcChannels.ParametersSet,
       handler: (...args: unknown[]) => {
-        const req = args[0] as { vehicleId: number; componentId: number; name: string; value: number }
+        const req = args[0] as {
+          vehicleId: number
+          componentId: number
+          name: string
+          value: number
+        }
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
         if (!vehicle) return
         vehicle.parameterManager.setParameter(req.name, req.value)
@@ -431,7 +436,10 @@ export function startIpcBridge(
     },
     {
       channel: IpcChannels.FlightModesSet,
-      handler: (req: { vehicleId: number; config: { modeChannel: number; modes: Array<{ slot: number; modeNumber: number }> } }) => {
+      handler: (req: {
+        vehicleId: number
+        config: { modeChannel: number; modes: Array<{ slot: number; modeNumber: number }> }
+      }) => {
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
         if (!vehicle) return
         const pm = vehicle.parameterManager
@@ -511,6 +519,45 @@ export function startIpcBridge(
       channel: IpcChannels.CameraGetState,
       handler: (vehicleId: number) => {
         return vehicleManager.getVehicle(vehicleId)?.cameraManager.state ?? null
+      }
+    },
+    // Actuator testing
+    {
+      channel: IpcChannels.ActuatorMotorTest,
+      handler: (req: {
+        vehicleId: number
+        motorInstance: number
+        throttlePercent: number
+        timeoutSeconds: number
+      }) => {
+        const vehicle = vehicleManager.getVehicle(req.vehicleId)
+        if (!vehicle) return
+        return vehicle.commandQueue.sendCommand(
+          209, // MAV_CMD_DO_MOTOR_TEST
+          req.vehicleId,
+          1,
+          {
+            p1: req.motorInstance,
+            p2: 0,
+            p3: req.throttlePercent,
+            p4: req.timeoutSeconds,
+            p5: 1,
+            p6: 0
+          }
+        )
+      }
+    },
+    {
+      channel: IpcChannels.ActuatorServoTest,
+      handler: (req: { vehicleId: number; servoInstance: number; pwmValue: number }) => {
+        const vehicle = vehicleManager.getVehicle(req.vehicleId)
+        if (!vehicle) return
+        return vehicle.commandQueue.sendCommand(
+          183, // MAV_CMD_DO_SET_SERVO
+          req.vehicleId,
+          1,
+          { p1: req.servoInstance, p2: req.pwmValue }
+        )
       }
     },
     {

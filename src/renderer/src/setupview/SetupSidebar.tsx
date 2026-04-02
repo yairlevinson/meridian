@@ -16,6 +16,7 @@ const items: SidebarItem[] = [
   { page: 'safety', label: 'Safety' },
   { page: 'airframe', label: 'Airframe' },
   { page: 'tuning', label: 'Tuning' },
+  { page: 'actuators', label: 'Actuators' },
   { page: 'parameters', label: 'Parameters' }
 ]
 

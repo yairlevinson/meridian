@@ -135,6 +135,7 @@ export type SetupPage =
   | 'safety'
   | 'airframe'
   | 'tuning'
+  | 'actuators'
   | 'parameters'
 
 /** ArduCopter flight mode names indexed by custom_mode number */

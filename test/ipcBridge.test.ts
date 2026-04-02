@@ -163,6 +163,8 @@ describe('ipcBridge', () => {
     expect(registeredHandlers.has(IpcChannels.VehicleGuidedTakeoff)).toBe(true)
     expect(registeredHandlers.has(IpcChannels.ParametersGetAll)).toBe(true)
     expect(registeredHandlers.has(IpcChannels.MissionLoad)).toBe(true)
+    expect(registeredHandlers.has(IpcChannels.ActuatorMotorTest)).toBe(true)
+    expect(registeredHandlers.has(IpcChannels.ActuatorServoTest)).toBe(true)
   })
 
   it('cleans up IPC handlers and interval on cleanup', () => {

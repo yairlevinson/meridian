@@ -127,6 +127,15 @@ export interface Bridge {
     }) => void
   ) => () => void
 
+  // Actuator testing
+  motorTest: (
+    vehicleId: number,
+    motorInstance: number,
+    throttlePercent: number,
+    timeoutSeconds: number
+  ) => Promise<void>
+  servoTest: (vehicleId: number, servoInstance: number, pwmValue: number) => Promise<void>
+
   // Popout windows
   popoutOpen: (view: 'video' | 'map') => Promise<void>
   popoutClose: (view: 'video' | 'map') => Promise<void>
@@ -260,10 +269,8 @@ const bridge: Bridge = {
     }
   },
   onParametersReady: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number }
-    ): void => cb(payload)
+    const handler = (_event: Electron.IpcRendererEvent, payload: { vehicleId: number }): void =>
+      cb(payload)
     ipcRenderer.on(IpcEvents.ParametersReady, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.ParametersReady, handler)
@@ -283,8 +290,7 @@ const bridge: Bridge = {
   // Calibration
   calibrationStart: (vehicleId, sensor) =>
     ipcRenderer.invoke(IpcChannels.CalibrationStart, { vehicleId, sensor }),
-  calibrationCancel: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.CalibrationCancel, vehicleId),
+  calibrationCancel: (vehicleId) => ipcRenderer.invoke(IpcChannels.CalibrationCancel, vehicleId),
   onCalibrationStateChanged: (cb) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
@@ -307,14 +313,12 @@ const bridge: Bridge = {
   },
 
   // RC Calibration
-  rcCalibrationStart: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.RcCalibrationStart, vehicleId),
+  rcCalibrationStart: (vehicleId) => ipcRenderer.invoke(IpcChannels.RcCalibrationStart, vehicleId),
   rcCalibrationNextStep: (vehicleId) =>
     ipcRenderer.invoke(IpcChannels.RcCalibrationNextStep, vehicleId),
   rcCalibrationCancel: (vehicleId) =>
     ipcRenderer.invoke(IpcChannels.RcCalibrationCancel, vehicleId),
-  rcCalibrationSave: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.RcCalibrationSave, vehicleId),
+  rcCalibrationSave: (vehicleId) => ipcRenderer.invoke(IpcChannels.RcCalibrationSave, vehicleId),
   onRcCalibrationStateChanged: (cb) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
@@ -327,18 +331,15 @@ const bridge: Bridge = {
   },
 
   // Flight Modes
-  flightModesGet: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.FlightModesGet, vehicleId),
+  flightModesGet: (vehicleId) => ipcRenderer.invoke(IpcChannels.FlightModesGet, vehicleId),
   flightModesSet: (vehicleId, config) =>
     ipcRenderer.invoke(IpcChannels.FlightModesSet, { vehicleId, config }),
 
   // Firmware
   firmwareUploadFile: (vehicleId, filePath) =>
     ipcRenderer.invoke(IpcChannels.FirmwareUploadFile, { vehicleId, filePath }),
-  firmwareCancel: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.FirmwareCancel, vehicleId),
-  firmwareReboot: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.FirmwareReboot, vehicleId),
+  firmwareCancel: (vehicleId) => ipcRenderer.invoke(IpcChannels.FirmwareCancel, vehicleId),
+  firmwareReboot: (vehicleId) => ipcRenderer.invoke(IpcChannels.FirmwareReboot, vehicleId),
   firmwareGetBoardInfo: (vehicleId) =>
     ipcRenderer.invoke(IpcChannels.FirmwareGetBoardInfo, vehicleId),
   onFirmwareUpgradeStateChanged: (cb) => {
@@ -353,12 +354,9 @@ const bridge: Bridge = {
   },
 
   // Camera
-  cameraRequestInfo: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.CameraRequestInfo, vehicleId),
-  cameraTakePhoto: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.CameraTakePhoto, vehicleId),
-  cameraStopCapture: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.CameraStopCapture, vehicleId),
+  cameraRequestInfo: (vehicleId) => ipcRenderer.invoke(IpcChannels.CameraRequestInfo, vehicleId),
+  cameraTakePhoto: (vehicleId) => ipcRenderer.invoke(IpcChannels.CameraTakePhoto, vehicleId),
+  cameraStopCapture: (vehicleId) => ipcRenderer.invoke(IpcChannels.CameraStopCapture, vehicleId),
   cameraStartRecording: (vehicleId) =>
     ipcRenderer.invoke(IpcChannels.CameraStartRecording, vehicleId),
   cameraStopRecording: (vehicleId) =>
@@ -367,8 +365,7 @@ const bridge: Bridge = {
     ipcRenderer.invoke(IpcChannels.CameraSetMode, { vehicleId, mode }),
   cameraFormatStorage: (vehicleId, storageId) =>
     ipcRenderer.invoke(IpcChannels.CameraFormatStorage, { vehicleId, storageId }),
-  cameraGetState: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.CameraGetState, vehicleId),
+  cameraGetState: (vehicleId) => ipcRenderer.invoke(IpcChannels.CameraGetState, vehicleId),
   onCameraStateChanged: (cb) => {
     const handler = (
       _event: Electron.IpcRendererEvent,
@@ -396,6 +393,17 @@ const bridge: Bridge = {
       ipcRenderer.removeListener(IpcEvents.CameraImageCaptured, handler)
     }
   },
+
+  // Actuator testing
+  motorTest: (vehicleId, motorInstance, throttlePercent, timeoutSeconds) =>
+    ipcRenderer.invoke(IpcChannels.ActuatorMotorTest, {
+      vehicleId,
+      motorInstance,
+      throttlePercent,
+      timeoutSeconds
+    }),
+  servoTest: (vehicleId, servoInstance, pwmValue) =>
+    ipcRenderer.invoke(IpcChannels.ActuatorServoTest, { vehicleId, servoInstance, pwmValue }),
 
   // Popout windows
   popoutOpen: (view) => ipcRenderer.invoke(IpcChannels.PopoutOpen, view),

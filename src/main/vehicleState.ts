@@ -18,7 +18,8 @@ import type {
   ExtendedStateGroup,
   MissionStatusGroup,
   TerrainGroup,
-  CameraGroup
+  CameraGroup,
+  ServoOutputGroup
 } from '@shared/ipc/VehicleState'
 
 export type { VehicleSnapshot, VehicleDelta, VehicleGroupName }
@@ -51,7 +52,14 @@ const PX4_MODE_NAMES: Record<number, Record<number, string>> = {
   1: { 0: 'Manual' },
   2: { 0: 'AltCtl' },
   3: { 0: 'PosCtl' },
-  4: { 1: 'Auto:Ready', 2: 'Auto:Takeoff', 3: 'Auto:Loiter', 4: 'Auto:Mission', 5: 'Auto:RTL', 6: 'Auto:Land' },
+  4: {
+    1: 'Auto:Ready',
+    2: 'Auto:Takeoff',
+    3: 'Auto:Loiter',
+    4: 'Auto:Mission',
+    5: 'Auto:RTL',
+    6: 'Auto:Land'
+  },
   5: { 1: 'Acro' },
   6: { 0: 'Offboard' },
   7: { 0: 'Stabilized' },
@@ -154,6 +162,9 @@ function defaultMissionStatus(): MissionStatusGroup {
 function defaultTerrain(): TerrainGroup {
   return { terrainAltitude: 0, terrainValid: false, distanceToGround: 0, seq: 0 }
 }
+function defaultServoOutput(): ServoOutputGroup {
+  return { port: 0, outputs: [], seq: 0 }
+}
 function defaultCamera(): CameraGroup {
   return {
     discovered: false,
@@ -186,7 +197,8 @@ export function defaultSnapshot(): VehicleSnapshot {
     extendedState: defaultExtendedState(),
     missionStatus: defaultMissionStatus(),
     terrain: defaultTerrain(),
-    camera: defaultCamera()
+    camera: defaultCamera(),
+    servoOutput: defaultServoOutput()
   }
 }
 
@@ -197,6 +209,7 @@ const MSG_GPS_RAW_INT = 24
 const MSG_ATTITUDE = 30
 const MSG_GLOBAL_POSITION_INT = 33
 const MSG_RC_CHANNELS_RAW = 35
+const MSG_SERVO_OUTPUT_RAW = 36
 const MSG_RC_CHANNELS = 65
 const MSG_VFR_HUD = 74
 const MSG_COMMAND_ACK = 77
@@ -231,7 +244,8 @@ export class VehicleState {
     extendedState: false,
     missionStatus: false,
     terrain: false,
-    camera: false
+    camera: false,
+    servoOutput: false
   }
   private dirtyCount = 0
 
@@ -261,6 +275,9 @@ export class VehicleState {
         break
       case MSG_RC_CHANNELS_RAW:
         this._handleRcChannelsRaw(data as common.RcChannelsRaw)
+        break
+      case MSG_SERVO_OUTPUT_RAW:
+        this._handleServoOutputRaw(data as common.ServoOutputRaw)
         break
       case MSG_RC_CHANNELS:
         this._handleRcChannels(data as common.RcChannels)
@@ -448,6 +465,21 @@ export class VehicleState {
       seq: this.state.rc.seq + 1
     }
     this.markDirty('rc')
+  }
+
+  private _handleServoOutputRaw(srv: common.ServoOutputRaw): void {
+    const outputs: number[] = []
+    for (let i = 1; i <= 16; i++) {
+      const key = `servo${i}Raw` as keyof typeof srv
+      const val = srv[key]
+      if (typeof val === 'number') outputs.push(val)
+    }
+    this.state.servoOutput = {
+      port: srv.port,
+      outputs,
+      seq: this.state.servoOutput.seq + 1
+    }
+    this.markDirty('servoOutput')
   }
 
   private _handleVfrHud(hud: common.VfrHud): void {
@@ -706,6 +738,12 @@ export class VehicleState {
       case 'camera':
         delta.camera = { ...this.state.camera }
         break
+      case 'servoOutput':
+        delta.servoOutput = {
+          ...this.state.servoOutput,
+          outputs: [...this.state.servoOutput.outputs]
+        }
+        break
     }
   }
 
@@ -726,7 +764,8 @@ export class VehicleState {
       extendedState: { ...this.state.extendedState },
       missionStatus: { ...this.state.missionStatus },
       terrain: { ...this.state.terrain },
-      camera: { ...this.state.camera }
+      camera: { ...this.state.camera },
+      servoOutput: { ...this.state.servoOutput, outputs: [...this.state.servoOutput.outputs] }
     }
   }
 
