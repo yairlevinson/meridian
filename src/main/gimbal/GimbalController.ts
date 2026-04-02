@@ -87,7 +87,7 @@ export class GimbalController extends EventEmitter {
     cmd._param2 = yaw * DEG_TO_RAD // yaw in rad
     cmd._param5 = 2 // GIMBAL_MANAGER_FLAGS_YAW_LOCK
 
-    this.link.writeBytes(this.protocol.serialize(cmd, this.seq++))
+    this.link.writeBytes(this.protocol.serialize(cmd, this.seq++ & 0xff))
   }
 
   get currentState(): GimbalState {

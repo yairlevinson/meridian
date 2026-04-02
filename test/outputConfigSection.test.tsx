@@ -144,7 +144,7 @@ describe('OutputConfigSection — table rendering', () => {
     const { container } = render(<OutputConfigSection />)
     const selects = container.querySelectorAll('select')
     expect(selects.length).toBe(1)
-    expect(selects[0].value).toBe('33')
+    expect(selects[0]!.value).toBe('33')
   })
 
   it('renders min/max/trim number inputs with correct values', () => {

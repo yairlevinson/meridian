@@ -135,7 +135,7 @@ export class CalibrationManager extends EventEmitter {
     cmd._param6 = params.p6
     cmd._param7 = params.p7
 
-    const buf = this.protocol.serialize(cmd, this.seq++)
+    const buf = this.protocol.serialize(cmd, this.seq++ & 0xff)
     this.link.writeBytes(buf)
   }
 
@@ -158,7 +158,7 @@ export class CalibrationManager extends EventEmitter {
     cmd._param6 = 0
     cmd._param7 = 0
 
-    const buf = this.protocol.serialize(cmd, this.seq++)
+    const buf = this.protocol.serialize(cmd, this.seq++ & 0xff)
     this.link.writeBytes(buf)
 
     this._state.status = CalibrationStatus.Cancelled

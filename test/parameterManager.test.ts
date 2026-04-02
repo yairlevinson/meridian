@@ -150,3 +150,108 @@ describe('ParameterManager', () => {
     expect(pm.getParameter('P0')?.value).toBe(1.5) // latest value wins
   })
 })
+
+describe('ParameterManager — integer param type decoding', () => {
+  let pm: ParameterManager
+  let link: MockLink
+
+  // Helper: encode an integer as float32 bits (simulates what MAVLink wire format does)
+  const f32 = new Float32Array(1)
+  const u32 = new Uint32Array(f32.buffer)
+  const i32 = new Int32Array(f32.buffer)
+  const u16 = new Uint16Array(f32.buffer)
+  const i16 = new Int16Array(f32.buffer)
+  const u8 = new Uint8Array(f32.buffer)
+  const i8 = new Int8Array(f32.buffer)
+
+  function encodeAsFloat(intValue: number, type: ParamValueType): number {
+    // Zero the buffer first
+    u32[0] = 0
+    switch (type) {
+      case ParamValueType.UINT8:
+        u8[0] = intValue
+        break
+      case ParamValueType.INT8:
+        i8[0] = intValue
+        break
+      case ParamValueType.UINT16:
+        u16[0] = intValue
+        break
+      case ParamValueType.INT16:
+        i16[0] = intValue
+        break
+      case ParamValueType.UINT32:
+        u32[0] = intValue
+        break
+      case ParamValueType.INT32:
+        i32[0] = intValue
+        break
+      default:
+        return intValue
+    }
+    return f32[0]
+  }
+
+  beforeEach(() => {
+    pm = new ParameterManager()
+    link = new MockLink()
+    pm.setLink(link)
+    pm.requestAllParameters()
+  })
+
+  afterEach(() => {
+    pm.destroy()
+  })
+
+  it('decodes UINT32 param (e.g. SYS_AUTOSTART=4001)', () => {
+    const wireFloat = encodeAsFloat(4001, ParamValueType.UINT32)
+    pm.handleParamValue(makeParamValue('SYS_AUTOSTART', wireFloat, 0, 1, ParamValueType.UINT32))
+    expect(pm.getParameter('SYS_AUTOSTART')?.value).toBe(4001)
+  })
+
+  it('decodes INT32 param', () => {
+    const wireFloat = encodeAsFloat(-42, ParamValueType.INT32)
+    pm.handleParamValue(makeParamValue('MY_INT_PARAM', wireFloat, 0, 1, ParamValueType.INT32))
+    expect(pm.getParameter('MY_INT_PARAM')?.value).toBe(-42)
+  })
+
+  it('decodes UINT16 param', () => {
+    const wireFloat = encodeAsFloat(1000, ParamValueType.UINT16)
+    pm.handleParamValue(makeParamValue('SERVO1_MIN', wireFloat, 0, 1, ParamValueType.UINT16))
+    expect(pm.getParameter('SERVO1_MIN')?.value).toBe(1000)
+  })
+
+  it('decodes INT16 param', () => {
+    const wireFloat = encodeAsFloat(-100, ParamValueType.INT16)
+    pm.handleParamValue(makeParamValue('NEG_PARAM', wireFloat, 0, 1, ParamValueType.INT16))
+    expect(pm.getParameter('NEG_PARAM')?.value).toBe(-100)
+  })
+
+  it('decodes UINT8 param', () => {
+    const wireFloat = encodeAsFloat(3, ParamValueType.UINT8)
+    pm.handleParamValue(makeParamValue('FRAME_CLASS', wireFloat, 0, 1, ParamValueType.UINT8))
+    expect(pm.getParameter('FRAME_CLASS')?.value).toBe(3)
+  })
+
+  it('decodes INT8 param', () => {
+    const wireFloat = encodeAsFloat(-1, ParamValueType.INT8)
+    pm.handleParamValue(makeParamValue('TINY_PARAM', wireFloat, 0, 1, ParamValueType.INT8))
+    expect(pm.getParameter('TINY_PARAM')?.value).toBe(-1)
+  })
+
+  it('passes REAL32 param through unchanged', () => {
+    pm.handleParamValue(makeParamValue('MPC_XY_VEL', 12.5, 0, 1, ParamValueType.REAL32))
+    expect(pm.getParameter('MPC_XY_VEL')?.value).toBeCloseTo(12.5)
+  })
+
+  it('round-trips: decoded value matches original integer', () => {
+    // SYS_AUTOSTART=4001 is the value that was showing as 5.6e-42
+    const original = 4001
+    const wireFloat = encodeAsFloat(original, ParamValueType.UINT32)
+    // wireFloat is a tiny denormalized float — NOT 4001
+    expect(wireFloat).not.toBe(original)
+    // But after decoding, we get the integer back
+    pm.handleParamValue(makeParamValue('SYS_AUTOSTART', wireFloat, 0, 1, ParamValueType.UINT32))
+    expect(pm.getParameter('SYS_AUTOSTART')?.value).toBe(original)
+  })
+})

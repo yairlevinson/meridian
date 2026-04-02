@@ -397,7 +397,7 @@ export class CameraManager extends EventEmitter {
     cmd._param6 = params.p6 ?? 0
     cmd._param7 = params.p7 ?? 0
 
-    this.link.writeBytes(this.protocol.serialize(cmd, this.seq++))
+    this.link.writeBytes(this.protocol.serialize(cmd, this.seq++ & 0xff))
   }
 
   private _hasCapability(flag: number): boolean {

@@ -77,7 +77,7 @@ export class PlanManager extends EventEmitter {
     req.targetSystem = this.targetSystem
     req.targetComponent = this.targetComponent
     req.missionType = this.missionType as number as typeof req.missionType
-    this.link.writeBytes(this.protocol.serialize(req, this.seq++))
+    this.link.writeBytes(this.protocol.serialize(req, this.seq++ & 0xff))
     this._startAckTimer()
   }
 
@@ -100,7 +100,7 @@ export class PlanManager extends EventEmitter {
     count.targetComponent = this.targetComponent
     count.count = items.length
     count.missionType = this.missionType as number as typeof count.missionType
-    this.link.writeBytes(this.protocol.serialize(count, this.seq++))
+    this.link.writeBytes(this.protocol.serialize(count, this.seq++ & 0xff))
     this._startAckTimer()
   }
 
@@ -112,7 +112,7 @@ export class PlanManager extends EventEmitter {
     clear.targetSystem = this.targetSystem
     clear.targetComponent = this.targetComponent
     clear.missionType = this.missionType as number as typeof clear.missionType
-    this.link.writeBytes(this.protocol.serialize(clear, this.seq++))
+    this.link.writeBytes(this.protocol.serialize(clear, this.seq++ & 0xff))
     this._startAckTimer()
   }
 
@@ -195,7 +195,7 @@ export class PlanManager extends EventEmitter {
     mi.z = item.z
     mi.missionType = item.missionType as number as typeof mi.missionType
     console.log(`[PlanManager] _sendItem seq=${mi.seq} cmd=${mi.command} frame=${mi.frame} x=${mi.x} y=${mi.y} z=${mi.z} mtype=${mi.missionType} tgt=${mi.targetSystem}/${mi.targetComponent}`)
-    this.link.writeBytes(this.protocol.serialize(mi, this.seq++))
+    this.link.writeBytes(this.protocol.serialize(mi, this.seq++ & 0xff))
   }
 
   /** Handle MISSION_ACK from vehicle */
@@ -232,7 +232,7 @@ export class PlanManager extends EventEmitter {
     req.targetComponent = this.targetComponent
     req.seq = seq
     req.missionType = this.missionType as number as typeof req.missionType
-    this.link.writeBytes(this.protocol.serialize(req, this.seq++))
+    this.link.writeBytes(this.protocol.serialize(req, this.seq++ & 0xff))
     this._startAckTimer()
   }
 
@@ -244,7 +244,7 @@ export class PlanManager extends EventEmitter {
     ack.targetComponent = this.targetComponent
     ack.type = result
     ack.missionType = this.missionType as number as typeof ack.missionType
-    this.link.writeBytes(this.protocol.serialize(ack, this.seq++))
+    this.link.writeBytes(this.protocol.serialize(ack, this.seq++ & 0xff))
   }
 
   private _startAckTimer(): void {

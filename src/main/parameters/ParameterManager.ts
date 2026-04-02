@@ -4,6 +4,67 @@ import type { LinkInterface } from '../links/LinkInterface'
 import { createGcsProtocol } from '../mavlink/constants'
 import { ParamValueType, type Parameter, type ParameterLoadState } from '@shared/ipc/ParameterTypes'
 
+// Shared buffer for float↔int reinterpretation
+const _f32 = new Float32Array(1)
+const _u32 = new Uint32Array(_f32.buffer)
+const _i32 = new Int32Array(_f32.buffer)
+const _u16 = new Uint16Array(_f32.buffer)
+const _i16 = new Int16Array(_f32.buffer)
+const _u8 = new Uint8Array(_f32.buffer)
+const _i8 = new Int8Array(_f32.buffer)
+
+/**
+ * MAVLink encodes all parameter values as float32 on the wire.
+ * Integer-typed params store their bits in the float — we must reinterpret.
+ */
+function decodeParamValue(rawFloat: number, paramType: number): number {
+  _f32[0] = rawFloat
+  switch (paramType) {
+    case ParamValueType.UINT8:
+      return _u8[0]
+    case ParamValueType.INT8:
+      return _i8[0]
+    case ParamValueType.UINT16:
+      return _u16[0]
+    case ParamValueType.INT16:
+      return _i16[0]
+    case ParamValueType.UINT32:
+      return _u32[0]
+    case ParamValueType.INT32:
+      return _i32[0]
+    case ParamValueType.REAL32:
+    default:
+      return rawFloat
+  }
+}
+
+/** Encode an integer parameter value as float32 bits for PARAM_SET */
+function encodeParamValue(value: number, paramType: number): number {
+  switch (paramType) {
+    case ParamValueType.UINT8:
+      _u8[0] = value
+      return _f32[0]
+    case ParamValueType.INT8:
+      _i8[0] = value
+      return _f32[0]
+    case ParamValueType.UINT16:
+      _u16[0] = value
+      return _f32[0]
+    case ParamValueType.INT16:
+      _i16[0] = value
+      return _f32[0]
+    case ParamValueType.UINT32:
+      _u32[0] = value
+      return _f32[0]
+    case ParamValueType.INT32:
+      _i32[0] = value
+      return _f32[0]
+    case ParamValueType.REAL32:
+    default:
+      return value
+  }
+}
+
 /**
  * Parameter protocol state machine.
  * Handles PARAM_REQUEST_LIST, PARAM_VALUE accumulation, missing-param retry,
@@ -65,7 +126,7 @@ export class ParameterManager extends EventEmitter {
     const req = new common.ParamRequestList()
     req.targetSystem = this.targetSystem
     req.targetComponent = this.componentId
-    const buf = this.protocol.serialize(req, this.seq++)
+    const buf = this.protocol.serialize(req, this.seq++ & 0xff)
     this.link.writeBytes(buf)
 
     this._startRetryTimer()
@@ -87,7 +148,7 @@ export class ParameterManager extends EventEmitter {
     const name = pv.paramId.replace(/\0/g, '')
     const param: Parameter = {
       name,
-      value: pv.paramValue,
+      value: decodeParamValue(pv.paramValue, pv.paramType),
       type: pv.paramType as ParamValueType,
       index: pv.paramIndex,
       componentId: this.componentId
@@ -124,10 +185,10 @@ export class ParameterManager extends EventEmitter {
     req.targetSystem = this.targetSystem
     req.targetComponent = this.componentId
     req.paramId = name
-    req.paramValue = value
+    req.paramValue = encodeParamValue(value, paramType)
     req.paramType = paramType as number as typeof req.paramType
 
-    const buf = this.protocol.serialize(req, this.seq++)
+    const buf = this.protocol.serialize(req, this.seq++ & 0xff)
     this.link.writeBytes(buf)
 
     // Track pending write
@@ -198,7 +259,7 @@ export class ParameterManager extends EventEmitter {
       req.targetComponent = this.componentId
       req.paramIndex = idx
       req.paramId = '' // empty = use index
-      const buf = this.protocol.serialize(req, this.seq++)
+      const buf = this.protocol.serialize(req, this.seq++ & 0xff)
       this.link.writeBytes(buf)
     }
 

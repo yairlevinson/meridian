@@ -82,7 +82,7 @@ export const TRI: MotorDef[] = [
   { x: 50, y: 80, label: '4', cw: false } // motor 4 in ArduPilot (3 is yaw servo)
 ]
 
-/** Map (frameClass, frameType) → motor layout */
+/** Map ArduPilot (frameClass, frameType) → motor layout */
 export function getMotorLayout(frameClass: number, frameType: number): MotorDef[] | null {
   switch (frameClass) {
     case 1: // Quad
@@ -98,6 +98,71 @@ export function getMotorLayout(frameClass: number, frameType: number): MotorDef[
     default:
       return null
   }
+}
+
+/**
+ * PX4 motor layouts.
+ * Motor numbering follows PX4 airframe reference:
+ * https://docs.px4.io/main/en/airframes/airframe_reference.html
+ *
+ * PX4 Quad X motor order differs from ArduPilot:
+ *   PX4:       1=FR CCW, 2=RL CCW, 3=FL CW, 4=RR CW
+ *   ArduPilot: 1=FR CCW, 2=RL CCW, 3=FL CW, 4=RR CW  (same positions, but spin may differ by FW version)
+ */
+export const PX4_QUAD_X: MotorDef[] = [
+  { x: 75, y: 25, label: '1', cw: true }, // front-right, CW
+  { x: 25, y: 75, label: '2', cw: false }, // rear-left, CCW
+  { x: 25, y: 25, label: '3', cw: false }, // front-left, CCW
+  { x: 75, y: 75, label: '4', cw: true } // rear-right, CW
+]
+
+export const PX4_QUAD_PLUS: MotorDef[] = [
+  { x: 50, y: 20, label: '1', cw: false }, // front, CCW
+  { x: 80, y: 50, label: '2', cw: false }, // right, CCW
+  { x: 50, y: 80, label: '3', cw: true }, // rear, CW
+  { x: 20, y: 50, label: '4', cw: true } // left, CW
+]
+
+export const PX4_HEXA_X: MotorDef[] = [
+  { x: 75, y: 20, label: '1', cw: false },
+  { x: 75, y: 80, label: '2', cw: false },
+  { x: 50, y: 15, label: '3', cw: true },
+  { x: 25, y: 80, label: '4', cw: true },
+  { x: 25, y: 20, label: '5', cw: true },
+  { x: 50, y: 85, label: '6', cw: false }
+]
+
+export const PX4_HEXA_PLUS: MotorDef[] = [
+  { x: 50, y: 15, label: '1', cw: false },
+  { x: 82, y: 32, label: '2', cw: false },
+  { x: 82, y: 68, label: '3', cw: true },
+  { x: 50, y: 85, label: '4', cw: true },
+  { x: 18, y: 68, label: '5', cw: true },
+  { x: 18, y: 32, label: '6', cw: false }
+]
+
+/**
+ * Map PX4 SYS_AUTOSTART airframe ID to motor layout and display name.
+ * IDs follow PX4 airframe numbering: 4xxx=Quad, 6xxx=Hexa, 8xxx=Octa, etc.
+ */
+export function getPx4MotorLayout(autostart: number): { layout: MotorDef[]; name: string } | null {
+  // 4xxx = Quadrotor
+  if (autostart >= 4000 && autostart < 5000) {
+    // 4010, 4011 = Plus; rest = X
+    if (autostart === 4010 || autostart === 4011) {
+      return { layout: PX4_QUAD_PLUS, name: 'Quad +' }
+    }
+    return { layout: PX4_QUAD_X, name: 'Quad X' }
+  }
+  // 6xxx = Hexarotor
+  if (autostart >= 6000 && autostart < 7000) {
+    if (autostart === 6002) {
+      return { layout: PX4_HEXA_PLUS, name: 'Hexa +' }
+    }
+    return { layout: PX4_HEXA_X, name: 'Hexa X' }
+  }
+  // No specific PX4 layouts for octa/Y6/tri yet — return null
+  return null
 }
 
 export const FRAME_CLASS_NAMES: Record<number, string> = {

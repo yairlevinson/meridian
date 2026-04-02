@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   getMotorLayout,
+  getPx4MotorLayout,
   QUAD_X,
   QUAD_PLUS,
   HEXA_X,
@@ -9,6 +10,10 @@ import {
   OCTA_X,
   Y6,
   TRI,
+  PX4_QUAD_X,
+  PX4_QUAD_PLUS,
+  PX4_HEXA_X,
+  PX4_HEXA_PLUS,
   FRAME_CLASS_NAMES,
   FRAME_TYPE_NAMES
 } from '../src/renderer/src/setupview/actuators/motorLayouts'
@@ -222,5 +227,104 @@ describe('Frame name lookups', () => {
   it('FRAME_TYPE_NAMES covers common types', () => {
     expect(FRAME_TYPE_NAMES[0]).toBe('Plus (+)')
     expect(FRAME_TYPE_NAMES[1]).toBe('X')
+  })
+})
+
+// --- PX4 layouts ---
+
+describe('PX4 Motor layouts — getPx4MotorLayout', () => {
+  it('returns Quad X for SYS_AUTOSTART=4001', () => {
+    const result = getPx4MotorLayout(4001)
+    expect(result).not.toBeNull()
+    expect(result!.name).toBe('Quad X')
+    expect(result!.layout).toBe(PX4_QUAD_X)
+  })
+
+  it('returns Quad X for any 4xxx value (default)', () => {
+    expect(getPx4MotorLayout(4002)!.layout).toBe(PX4_QUAD_X)
+    expect(getPx4MotorLayout(4500)!.layout).toBe(PX4_QUAD_X)
+  })
+
+  it('returns Quad + for SYS_AUTOSTART=4010', () => {
+    const result = getPx4MotorLayout(4010)
+    expect(result!.name).toBe('Quad +')
+    expect(result!.layout).toBe(PX4_QUAD_PLUS)
+  })
+
+  it('returns Quad + for SYS_AUTOSTART=4011', () => {
+    expect(getPx4MotorLayout(4011)!.layout).toBe(PX4_QUAD_PLUS)
+  })
+
+  it('returns Hexa X for SYS_AUTOSTART=6001', () => {
+    const result = getPx4MotorLayout(6001)
+    expect(result!.name).toBe('Hexa X')
+    expect(result!.layout).toBe(PX4_HEXA_X)
+  })
+
+  it('returns Hexa + for SYS_AUTOSTART=6002', () => {
+    const result = getPx4MotorLayout(6002)
+    expect(result!.name).toBe('Hexa +')
+    expect(result!.layout).toBe(PX4_HEXA_PLUS)
+  })
+
+  it('returns null for unknown airframe IDs', () => {
+    expect(getPx4MotorLayout(0)).toBeNull()
+    expect(getPx4MotorLayout(9999)).toBeNull()
+    expect(getPx4MotorLayout(1000)).toBeNull()
+  })
+})
+
+describe('PX4 Motor layouts — Quad X correctness', () => {
+  it('has 4 motors', () => {
+    expect(PX4_QUAD_X).toHaveLength(4)
+  })
+
+  it('motors are labeled 1-4', () => {
+    const labels = PX4_QUAD_X.map((m) => m.label).sort()
+    expect(labels).toEqual(['1', '2', '3', '4'])
+  })
+
+  it('has 2 CW and 2 CCW motors', () => {
+    const cwCount = PX4_QUAD_X.filter((m) => m.cw).length
+    expect(cwCount).toBe(2)
+  })
+})
+
+describe('PX4 Motor layouts — Quad Plus correctness', () => {
+  it('has 4 motors', () => {
+    expect(PX4_QUAD_PLUS).toHaveLength(4)
+  })
+
+  it('motor 1 (front) is at top center', () => {
+    const m1 = PX4_QUAD_PLUS.find((m) => m.label === '1')!
+    expect(m1.x).toBe(50)
+    expect(m1.y).toBeLessThan(50)
+  })
+})
+
+describe('PX4 Motor layouts — Hexa correctness', () => {
+  it('Hexa X has 6 motors with 3 CW and 3 CCW', () => {
+    expect(PX4_HEXA_X).toHaveLength(6)
+    expect(PX4_HEXA_X.filter((m) => m.cw).length).toBe(3)
+  })
+
+  it('Hexa Plus has 6 motors with 3 CW and 3 CCW', () => {
+    expect(PX4_HEXA_PLUS).toHaveLength(6)
+    expect(PX4_HEXA_PLUS.filter((m) => m.cw).length).toBe(3)
+  })
+})
+
+describe('PX4 Motor layouts — coordinate bounds', () => {
+  const px4Layouts = [PX4_QUAD_X, PX4_QUAD_PLUS, PX4_HEXA_X, PX4_HEXA_PLUS]
+
+  it('all PX4 motor positions are within 0-100 coordinate range', () => {
+    for (const layout of px4Layouts) {
+      for (const motor of layout) {
+        expect(motor.x).toBeGreaterThanOrEqual(0)
+        expect(motor.x).toBeLessThanOrEqual(100)
+        expect(motor.y).toBeGreaterThanOrEqual(0)
+        expect(motor.y).toBeLessThanOrEqual(100)
+      }
+    }
   })
 })

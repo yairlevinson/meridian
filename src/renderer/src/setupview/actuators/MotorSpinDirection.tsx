@@ -1,22 +1,45 @@
 import { useMemo } from 'react'
+import { useTelemetry } from '../../hooks/useVehicle'
 import { useParameterStore } from '../../store/parameterStore'
-import { getMotorLayout, FRAME_CLASS_NAMES, FRAME_TYPE_NAMES } from './motorLayouts'
+import {
+  getMotorLayout,
+  getPx4MotorLayout,
+  FRAME_CLASS_NAMES,
+  FRAME_TYPE_NAMES
+} from './motorLayouts'
+import type { MotorDef } from './motorLayouts'
 import styles from './ActuatorsPage.module.css'
 
 interface Props {
   highlightMotor?: number // 1-based motor number to highlight (during identification)
 }
 
-export function MotorSpinDirection({ highlightMotor }: Props): React.JSX.Element {
+/** Resolve motor layout for ArduPilot or PX4 based on autopilot type */
+function useMotorLayout(): { layout: MotorDef[] | null; label: string } {
   const parameters = useParameterStore((s) => s.parameters)
+  const core = useTelemetry('core')
+  const autopilot = core?.autopilot ?? 0 // 3=ArduPilot, 12=PX4
+
+  return useMemo(() => {
+    if (autopilot === 12) {
+      // PX4: use SYS_AUTOSTART
+      const autostart = parameters.get('SYS_AUTOSTART')?.value ?? 0
+      const result = getPx4MotorLayout(autostart)
+      if (result) return { layout: result.layout, label: result.name }
+      return { layout: null, label: `SYS_AUTOSTART=${autostart}` }
+    }
+    // ArduPilot: use FRAME_CLASS + FRAME_TYPE
+    const frameClass = parameters.get('FRAME_CLASS')?.value ?? 0
+    const frameType = parameters.get('FRAME_TYPE')?.value ?? 0
+    const layout = getMotorLayout(frameClass, frameType)
+    const label = `${FRAME_CLASS_NAMES[frameClass] ?? 'Unknown'} ${FRAME_TYPE_NAMES[frameType] ?? ''}`
+    return { layout, label }
+  }, [autopilot, parameters])
+}
+
+export function MotorSpinDirection({ highlightMotor }: Props): React.JSX.Element {
   const loadState = useParameterStore((s) => s.loadState)
-
-  const frameClass = parameters.get('FRAME_CLASS')?.value ?? 0
-  const frameType = parameters.get('FRAME_TYPE')?.value ?? 0
-
-  const layout = useMemo(() => getMotorLayout(frameClass, frameType), [frameClass, frameType])
-
-  const frameLabel = `${FRAME_CLASS_NAMES[frameClass] ?? 'Unknown'} ${FRAME_TYPE_NAMES[frameType] ?? ''}`
+  const { layout, label: frameLabel } = useMotorLayout()
 
   if (!loadState.parametersReady) {
     return (
@@ -31,10 +54,7 @@ export function MotorSpinDirection({ highlightMotor }: Props): React.JSX.Element
     return (
       <div className={styles.section}>
         <span className={styles.sectionTitle}>Motor Layout</span>
-        <div className={styles.configLoading}>
-          No diagram available for frame class {frameClass}
-          {FRAME_CLASS_NAMES[frameClass] ? ` (${FRAME_CLASS_NAMES[frameClass]})` : ''}
-        </div>
+        <div className={styles.configLoading}>No diagram available ({frameLabel})</div>
       </div>
     )
   }
@@ -189,8 +209,9 @@ function cwArc(cx: number, cy: number, r: number): string {
 
 /** Generate a CCW arc path (partial circle) around (cx, cy) with radius r */
 function ccwArc(cx: number, cy: number, r: number): string {
-  const startAngle = -60 * (Math.PI / 180)
-  const endAngle = 200 * (Math.PI / 180)
+  // Swap start/end vs CW so the arc+arrowhead visually goes counter-clockwise
+  const startAngle = 200 * (Math.PI / 180)
+  const endAngle = -60 * (Math.PI / 180)
   const x1 = cx + r * Math.cos(startAngle)
   const y1 = cy + r * Math.sin(startAngle)
   const x2 = cx + r * Math.cos(endAngle)
