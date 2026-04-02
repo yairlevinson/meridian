@@ -8,6 +8,7 @@ import { IpcEvents } from '@shared/ipc/events'
 import type { IpcHandler } from '@shared/ipc/geo'
 import type { MavCommandRequest, FlightModeRequest } from '@shared/ipc/MavCommandRequest'
 import type { LinkConfig } from '@shared/ipc/LinkState'
+import { common } from 'mavlink-mappings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { CalibrationSensor } from '@shared/ipc/SetupTypes'
 import { CameraMode } from '@shared/ipc/CameraTypes'
@@ -179,7 +180,7 @@ export function startIpcBridge(
           `[IPC] setFlightMode vehicleId=${req.vehicleId} mode=${req.modeName} vehicleFound=${!!vehicle} pendingCmds=${vehicle?.commandQueue.pendingCount ?? 'N/A'}`
         )
         return vehicle?.commandQueue.sendCommand(
-          176, // MAV_CMD_DO_SET_MODE
+          common.MavCmd.DO_SET_MODE,
           req.vehicleId,
           0,
           { p1: 1, p2: Number(req.modeName) } // p1 = MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, p2 = custom mode
@@ -533,7 +534,7 @@ export function startIpcBridge(
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
         if (!vehicle) return
         return vehicle.commandQueue.sendCommand(
-          209, // MAV_CMD_DO_MOTOR_TEST
+          common.MavCmd.DO_MOTOR_TEST,
           req.vehicleId,
           1,
           {
@@ -553,7 +554,7 @@ export function startIpcBridge(
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
         if (!vehicle) return
         return vehicle.commandQueue.sendCommand(
-          183, // MAV_CMD_DO_SET_SERVO
+          common.MavCmd.DO_SET_SERVO,
           req.vehicleId,
           1,
           { p1: req.servoInstance, p2: req.pwmValue }

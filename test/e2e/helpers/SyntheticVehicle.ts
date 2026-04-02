@@ -22,20 +22,18 @@ const COPTER_MODE_RTL = 6
 
 // MAV_CMD IDs
 const MAV_CMD_COMPONENT_ARM_DISARM = 400
-const MAV_CMD_NAV_TAKEOFF = 22
-const MAV_CMD_NAV_RETURN_TO_LAUNCH = 20
-const MAV_CMD_NAV_LAND = 21
-const MAV_CMD_DO_SET_MODE = 176
-const MAV_CMD_DO_REPOSITION = 192
-const MAV_CMD_DO_PAUSE_CONTINUE = 252
+const { MavCmd } = common
+
+// Note: 252 is actually OVERRIDE_GOTO, not DO_PAUSE_CONTINUE (193)
+const MAV_CMD_OVERRIDE_GOTO = MavCmd.OVERRIDE_GOTO
 
 // Mission protocol msgids
-const MSGID_MISSION_REQUEST_LIST = 43
-const MSGID_MISSION_COUNT = 44
-const MSGID_MISSION_ITEM_INT = 73
-const MSGID_MISSION_REQUEST_INT = 51
-const MSGID_MISSION_ACK = 47
-const _MSGID_MISSION_CURRENT = 42
+const MSGID_MISSION_REQUEST_LIST = common.MissionRequestList.MSG_ID
+const MSGID_MISSION_COUNT = common.MissionCount.MSG_ID
+const MSGID_MISSION_ITEM_INT = common.MissionItemInt.MSG_ID
+const MSGID_MISSION_REQUEST_INT = common.MissionRequestInt.MSG_ID
+const MSGID_MISSION_ACK = common.MissionAck.MSG_ID
+const _MSGID_MISSION_CURRENT = common.MissionCurrent.MSG_ID
 
 interface StoredMissionItem {
   seq: number
@@ -136,18 +134,18 @@ export class SyntheticVehicle {
         console.log(`[SyntheticVehicle ${this.sysid}] ${this.armed ? 'ARMED' : 'DISARMED'}`)
         break
       }
-      case MAV_CMD_NAV_TAKEOFF: {
+      case MavCmd.NAV_TAKEOFF: {
         const alt = cmd.param7 ?? cmd._param7 ?? 10
         this.baseAlt = alt
         this.flightMode = COPTER_MODE_GUIDED
         console.log(`[SyntheticVehicle ${this.sysid}] TAKEOFF to ${alt}m`)
         break
       }
-      case MAV_CMD_NAV_RETURN_TO_LAUNCH:
+      case MavCmd.NAV_RETURN_TO_LAUNCH:
         this.flightMode = COPTER_MODE_RTL
         console.log(`[SyntheticVehicle ${this.sysid}] RTL`)
         break
-      case MAV_CMD_NAV_LAND:
+      case MavCmd.NAV_LAND:
         this.flightMode = COPTER_MODE_LAND
         this.baseAlt = 0
         console.log(`[SyntheticVehicle ${this.sysid}] LAND`)
@@ -158,7 +156,7 @@ export class SyntheticVehicle {
           console.log(`[SyntheticVehicle ${this.sysid}] LANDED & DISARMED`)
         }, 3000)
         break
-      case MAV_CMD_DO_PAUSE_CONTINUE: {
+      case MAV_CMD_OVERRIDE_GOTO: {
         const pause = (cmd.param1 ?? cmd._param1 ?? 0) === 0
         if (pause) {
           this.orbitSpeed = 0
@@ -169,7 +167,7 @@ export class SyntheticVehicle {
         }
         break
       }
-      case MAV_CMD_DO_SET_MODE: {
+      case MavCmd.DO_SET_MODE: {
         const mode = cmd.param2 ?? cmd._param2 ?? 0
         this.flightMode = mode
         console.log(`[SyntheticVehicle ${this.sysid}] SET MODE ${mode}`)
@@ -180,7 +178,7 @@ export class SyntheticVehicle {
         }
         break
       }
-      case MAV_CMD_DO_REPOSITION: {
+      case MavCmd.DO_REPOSITION: {
         const lat = cmd.param5 ?? cmd._param5 ?? 0
         const lon = cmd.param6 ?? cmd._param6 ?? 0
         const alt = cmd.param7 ?? cmd._param7 ?? this.baseAlt

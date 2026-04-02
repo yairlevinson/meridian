@@ -12,6 +12,7 @@
  */
 
 import { expect, type Page } from '@playwright/test'
+import { common } from 'mavlink-mappings'
 
 // ── PX4 custom_mode bitfield values ────────────────────────────────
 // Encoding: main_mode in bits 16-23, sub_mode in bits 24-31.
@@ -142,12 +143,13 @@ export async function waitArmReady(page: Page): Promise<void> {
 
 /** Send MAV_CMD_DO_SET_MODE with a PX4 custom_mode value. */
 export async function setMode(page: Page, customMode: number): Promise<number> {
+  const cmd = common.MavCmd.DO_SET_MODE
   return page.evaluate(
-    (mode: number) =>
+    ({ mode, command }) =>
       window.bridge.sendMavCommand({
         vehicleId: 1,
         componentId: 0,
-        command: 176, // MAV_CMD_DO_SET_MODE
+        command,
         confirmation: 0,
         param1: 1, // MAV_MODE_FLAG_CUSTOM_MODE_ENABLED
         param2: mode,
@@ -157,7 +159,7 @@ export async function setMode(page: Page, customMode: number): Promise<number> {
         param6: 0,
         param7: 0
       }),
-    customMode
+    { mode: customMode, command: cmd }
   ) as Promise<number>
 }
 
