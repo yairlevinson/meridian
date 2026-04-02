@@ -33,6 +33,11 @@ export class UdpLink extends EventEmitter {
     }
   }
 
+  /** Send to a specific address:port (used for initial connection probes). */
+  sendTo(buf: Buffer, port: number, address: string): void {
+    this.socket.send(buf, port, address)
+  }
+
   close(): void {
     try {
       this.socket.close()

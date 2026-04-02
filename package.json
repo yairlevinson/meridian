@@ -24,6 +24,7 @@
     "test:e2e": "playwright test",
     "test:e2e:sitl": "GC_E2E_SITL=1 playwright test",
     "test:e2e:sitl:external": "GC_E2E_SITL=1 GC_E2E_SITL_EXTERNAL=1 playwright test",
+    "test:e2e:gazebo": "GC_E2E_SITL=1 GC_E2E_SITL_EXTERNAL=1 playwright test sitl-",
     "dev:sitl": "./scripts/dev-sitl.sh"
   },
   "dependencies": {

@@ -115,6 +115,40 @@ npm run dev:sitl         # Dev with SITL via scripts/dev-sitl.sh
 
 - `bridge.py` — Python TCP↔UDP bridge for connecting ArduPilot SITL (TCP 5760) to Meridian (UDP 14550). Bidirectional, threaded.
 
+## PX4 SITL Testing
+
+### Running SITL E2E Tests
+
+```bash
+PX4_HOME=/path/to/PX4-Autopilot ./scripts/run-sitl-tests.sh
+# Or directly:
+PX4_HOME=/path/to/PX4-Autopilot GC_E2E_SITL=1 GC_E2E_SITL_EXTERNAL=1 npx playwright test sitl-01
+```
+
+Requires a pre-built PX4: `cd $PX4_HOME && make px4_sitl gz_x500`
+
+### How It Works
+
+- **GazeboLauncher** (`test/e2e/sitl/gazeboLauncher.ts`) starts PX4 + Gazebo headless
+- SITL parameters are written directly to `parameters.bson` (BSON format) — no bootstrap restart needed
+- Worker-scoped Playwright fixtures share one Electron app across all SITL tests
+- PX4's GCS MAVLink instance (UDP 18570) only sends after receiving a packet; `src/main/index.ts` sends GCS heartbeats at 1Hz to 127.0.0.1:18570 to initiate the connection
+
+### Key SITL Parameters (written to parameters.bson)
+
+| Parameter | Value | Why |
+|-----------|-------|-----|
+| `EKF2_MAG_TYPE` | 6 (Init) | Use mag for initial heading only; avoids continuous innovation checks that fail in SITL |
+| `EKF2_HEAD_NOISE` | 10.0 | Increases heading noise variance so innovation ratio stays below 0.5 |
+| `MAV_0_BROADCAST` | 1 | PX4 proactively broadcasts to GCS port |
+| `SYS_AUTOCONFIG` | 0 | Prevents rcS from resetting params on boot |
+
+### Known Issues
+
+- **macOS SIGBUS with `gz_x500_depth`**: The depth camera model crashes PX4 (~80s after startup) due to missing Gazebo plugins (`libGstCameraSystem`, `libOpticalFlowSystem`) corrupting shared memory. Use `gz_x500` instead. Set `PX4_SITL_TARGET=gz_x500_depth` only if those plugins are installed.
+- **Zombie PX4 processes**: If Gazebo fails to find its world file, PX4 enters an unkillable kernel wait (`UEs` state). The launcher has a 30s watchdog to kill stalled PX4 before this happens. If zombies occur, reboot is the only fix.
+- **Stale Gazebo between runs**: Always kill all `gz sim`, `gz-sim-server`, `bin/px4` processes and remove `/tmp/px4_lock-*` before starting fresh.
+
 ## Conventions
 
 - Shared types live in `src/shared-types/` — no type duplication across process boundaries

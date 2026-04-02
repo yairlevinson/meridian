@@ -263,10 +263,14 @@ export class Vehicle extends EventEmitter {
       this.missionManager.handleMissionItemInt(item)
     } else if (msg.msgid === 51 || msg.msgid === 40) {
       // MISSION_REQUEST_INT (51) or legacy MISSION_REQUEST (40)
-      this.missionManager.handleMissionRequest((msg.data as { seq: number }).seq)
+      const reqSeq = (msg.data as { seq: number }).seq
+      console.log(`[Vehicle] mission request msgid=${msg.msgid} seq=${reqSeq}`)
+      this.missionManager.handleMissionRequest(reqSeq)
     } else if (msg.msgid === 47) {
       // MISSION_ACK
-      this.missionManager.handleMissionAck((msg.data as { type: number }).type)
+      const ackType = (msg.data as { type: number }).type
+      console.log(`[Vehicle] mission ACK type=${ackType}`)
+      this.missionManager.handleMissionAck(ackType)
     } else if (msg.msgid === 42) {
       // MISSION_CURRENT
       this.missionManager.handleMissionCurrent((msg.data as { seq: number }).seq)
@@ -336,7 +340,7 @@ export class Vehicle extends EventEmitter {
       192, // MAV_CMD_DO_REPOSITION
       this.sysid,
       0,
-      { p5: lat, p6: lon, p7: alt }
+      { p1: -1, p2: 1, p4: NaN, p5: lat, p6: lon, p7: alt }
     )
   }
 

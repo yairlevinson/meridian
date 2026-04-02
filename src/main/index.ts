@@ -423,7 +423,31 @@ app.whenReady().then(async () => {
     udpLink.unref()
     console.log(`[main] Listening for MAVLink on UDP port ${UDP_PORT}`)
 
+    // Send GCS heartbeats at 1Hz to PX4 SITL's default MAVLink port.
+    // PX4 SITL (started without -o flag) only sends data after it receives
+    // a packet from the GCS, so we need to initiate the connection.
+    const PX4_SITL_PORT = 18570
+    const gcsProto = new MavLinkProtocolV2(GCS_SYSID, GCS_COMPID)
+    let gcsSeq = 0
+    const heartbeatInterval = setInterval(() => {
+      const hb = new minimal.Heartbeat()
+      hb.type = minimal.MavType.GCS
+      hb.autopilot = minimal.MavAutopilot.INVALID
+      hb.baseMode = 0
+      hb.customMode = 0
+      hb.systemStatus = minimal.MavState.ACTIVE
+      hb.mavlinkVersion = 3
+      const buf = gcsProto.serialize(hb, gcsSeq++)
+      if (gcsSeq <= 3) {
+        console.log(`[main] GCS heartbeat #${gcsSeq} → 127.0.0.1:${PX4_SITL_PORT} (${buf.length} bytes)`)
+      }
+      // Send to PX4 SITL default port and also to all known senders
+      udpLink.sendTo(buf, PX4_SITL_PORT, '127.0.0.1')
+      udpLink.send(buf)
+    }, 1000)
+
     app.on('before-quit', () => {
+      clearInterval(heartbeatInterval)
       cleanupIpcBridge()
       cleanupPipeline()
       linkManager.disconnectAll()

@@ -5,13 +5,15 @@
  */
 
 import { SitlManager } from '../sitl/SitlManager'
+import { GazeboLauncher } from '../sitl/gazeboLauncher'
 import { getActiveProfile, PX4_EXTERNAL } from '../sitl/AutopilotProfile'
-import { waitForHeartbeatUdp } from '../sitl/readiness'
 
 const manager = new SitlManager()
+const gazebo = new GazeboLauncher()
 
-// Export so teardown can access the same instance
+// Export so teardown can access the same instances
 ;(globalThis as any).__sitlManager = manager
+;(globalThis as any).__gazeboLauncher = gazebo
 
 export default async function globalSetup(): Promise<void> {
   if (process.env.GC_E2E_SITL !== '1') {
@@ -21,6 +23,21 @@ export default async function globalSetup(): Promise<void> {
 
   const external = process.env.GC_E2E_SITL_EXTERNAL === '1'
   const profile = external ? PX4_EXTERNAL : getActiveProfile()
+
+  if (external && process.env.PX4_HOME) {
+    // Auto-launch PX4 SITL + Gazebo locally
+    console.log(`[globalSetup] Auto-launching PX4 SITL from ${process.env.PX4_HOME}`)
+
+    const result = await gazebo.start()
+
+    process.env.GC_UDP_PORT = String(profile.mavlinkPort)
+    process.env.__SITL_AUTOPILOT = String(result.autopilot)
+    process.env.__SITL_VEHICLE_TYPE = String(result.type)
+    process.env.__SITL_PROFILE = 'px4-external'
+
+    console.log(`[globalSetup] PX4 + Gazebo launched (UDP ${profile.mavlinkPort})`)
+    return
+  }
 
   if (external) {
     console.log(

@@ -263,6 +263,59 @@ npm run dev
 npm run test:e2e:sitl:external
 ```
 
+### PX4 SITL E2E Test Suite
+
+A comprehensive Playwright test suite validates Meridian's major features against a real PX4 SITL + Gazebo simulation. Tests auto-launch PX4 via `GazeboLauncher` and run 10 spec files covering connection, telemetry, arm/disarm, guided flight, flight modes, missions, parameters, preflight checks, camera, and video.
+
+#### Prerequisites
+
+- **PX4-Autopilot** built for SITL: `make px4_sitl gz_x500_depth` (in the PX4-Autopilot directory)
+- **Gazebo** (Harmonic) installed and working
+- The `x500_depth` model is used for camera/video tests
+
+#### Running
+
+```bash
+# Auto-launch PX4 + Gazebo and run all SITL tests
+PX4_HOME=/path/to/PX4-Autopilot GC_E2E_SITL=1 GC_E2E_SITL_EXTERNAL=1 \
+  npx playwright test sitl-
+
+# Run a specific test file
+PX4_HOME=/path/to/PX4-Autopilot GC_E2E_SITL=1 GC_E2E_SITL_EXTERNAL=1 \
+  npx playwright test sitl-03
+
+# Or use the npm script
+PX4_HOME=/path/to/PX4-Autopilot npm run test:e2e:gazebo
+```
+
+#### Test Files
+
+| File | Tests | What it validates |
+|------|-------|-------------------|
+| `sitl-01-connection` | 4 | Heartbeat, autopilot ID, mode decode, map marker |
+| `sitl-02-telemetry` | 10 | Attitude, GPS, heading, battery, sensors, home position, FPS, IPC latency |
+| `sitl-03-arm-disarm` | 6 | Arm via UI hold-button, arm via IPC, disarm via RTL |
+| `sitl-04-guided-flight` | 5 | Takeoff, goto, pause, RTL, land (serial chain) |
+| `sitl-05-flight-modes` | 5 | Mode display, PX4 custom_mode decoding (mode switching skipped — no RC in SITL) |
+| `sitl-06-mission` | 6 | Upload, download round-trip, arm + Auto:Mission, waypoints, RTL + land |
+| `sitl-07-parameters` | 4 | Auto-download, known params, set/read-back, param count |
+| `sitl-08-preflight` | 5 | GPS check, battery, sensors, comms, checklist count |
+| `sitl-09-camera` | 3 | Camera discovery, capabilities, photo capture (skipped if no camera) |
+| `sitl-10-video` | 5 | Video start/stop, stream state, `gz-video-stream.py` integration (skipped if no script) |
+
+#### Architecture
+
+- **GazeboLauncher** (`test/e2e/sitl/gazeboLauncher.ts`): Spawns PX4 from the pre-built binary, waits for EKF convergence ("home set" in PX4 stdout), cleans stale state files between runs.
+- **Shared helpers** (`test/e2e/helpers/sitlHelpers.ts`): `waitConnected`, `waitGpsFix`, `waitArmReady`, `armVehicle`, `disarmVehicle`, etc. All use Playwright's `expect().toPass()` polling against the rendered UI.
+- **Single PX4 process** shared across all test files. Each file gets a fresh Electron app but connects to the same PX4. Tests within a file use `test.describe.serial()`.
+
+#### Known Limitations
+
+- **PX4 SITL has no RC input**: Manual/Stabilized/AltCtl/PosCtl modes revert immediately. `DO_SET_MODE` returns ACCEPTED but PX4 doesn't actually change mode. Only `Auto:*` modes work reliably.
+- **Arm non-determinism after flight cycles**: PX4 may need 15-90s of recovery time between flight cycles before accepting arm commands. `armVehicle()` retries up to 6 times with 15s gaps.
+- **`emergencyStop` corrupts PX4 state**: Force disarm (param2=21196) can prevent subsequent arming. Tests use RTL-based disarm instead, with emergencyStop only as a last resort.
+- **Cross-file arm flakiness**: After sitl-03's flight cycles, sitl-04 and sitl-06 may fail to arm. The retry logic handles this most of the time but not always.
+
 ## Build
 
 ```bash
