@@ -3,7 +3,6 @@ import { AttitudeIndicator } from '../components/AttitudeIndicator'
 import { Compass } from '../components/Compass'
 import { MapView } from '../components/MapView'
 import { VideoView } from '../components/VideoView'
-import { VideoControls } from '../components/VideoControls'
 import { InstrumentPanel } from './InstrumentPanel'
 import { GpsStatus } from './GpsStatus'
 import { BatteryStatus } from './BatteryStatus'
@@ -13,6 +12,7 @@ import { PreFlightChecklist } from './PreFlightChecklist'
 import { GuidedActions } from './GuidedActions'
 import { LinkQuality } from './LinkQuality'
 import { StatusTextOverlay } from './StatusTextOverlay'
+import { VideoOverlay } from './VideoOverlay'
 import { VehicleSelector } from './VehicleSelector'
 import { CameraPanel } from './CameraPanel'
 import { SystemHealthStrip } from './SystemHealthStrip'
@@ -132,7 +132,12 @@ export function FlyView(): React.JSX.Element {
     <div className={styles.root}>
       <div className={styles.mapArea} ref={mapAreaRef}>
         {/* Main view — always full size */}
-        {(showVideo || showMap) && <div className={styles.mainLayer}>{mainEl}</div>}
+        {(showVideo || showMap) && (
+          <div className={styles.mainLayer}>
+            {mainEl}
+            {videoIsMain && <VideoOverlay />}
+          </div>
+        )}
 
         {/* PiP — draggable container with toolbar + content */}
         {showPip && (
@@ -216,7 +221,6 @@ export function FlyView(): React.JSX.Element {
           </button>
         )}
 
-        <VideoControls />
         <StatusTextOverlay />
       </div>
 

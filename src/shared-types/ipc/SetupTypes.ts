@@ -137,6 +137,7 @@ export type SetupPage =
   | 'tuning'
   | 'actuators'
   | 'parameters'
+  | 'video'
 
 /** ArduCopter flight mode names indexed by custom_mode number */
 export const ARDUCOPTER_MODE_NAMES: Record<number, string> = {

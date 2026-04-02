@@ -17,7 +17,8 @@ const items: SidebarItem[] = [
   { page: 'airframe', label: 'Airframe' },
   { page: 'tuning', label: 'Tuning' },
   { page: 'actuators', label: 'Actuators' },
-  { page: 'parameters', label: 'Parameters' }
+  { page: 'parameters', label: 'Parameters' },
+  { page: 'video', label: 'Video' }
 ]
 
 interface Props {

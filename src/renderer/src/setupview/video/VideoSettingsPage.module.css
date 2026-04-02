@@ -1,0 +1,189 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+/* Status bar */
+.statusBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.statusDotOn {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00e676;
+  flex-shrink: 0;
+}
+
+.statusDotOff {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dimmed);
+  flex-shrink: 0;
+}
+
+.statusTextOn {
+  color: #00e676;
+}
+
+.statusTextOff {
+  color: var(--text-dimmed);
+}
+
+.recordingBadge {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(255, 0, 0, 0.2);
+  border: 1px solid #f44;
+  color: #f88;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+/* Sections */
+.section {
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+/* Source type cards */
+.sourceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.sourceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  text-align: left;
+  transition: border-color 0.15s;
+}
+
+.sourceCard:hover {
+  background: var(--bg-hover);
+}
+
+.sourceCardActive {
+  border-color: var(--accent-blue);
+  background: rgba(74, 158, 255, 0.08);
+}
+
+.sourceLabel {
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.sourceDesc {
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+}
+
+/* URI input */
+.uriInput {
+  width: 100%;
+  max-width: 500px;
+  padding: 8px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  box-sizing: border-box;
+}
+
+.uriInput:focus {
+  border-color: var(--accent-blue);
+  outline: none;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.applyBtn {
+  background: var(--accent-blue);
+  border: 1px solid var(--accent-blue);
+  border-radius: 4px;
+  padding: 8px 24px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.applyBtn:hover {
+  opacity: 0.9;
+}
+
+.applyBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.stopBtn {
+  background: var(--bg-elevated);
+  border: 1px solid #ff5252;
+  border-radius: 4px;
+  padding: 8px 24px;
+  color: #ff5252;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.stopBtn:hover {
+  background: rgba(255, 82, 82, 0.1);
+}
+
+/* Error */
+.error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 82, 82, 0.1);
+  border: 1px solid #ff5252;
+  border-radius: 4px;
+  color: #ff5252;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
