@@ -86,7 +86,7 @@ test.describe('Mission Planning E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('Click map to add waypoints')
+      expect(text).toContain('Click the map to add your first waypoint')
     }).toPass({ timeout: 5000 })
   })
 })

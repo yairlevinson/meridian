@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParameterStore } from '../../store/parameterStore'
 import { useVehicleStore } from '../../store/vehicleStore'
+import { ParameterLoading } from '../ParameterLoading'
 import styles from './AirframePage.module.css'
 
 /** ArduCopter FRAME_CLASS values */
@@ -82,7 +83,7 @@ export function AirframePage(): React.JSX.Element {
     return (
       <div className={styles.root}>
         <div className={styles.title}>Airframe</div>
-        <div className={styles.loading}>Waiting for parameters...</div>
+        <ParameterLoading />
       </div>
     )
   }

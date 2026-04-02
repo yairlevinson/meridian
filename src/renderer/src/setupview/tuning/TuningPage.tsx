@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParameterStore } from '../../store/parameterStore'
 import { useVehicleStore } from '../../store/vehicleStore'
+import { ParameterLoading } from '../ParameterLoading'
 import styles from './TuningPage.module.css'
 
 /** PID tuning parameter groups for ArduCopter */
@@ -135,7 +136,7 @@ export function TuningPage(): React.JSX.Element {
     return (
       <div className={styles.root}>
         <div className={styles.title}>PID Tuning</div>
-        <div className={styles.loading}>Waiting for parameters...</div>
+        <ParameterLoading />
       </div>
     )
   }

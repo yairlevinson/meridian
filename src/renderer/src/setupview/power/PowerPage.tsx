@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParameterStore } from '../../store/parameterStore'
 import { useVehicleStore } from '../../store/vehicleStore'
+import { ParameterLoading } from '../ParameterLoading'
 import styles from './PowerPage.module.css'
 
 const POWER_PARAMS = [
@@ -47,7 +48,7 @@ export function PowerPage(): React.JSX.Element {
     return (
       <div className={styles.root}>
         <div className={styles.title}>Power</div>
-        <div className={styles.loading}>Waiting for parameters...</div>
+        <ParameterLoading />
       </div>
     )
   }

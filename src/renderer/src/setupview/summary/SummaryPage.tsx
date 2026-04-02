@@ -3,6 +3,24 @@ import { useVehicleStore } from '../../store/vehicleStore'
 import { useParameterStore } from '../../store/parameterStore'
 import styles from './SummaryPage.module.css'
 
+/** GPS_FIX_TYPE enum names */
+const GPS_FIX_NAMES: Record<number, string> = {
+  0: 'No GPS',
+  1: 'No Fix',
+  2: '2D Fix',
+  3: '3D Fix',
+  4: 'DGPS',
+  5: 'RTK Float',
+  6: 'RTK Fixed'
+}
+
+function gpsFixClass(fixType: number, css: Record<string, string>): string {
+  if (fixType >= 5) return css.badgeGreen!
+  if (fixType >= 3) return css.badgeBlue!
+  if (fixType >= 2) return css.badgeYellow!
+  return css.badgeRed!
+}
+
 /** MAV_SYS_STATUS_SENSOR bitmask values for ArduPilot */
 const SENSOR_BITS = {
   GYRO_3D: 1 << 0,
@@ -51,7 +69,7 @@ function getSensorStatuses(
 function statusIcon(s: SensorStatus): string {
   if (!s.present) return '-'
   if (!s.enabled) return '-'
-  return s.healthy ? 'OK' : 'FAIL'
+  return s.healthy ? '\u2713' : '\u2717'
 }
 
 function statusClass(s: SensorStatus, css: Record<string, string>): string {
@@ -180,9 +198,19 @@ export function SummaryPage(): React.JSX.Element {
             {core ? `${core.firmwareVersionMajor}.${core.firmwareVersionMinor}.${core.firmwareVersionPatch}` : 'Unknown'}
           </span>
           <span className={styles.infoLabel}>Armed</span>
-          <span className={styles.infoValue}>{core?.armed ? 'YES' : 'NO'}</span>
+          <span className={styles.infoValue}>
+            {core ? (
+              <span className={core.armed ? styles.badgeRed : styles.badgeGreen}>
+                {core.armed ? 'ARMED' : 'DISARMED'}
+              </span>
+            ) : '-'}
+          </span>
           <span className={styles.infoLabel}>Flight Mode</span>
-          <span className={styles.infoValue}>{core?.flightMode ?? '-'}</span>
+          <span className={styles.infoValue}>
+            {core ? (
+              <span className={styles.badgeBlue}>{core.flightModeName || core.flightMode}</span>
+            ) : '-'}
+          </span>
         </div>
       </div>
 
@@ -192,7 +220,11 @@ export function SummaryPage(): React.JSX.Element {
           <div className={styles.sectionTitle}>GPS</div>
           <div className={styles.infoGrid}>
             <span className={styles.infoLabel}>Fix Type</span>
-            <span className={styles.infoValue}>{gpsRaw.fixType}</span>
+            <span className={styles.infoValue}>
+              <span className={gpsFixClass(gpsRaw.fixType, styles)}>
+                {GPS_FIX_NAMES[gpsRaw.fixType] ?? `Unknown (${gpsRaw.fixType})`}
+              </span>
+            </span>
             <span className={styles.infoLabel}>Satellites</span>
             <span className={styles.infoValue}>{gpsRaw.satelliteCount}</span>
             <span className={styles.infoLabel}>HDOP</span>
@@ -209,7 +241,20 @@ export function SummaryPage(): React.JSX.Element {
             <div key={b.id} className={styles.infoGrid}>
               <span className={styles.infoLabel}>Battery {b.id}</span>
               <span className={styles.infoValue}>
-                {b.voltage.toFixed(1)}V / {b.remaining >= 0 ? `${b.remaining}%` : '--'}
+                <span className={styles.batteryInfo}>
+                  <span>{b.voltage.toFixed(1)}V</span>
+                  {b.remaining >= 0 && (
+                    <>
+                      <span className={styles.batteryBar}>
+                        <span
+                          className={`${styles.batteryFill} ${b.remaining <= 20 ? styles.batteryLow : b.remaining <= 40 ? styles.batteryMid : ''}`}
+                          style={{ width: `${Math.max(0, Math.min(100, b.remaining))}%` }}
+                        />
+                      </span>
+                      <span>{b.remaining}%</span>
+                    </>
+                  )}
+                </span>
               </span>
             </div>
           ))}

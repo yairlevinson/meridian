@@ -91,3 +91,80 @@
 .statusNA {
   color: var(--text-dimmed);
 }
+
+/* Badges */
+.badgeGreen {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  background: rgba(0, 230, 118, 0.12);
+  border: 1px solid #00e676;
+  color: #00e676;
+}
+
+.badgeRed {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  background: rgba(255, 82, 82, 0.12);
+  border: 1px solid #ff5252;
+  color: #ff5252;
+}
+
+.badgeBlue {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  background: rgba(74, 158, 255, 0.12);
+  border: 1px solid var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.badgeYellow {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  background: rgba(255, 171, 64, 0.12);
+  border: 1px solid #ffab40;
+  color: #ffab40;
+}
+
+/* Battery bar */
+.batteryInfo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.batteryBar {
+  display: inline-block;
+  width: 60px;
+  height: 12px;
+  background: var(--border-default);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.batteryFill {
+  display: block;
+  height: 100%;
+  background: #00e676;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.batteryFill.batteryMid {
+  background: #ffab40;
+}
+
+.batteryFill.batteryLow {
+  background: #ff5252;
+}

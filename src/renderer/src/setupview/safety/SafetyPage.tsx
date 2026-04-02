@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParameterStore } from '../../store/parameterStore'
 import { useVehicleStore } from '../../store/vehicleStore'
+import { ParameterLoading } from '../ParameterLoading'
 import styles from './SafetyPage.module.css'
 
 const SAFETY_PARAMS = [
@@ -50,7 +51,7 @@ export function SafetyPage(): React.JSX.Element {
     return (
       <div className={styles.root}>
         <div className={styles.title}>Safety</div>
-        <div className={styles.loading}>Waiting for parameters...</div>
+        <ParameterLoading />
       </div>
     )
   }

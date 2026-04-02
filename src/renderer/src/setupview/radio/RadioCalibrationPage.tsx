@@ -5,6 +5,14 @@ import { RcCalStep } from '../../../../shared-types/ipc/SetupTypes'
 import { ChannelBar } from './ChannelBar'
 import styles from './RadioCalibrationPage.module.css'
 
+/** Default channel function labels (ArduPilot convention) */
+const DEFAULT_CHANNEL_FUNCTIONS: Record<number, string> = {
+  0: 'Roll',
+  1: 'Pitch',
+  2: 'Throttle',
+  3: 'Yaw'
+}
+
 const STEP_LABELS: Record<string, string> = {
   [RcCalStep.Idle]: 'Press Start to begin RC calibration',
   [RcCalStep.Center]: 'Center all sticks and switches, then press Next',
@@ -44,11 +52,34 @@ export function RadioCalibrationPage(): React.JSX.Element {
 
   const channels = rc?.channels ?? []
   const channelCount = rc?.channelCount ?? channels.length
+  const hasRcInput = channels.some((v) => v > 0)
+
+  // Build channel-to-function mapping: use stick mapping if available, otherwise defaults
+  const channelFunctions: Record<number, string> = {}
+  if (rcCalState?.stickMapping) {
+    for (const [stick, ch] of Object.entries(rcCalState.stickMapping)) {
+      if (ch !== null) channelFunctions[ch] = stick
+    }
+  }
+  // Fill in defaults for unmapped channels
+  for (const [ch, label] of Object.entries(DEFAULT_CHANNEL_FUNCTIONS)) {
+    if (!(Number(ch) in channelFunctions)) {
+      channelFunctions[Number(ch)] = label
+    }
+  }
 
   return (
     <div className={styles.root}>
       <div className={styles.title}>Radio Calibration</div>
       <div className={styles.subtitle}>{STEP_LABELS[step] ?? ''}</div>
+
+      {/* Connection status */}
+      <div className={styles.rcStatus}>
+        <span className={hasRcInput ? styles.rcStatusDotOk : styles.rcStatusDotOff} />
+        <span className={hasRcInput ? styles.rcStatusTextOk : styles.rcStatusTextOff}>
+          {hasRcInput ? `RC input active (${channelCount} channels)` : 'No RC input detected'}
+        </span>
+      </div>
 
       <div className={styles.toolbar}>
         {isIdle && (
@@ -88,6 +119,7 @@ export function RadioCalibrationPage(): React.JSX.Element {
               value={channels[i] ?? 0}
               min={calCh?.min}
               max={calCh?.max}
+              functionLabel={channelFunctions[i]}
             />
           )
         })}

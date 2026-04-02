@@ -34,7 +34,17 @@ export function MissionSidebar(): React.JSX.Element {
       {/* Waypoint list */}
       <div className={styles.list}>
         {waypoints.length === 0 && (
-          <div className={styles.emptyMsg}>Click map to add waypoints</div>
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>+</div>
+            <div className={styles.emptyTitle}>No waypoints yet</div>
+            <div className={styles.emptyMsg}>Click the map to add your first waypoint</div>
+            <button
+              className={styles.loadBtn}
+              onClick={() => window.bridge?.openPlan?.()}
+            >
+              Load mission file
+            </button>
+          </div>
         )}
         {waypoints.map((wp) => {
           const isSelected = wp.seq === selectedSeq

@@ -37,60 +37,73 @@ export function GuidedActions(): React.JSX.Element {
     }
   }
 
+  if (!armed) {
+    return (
+      <div className={styles.root}>
+        <div className={styles.group}>
+          <button
+            className={styles.btn}
+            style={{ color: '#4a9eff', borderColor: '#4a9eff' }}
+            onClick={() => guidedTakeoff(10)}
+          >
+            Takeoff
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={styles.root}>
-      {!armed && (
+      {/* Navigation */}
+      <div className={styles.group}>
+        {!isAuto && (
+          <button
+            className={styles.btn}
+            style={{ color: '#44cc44', borderColor: '#44cc44' }}
+            onClick={startMission}
+            disabled={uploading}
+          >
+            {uploading ? 'Uploading...' : 'Mission'}
+          </button>
+        )}
         <button
           className={styles.btn}
-          style={{ color: '#4a9eff', borderColor: '#4a9eff' }}
-          onClick={() => guidedTakeoff(10)}
+          style={{ color: '#aaaaaa', borderColor: '#aaaaaa' }}
+          onClick={() => guidedPause()}
         >
-          Takeoff
+          Pause
         </button>
-      )}
-      {armed && (
-        <>
-          {!isAuto && (
-            <button
-              className={styles.btn}
-              style={{ color: '#44cc44', borderColor: '#44cc44' }}
-              onClick={startMission}
-              disabled={uploading}
-            >
-              {uploading ? 'Uploading…' : 'Mission'}
-            </button>
-          )}
-          <button
-            className={styles.btn}
-            style={{ color: '#ffaa00', borderColor: '#ffaa00' }}
-            onClick={() => guidedRTL()}
+      </div>
+
+      {/* Emergency */}
+      <div className={styles.group}>
+        <button
+          className={styles.btnEmergency}
+          style={{ color: '#ffaa00', borderColor: '#ffaa00' }}
+          onClick={() => guidedRTL()}
+        >
+          RTL
+        </button>
+        <button
+          className={styles.btnEmergency}
+          style={{ color: '#ff5252', borderColor: '#ff5252' }}
+          onClick={() => guidedLand()}
+        >
+          Land
+        </button>
+      </div>
+
+      {flying && (
+        <div className={styles.group}>
+          <HoldButton
+            className={styles.btnEmergency}
+            style={{ color: '#ff0000', borderColor: '#ff0000' }}
+            onConfirm={() => emergencyStop()}
           >
-            RTL
-          </button>
-          <button
-            className={styles.btn}
-            style={{ color: '#ff6644', borderColor: '#ff6644' }}
-            onClick={() => guidedLand()}
-          >
-            Land
-          </button>
-          <button
-            className={styles.btn}
-            style={{ color: '#aaaaaa', borderColor: '#aaaaaa' }}
-            onClick={() => guidedPause()}
-          >
-            Pause
-          </button>
-          {flying && (
-            <HoldButton
-              className={styles.btn}
-              style={{ color: '#ff0000', borderColor: '#ff0000' }}
-              onConfirm={() => emergencyStop()}
-            >
-              Emergency Stop
-            </HoldButton>
-          )}
-        </>
+            Emergency Stop
+          </HoldButton>
+        </div>
       )}
     </div>
   )

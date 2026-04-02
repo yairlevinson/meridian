@@ -67,10 +67,29 @@
 }
 
 .channelLabel {
-  width: 40px;
-  color: var(--text-dimmed);
-  text-align: right;
+  width: 90px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   flex-shrink: 0;
+}
+
+.channelNum {
+  color: var(--text-dimmed);
+  min-width: 16px;
+  text-align: right;
+}
+
+.channelFunc {
+  color: var(--accent-blue);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.channelFunc_throttle {
+  color: #00e676;
+  font-size: var(--fs-xs);
+  font-weight: 600;
 }
 
 .channelBarWrap {
@@ -90,6 +109,14 @@
   background: rgba(0, 230, 118, 0.15);
 }
 
+.channelBarCenter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border-default);
+}
+
 .channelBarValue {
   position: absolute;
   top: 2px;
@@ -100,12 +127,50 @@
   transition: left 0.05s linear;
 }
 
+.channelBarValue_throttle {
+  background: #00e676;
+}
+
 .channelValue {
   width: 50px;
   color: var(--text-secondary);
   text-align: right;
   flex-shrink: 0;
   font-size: var(--fs-xs);
+}
+
+/* RC connection status */
+.rcStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.rcStatusDotOk {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00e676;
+  flex-shrink: 0;
+}
+
+.rcStatusDotOff {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5252;
+  flex-shrink: 0;
+}
+
+.rcStatusTextOk {
+  color: #00e676;
+}
+
+.rcStatusTextOff {
+  color: #ff5252;
 }
 
 .stickMapping {

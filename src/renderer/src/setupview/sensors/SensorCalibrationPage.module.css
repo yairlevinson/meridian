@@ -30,7 +30,8 @@
   cursor: pointer;
   font-family: var(--font-mono);
   color: var(--text-secondary);
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s;
+  position: relative;
 }
 
 .calBtn:hover {
@@ -65,12 +66,36 @@
   font-size: var(--fs-xs);
   color: #00e676;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.calStatusOk::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00e676;
 }
 
 .calStatusWarn {
   font-size: var(--fs-xs);
   color: #ffab40;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.calStatusWarn::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffab40;
 }
 
 .orientationSection {
