@@ -1,4 +1,5 @@
 import { useVehicleStore } from '../store/vehicleStore'
+import { useMissionStore } from '../store/missionStore'
 import type {
   VehicleSnapshot,
   VehicleGroupName,
@@ -48,7 +49,7 @@ export function useConnected(): boolean {
 }
 
 /** Hook: get the active vehicle's home position (lat, lon, alt) when valid */
-export function useHomePosition(): { lat: number; lon: number; alt: number } | null {
+export function useVehicleHome(): { lat: number; lon: number; alt: number } | null {
   const json = useVehicleStore((s) => {
     const id = s.activeVehicleId
     if (id == null) return 'null'
@@ -57,6 +58,18 @@ export function useHomePosition(): { lat: number; lon: number; alt: number } | n
     return JSON.stringify({ lat: home.lat, lon: home.lon, alt: home.alt })
   })
   return JSON.parse(json) as { lat: number; lon: number; alt: number } | null
+}
+
+/** Hook: get the planned home from the mission store */
+export function usePlannedHome(): { lat: number; lon: number; alt: number } | null {
+  return useMissionStore((s) => s.plannedHome)
+}
+
+/** Hook: effective home — vehicle home overrides planned home when available */
+export function useHomePosition(): { lat: number; lon: number; alt: number } | null {
+  const vehicleHome = useVehicleHome()
+  const plannedHome = usePlannedHome()
+  return vehicleHome ?? plannedHome
 }
 
 /** Hook: get all vehicles' positions and headings.

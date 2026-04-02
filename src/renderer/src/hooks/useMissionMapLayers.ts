@@ -5,7 +5,9 @@ import type { EditableWaypoint } from '../../../shared-types/ipc/MissionTypes'
 
 const PATH_SOURCE = 'mission-path'
 const WP_SOURCE = 'mission-waypoints'
+const HOME_PATH_SOURCE = 'mission-home-path'
 const PATH_LAYER = 'mission-path-line'
+const HOME_PATH_LAYER = 'mission-home-path-line'
 const WP_CIRCLE_LAYER = 'mission-waypoints-circle'
 const WP_LABEL_LAYER = 'mission-waypoints-label'
 
@@ -40,11 +42,48 @@ function buildLineFC(waypoints: EditableWaypoint[]): GeoJSON.FeatureCollection {
   }
 }
 
+function buildHomeLineFC(
+  home: { lat: number; lon: number } | null,
+  waypoints: EditableWaypoint[]
+): GeoJSON.FeatureCollection {
+  if (!home || waypoints.length === 0) return EMPTY_FC
+  const first = waypoints[0]!
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: [
+            [home.lon, home.lat],
+            [first.lon, first.lat]
+          ]
+        },
+        properties: {}
+      }
+    ]
+  }
+}
+
 function addSourcesAndLayers(map: maplibregl.Map): void {
   if (map.getSource(PATH_SOURCE)) return // already added
 
   map.addSource(PATH_SOURCE, { type: 'geojson', data: EMPTY_FC })
   map.addSource(WP_SOURCE, { type: 'geojson', data: EMPTY_FC })
+  map.addSource(HOME_PATH_SOURCE, { type: 'geojson', data: EMPTY_FC })
+
+  map.addLayer({
+    id: HOME_PATH_LAYER,
+    type: 'line',
+    source: HOME_PATH_SOURCE,
+    paint: {
+      'line-color': '#00e676',
+      'line-width': 2,
+      'line-opacity': 0.6,
+      'line-dasharray': [4, 4]
+    }
+  })
 
   map.addLayer({
     id: PATH_LAYER,
@@ -75,7 +114,7 @@ function addSourcesAndLayers(map: maplibregl.Map): void {
     type: 'symbol',
     source: WP_SOURCE,
     layout: {
-      'text-field': ['get', 'seq'],
+      'text-field': ['+', ['get', 'seq'], 1],
       'text-size': 13,
       'text-font': ['Open Sans Regular'],
       'text-allow-overlap': true
@@ -89,10 +128,10 @@ function addSourcesAndLayers(map: maplibregl.Map): void {
 }
 
 function removeSourcesAndLayers(map: maplibregl.Map): void {
-  for (const layerId of [WP_LABEL_LAYER, WP_CIRCLE_LAYER, PATH_LAYER]) {
+  for (const layerId of [WP_LABEL_LAYER, WP_CIRCLE_LAYER, PATH_LAYER, HOME_PATH_LAYER]) {
     if (map.getLayer(layerId)) map.removeLayer(layerId)
   }
-  for (const sourceId of [WP_SOURCE, PATH_SOURCE]) {
+  for (const sourceId of [WP_SOURCE, PATH_SOURCE, HOME_PATH_SOURCE]) {
     if (map.getSource(sourceId)) map.removeSource(sourceId)
   }
 }
@@ -114,11 +153,13 @@ export function useMissionMapLayers(map: maplibregl.Map | null, editMode: boolea
     const setup = (): void => {
       addSourcesAndLayers(map)
       // Push initial data
-      const { editableWaypoints, selectedWaypointSeq } = useMissionStore.getState()
+      const { editableWaypoints, selectedWaypointSeq, plannedHome } = useMissionStore.getState()
       const wpSrc = map.getSource(WP_SOURCE) as GeoJSONSource | undefined
       const pathSrc = map.getSource(PATH_SOURCE) as GeoJSONSource | undefined
+      const homePathSrc = map.getSource(HOME_PATH_SOURCE) as GeoJSONSource | undefined
       wpSrc?.setData(buildPointFC(editableWaypoints, selectedWaypointSeq))
       pathSrc?.setData(buildLineFC(editableWaypoints))
+      homePathSrc?.setData(buildHomeLineFC(plannedHome, editableWaypoints))
     }
 
     if (map.isStyleLoaded()) {
@@ -149,14 +190,20 @@ export function useMissionMapLayers(map: maplibregl.Map | null, editMode: boolea
 
     let prevJson = ''
     const unsubscribe = useMissionStore.subscribe((state) => {
-      const json = JSON.stringify({ wps: state.editableWaypoints, sel: state.selectedWaypointSeq })
+      const json = JSON.stringify({
+        wps: state.editableWaypoints,
+        sel: state.selectedWaypointSeq,
+        home: state.plannedHome
+      })
       if (json === prevJson) return
       prevJson = json
 
       const wpSrc = map.getSource(WP_SOURCE) as GeoJSONSource | undefined
       const pathSrc = map.getSource(PATH_SOURCE) as GeoJSONSource | undefined
+      const homePathSrc = map.getSource(HOME_PATH_SOURCE) as GeoJSONSource | undefined
       wpSrc?.setData(buildPointFC(state.editableWaypoints, state.selectedWaypointSeq))
       pathSrc?.setData(buildLineFC(state.editableWaypoints))
+      homePathSrc?.setData(buildHomeLineFC(state.plannedHome, state.editableWaypoints))
     })
 
     return unsubscribe

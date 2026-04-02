@@ -12,6 +12,12 @@ import { missionItemToWaypoint, computeMissionStats, resequence } from './missio
 
 const emptyStats: MissionStats = { totalDistanceM: 0, estimatedTimeSec: 0, waypointCount: 0 }
 
+export interface PlannedHome {
+  lat: number
+  lon: number
+  alt: number
+}
+
 interface MissionStore {
   missionItems: MissionItem[]
   currentIndex: number
@@ -22,6 +28,7 @@ interface MissionStore {
   rallyPoints: RallyPoint[]
 
   // Plan editor state
+  plannedHome: PlannedHome | null
   editableWaypoints: EditableWaypoint[]
   selectedWaypointSeq: number | null
   isDirty: boolean
@@ -38,6 +45,8 @@ interface MissionStore {
   setRallyPoints: (points: RallyPoint[]) => void
 
   // Plan editor actions
+  setPlannedHome: (home: PlannedHome) => void
+  movePlannedHome: (lat: number, lon: number) => void
   addWaypoint: (lat: number, lon: number) => void
   moveWaypoint: (seq: number, lat: number, lon: number) => void
   removeWaypoint: (seq: number) => void
@@ -58,6 +67,7 @@ export const useMissionStore = create<MissionStore>((set) => ({
   fenceCircles: [],
   rallyPoints: [],
 
+  plannedHome: null,
   editableWaypoints: [],
   selectedWaypointSeq: null,
   isDirty: false,
@@ -71,6 +81,16 @@ export const useMissionStore = create<MissionStore>((set) => ({
   setError: (error) => set({ error }),
   setFence: (polygons, circles) => set({ fencePolygons: polygons, fenceCircles: circles }),
   setRallyPoints: (points) => set({ rallyPoints: points }),
+
+  setPlannedHome: (home) => set({ plannedHome: home }),
+  movePlannedHome: (lat, lon) =>
+    set((state) => {
+      const home = state.plannedHome ? { ...state.plannedHome, lat, lon } : { lat, lon, alt: 0 }
+      return {
+        plannedHome: home,
+        missionStats: computeMissionStats(state.editableWaypoints, home)
+      }
+    }),
 
   addWaypoint: (lat, lon) =>
     set((state) => {
@@ -86,7 +106,7 @@ export const useMissionStore = create<MissionStore>((set) => ({
       const updated = [...state.editableWaypoints, newWp]
       return {
         editableWaypoints: updated,
-        missionStats: computeMissionStats(updated),
+        missionStats: computeMissionStats(updated, state.plannedHome),
         isDirty: true
       }
     }),
@@ -98,7 +118,7 @@ export const useMissionStore = create<MissionStore>((set) => ({
       )
       return {
         editableWaypoints: updated,
-        missionStats: computeMissionStats(updated),
+        missionStats: computeMissionStats(updated, state.plannedHome),
         isDirty: true
       }
     }),
@@ -109,7 +129,7 @@ export const useMissionStore = create<MissionStore>((set) => ({
       const updated = resequence(filtered)
       return {
         editableWaypoints: updated,
-        missionStats: computeMissionStats(updated),
+        missionStats: computeMissionStats(updated, state.plannedHome),
         isDirty: true,
         selectedWaypointSeq: state.selectedWaypointSeq === seq ? null : state.selectedWaypointSeq
       }
@@ -120,7 +140,7 @@ export const useMissionStore = create<MissionStore>((set) => ({
       const updated = state.editableWaypoints.map((wp) => (wp.seq === seq ? { ...wp, alt } : wp))
       return {
         editableWaypoints: updated,
-        missionStats: computeMissionStats(updated),
+        missionStats: computeMissionStats(updated, state.plannedHome),
         isDirty: true
       }
     }),
@@ -132,7 +152,7 @@ export const useMissionStore = create<MissionStore>((set) => ({
       )
       return {
         editableWaypoints: updated,
-        missionStats: computeMissionStats(updated),
+        missionStats: computeMissionStats(updated, state.plannedHome),
         isDirty: true
       }
     }),
@@ -156,16 +176,40 @@ export const useMissionStore = create<MissionStore>((set) => ({
     }),
 
   loadFromItems: (items) =>
-    set(() => {
+    set((state) => {
       const waypoints = items.map(missionItemToWaypoint)
       return {
         editableWaypoints: waypoints,
-        missionStats: computeMissionStats(waypoints),
+        missionStats: computeMissionStats(waypoints, state.plannedHome),
         isDirty: false,
         selectedWaypointSeq: null
       }
     })
 }))
+
+// Request GCS geolocation as default planned home position
+if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const state = useMissionStore.getState()
+      // Only set if no planned home has been set yet
+      if (!state.plannedHome) {
+        state.setPlannedHome({
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          alt: pos.coords.altitude ?? 0
+        })
+        console.log(
+          `[Mission] GCS location set as planned home: ${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`
+        )
+      }
+    },
+    (err) => {
+      console.warn('[Mission] Geolocation unavailable:', err.message)
+    },
+    { enableHighAccuracy: false, timeout: 10000 }
+  )
+}
 
 // Expose for E2E testing
 if (typeof window !== 'undefined') {

@@ -128,6 +128,39 @@ describe('computeMissionStats', () => {
     const singleSeg = computeMissionStats([wps[0]!, wps[1]!])
     expect(stats.totalDistanceM).toBeCloseTo(singleSeg.totalDistanceM * 2, 0)
   })
+
+  it('includes home-to-first-waypoint distance when home is provided', () => {
+    const home = { lat: 0, lon: 0 }
+    const wps = [makeWaypoint(0, 0, 1), makeWaypoint(1, 0, 2)]
+    const withHome = computeMissionStats(wps, home)
+    const withoutHome = computeMissionStats(wps)
+    // With home at (0,0) and first WP at (0,1), adds ~111km
+    expect(withHome.totalDistanceM).toBeGreaterThan(withoutHome.totalDistanceM)
+    expect(withHome.totalDistanceM - withoutHome.totalDistanceM).toBeGreaterThan(100000)
+    expect(withHome.totalDistanceM - withoutHome.totalDistanceM).toBeLessThan(120000)
+  })
+
+  it('does not add home distance when home is null', () => {
+    const wps = [makeWaypoint(0, 0, 1), makeWaypoint(1, 0, 2)]
+    const withNull = computeMissionStats(wps, null)
+    const withoutArg = computeMissionStats(wps)
+    expect(withNull.totalDistanceM).toBe(withoutArg.totalDistanceM)
+  })
+
+  it('includes home distance even with a single waypoint', () => {
+    const home = { lat: 0, lon: 0 }
+    const wps = [makeWaypoint(0, 0, 1)]
+    const stats = computeMissionStats(wps, home)
+    // Home to WP0 at (0,1) is ~111km
+    expect(stats.totalDistanceM).toBeGreaterThan(100000)
+    expect(stats.waypointCount).toBe(1)
+  })
+
+  it('returns zero distance for empty waypoints even with home', () => {
+    const home = { lat: 42, lon: -71 }
+    const stats = computeMissionStats([], home)
+    expect(stats.totalDistanceM).toBe(0)
+  })
 })
 
 describe('resequence', () => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAllVehiclePositions, useActiveVehicleId, useHomePosition } from '../hooks/useVehicle'
+import { useMissionStore } from '../store/missionStore'
 import { useMissionMapLayers } from '../hooks/useMissionMapLayers'
 import { useSettingsStore } from '../store/settingsStore'
 import { providers, getProviderNames } from '../map/providers/ProviderRegistry'
@@ -186,23 +187,29 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
     }
   }, [positions, activeVehicleId])
 
-  // Home marker
+  // Home marker — draggable in edit mode so user can reposition planned home
   useEffect(() => {
     if (!mapRef.current) return
 
     if (homePos) {
       if (homeMarkerRef.current) {
         homeMarkerRef.current.setLngLat([homePos.lon, homePos.lat])
+        homeMarkerRef.current.setDraggable(editMode)
       } else {
-        homeMarkerRef.current = new maplibregl.Marker({ element: createHomeMarkerEl() })
+        const marker = new maplibregl.Marker({ element: createHomeMarkerEl(), draggable: editMode })
           .setLngLat([homePos.lon, homePos.lat])
           .addTo(mapRef.current)
+        marker.on('dragend', () => {
+          const lngLat = marker.getLngLat()
+          useMissionStore.getState().movePlannedHome(lngLat.lat, lngLat.lng)
+        })
+        homeMarkerRef.current = marker
       }
     } else if (homeMarkerRef.current) {
       homeMarkerRef.current.remove()
       homeMarkerRef.current = null
     }
-  }, [homePos])
+  }, [homePos, editMode])
 
   const onProviderChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {

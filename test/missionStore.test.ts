@@ -25,6 +25,7 @@ function makeItem(seq: number, lat = 42.389, lon = -71.147, alt = 50): MissionIt
 describe('missionStore — plan editor actions', () => {
   beforeEach(() => {
     useMissionStore.setState({
+      plannedHome: null,
       editableWaypoints: [],
       selectedWaypointSeq: null,
       isDirty: false,
@@ -199,6 +200,65 @@ describe('missionStore — plan editor actions', () => {
       useMissionStore.getState().selectWaypoint(5)
       useMissionStore.getState().loadFromItems([makeItem(0)])
       expect(useMissionStore.getState().selectedWaypointSeq).toBeNull()
+    })
+
+    it('includes plannedHome in stats when home is set', () => {
+      useMissionStore.getState().setPlannedHome({ lat: 0, lon: 0, alt: 0 })
+      const items = [makeItem(0, 0, 1, 50)] // WP at (0,1) — ~111km from home at (0,0)
+      useMissionStore.getState().loadFromItems(items)
+      const stats = useMissionStore.getState().missionStats
+      expect(stats.totalDistanceM).toBeGreaterThan(100000)
+    })
+  })
+
+  describe('plannedHome', () => {
+    it('starts as null', () => {
+      expect(useMissionStore.getState().plannedHome).toBeNull()
+    })
+
+    it('setPlannedHome sets the home position', () => {
+      useMissionStore.getState().setPlannedHome({ lat: 32.1, lon: 34.8, alt: 50 })
+      const home = useMissionStore.getState().plannedHome
+      expect(home).toEqual({ lat: 32.1, lon: 34.8, alt: 50 })
+    })
+
+    it('movePlannedHome updates lat/lon preserving alt', () => {
+      useMissionStore.getState().setPlannedHome({ lat: 32.1, lon: 34.8, alt: 50 })
+      useMissionStore.getState().movePlannedHome(33.0, 35.0)
+      const home = useMissionStore.getState().plannedHome
+      expect(home).toEqual({ lat: 33.0, lon: 35.0, alt: 50 })
+    })
+
+    it('movePlannedHome creates home if none exists', () => {
+      useMissionStore.getState().movePlannedHome(33.0, 35.0)
+      const home = useMissionStore.getState().plannedHome
+      expect(home).toEqual({ lat: 33.0, lon: 35.0, alt: 0 })
+    })
+
+    it('movePlannedHome recalculates mission stats', () => {
+      useMissionStore.getState().addWaypoint(0, 1) // WP at (0,1)
+      useMissionStore.getState().movePlannedHome(0, 0) // home at (0,0)
+      const stats = useMissionStore.getState().missionStats
+      // Home (0,0) → WP (0,1) is ~111km
+      expect(stats.totalDistanceM).toBeGreaterThan(100000)
+    })
+
+    it('addWaypoint includes home in stats when home is set', () => {
+      useMissionStore.getState().setPlannedHome({ lat: 0, lon: 0, alt: 0 })
+      useMissionStore.getState().addWaypoint(0, 1)
+      const stats = useMissionStore.getState().missionStats
+      expect(stats.totalDistanceM).toBeGreaterThan(100000)
+    })
+
+    it('removeWaypoint recalculates with home', () => {
+      useMissionStore.getState().setPlannedHome({ lat: 0, lon: 0, alt: 0 })
+      useMissionStore.getState().addWaypoint(0, 1)
+      useMissionStore.getState().addWaypoint(0, 2)
+      useMissionStore.getState().removeWaypoint(0)
+      const stats = useMissionStore.getState().missionStats
+      // Home (0,0) → remaining WP (0,2) is ~222km
+      expect(stats.totalDistanceM).toBeGreaterThan(200000)
+      expect(stats.waypointCount).toBe(1)
     })
   })
 })

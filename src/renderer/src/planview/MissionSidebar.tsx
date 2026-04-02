@@ -69,7 +69,7 @@ export function MissionSidebar(): React.JSX.Element {
               className={`${styles.wpItem} ${isSelected ? styles.wpItemSelected : ''}`}
             >
               <div className={`${styles.seqBadge} ${isSelected ? styles.seqBadgeSelected : ''}`}>
-                {wp.seq}
+                {wp.seq + 1}
               </div>
 
               <div className={styles.wpInfo}>

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, net, protocol } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, net, protocol, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { MavLinkProtocolV2 } from 'node-mavlink'
@@ -222,6 +222,12 @@ function tileCachePut(key: string, headers: Record<string, string>, body: ArrayB
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.meridian-gcs')
+
+  // Grant geolocation permission so the renderer can get the GCS location
+  // for the planned home position (QGC-style behavior)
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === 'geolocation')
+  })
 
   // Handle tile:// requests — proxy tile fetches from main process to bypass CORS
   protocol.handle('tile', async (request) => {

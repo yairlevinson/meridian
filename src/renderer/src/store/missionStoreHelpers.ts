@@ -96,9 +96,17 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const DEFAULT_SPEED_MS = 10 // m/s
 
-/** Compute mission statistics from waypoints */
-export function computeMissionStats(waypoints: EditableWaypoint[]): MissionStats {
+/** Compute mission statistics from waypoints, optionally including home→WP1 distance */
+export function computeMissionStats(
+  waypoints: EditableWaypoint[],
+  home?: { lat: number; lon: number } | null
+): MissionStats {
   let totalDistanceM = 0
+  // Include distance from home to first waypoint
+  if (home && waypoints.length > 0) {
+    const first = waypoints[0]!
+    totalDistanceM += haversineDistance(home.lat, home.lon, first.lat, first.lon)
+  }
   for (let i = 1; i < waypoints.length; i++) {
     const prev = waypoints[i - 1]!
     const curr = waypoints[i]!
