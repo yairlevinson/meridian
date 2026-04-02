@@ -438,7 +438,9 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 | PID Tuning | ✅ | 8 groups, 40+ params (rate, position, velocity) |
 | Firmware Upgrade | ✅ | MAVLink FTP upload, reboot, board info |
 | Parameter Editor | ✅ | Search, edit, refresh, progress tracking |
-| Motor Testing | ❌ | Individual motor test commands |
+| Motor/Servo Testing | ✅ | Motor test sliders, servo test, motor identification wizard |
+| Motor Spin Direction | ✅ | Visual CW/CCW diagram for Quad/Hexa/Octa/Y6/Tri frames |
+| Output Configuration | ✅ | SERVOx function assignment, PWM min/max/trim, reversed |
 | Gimbal/Mount Setup UI | ❌ | |
 
 ### Mission Planning

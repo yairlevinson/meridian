@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTelemetry } from '../../hooks/useVehicle'
 import { useActuatorTest } from '../../hooks/useActuatorTest'
 import { OutputConfigSection } from './OutputConfigSection'
+import { MotorIdentification } from './MotorIdentification'
+import { MotorSpinDirection } from './MotorSpinDirection'
 import styles from './ActuatorsPage.module.css'
 
 const DEFAULT_MOTOR_COUNT = 4
@@ -172,6 +174,9 @@ export function ActuatorsPage(): React.JSX.Element {
         />
       </div>
 
+      {/* Motor Layout Diagram */}
+      <MotorSpinDirection />
+
       {/* Output Configuration */}
       <OutputConfigSection />
 
@@ -183,6 +188,9 @@ export function ActuatorsPage(): React.JSX.Element {
             Stop All
           </button>
         </div>
+
+        {/* Motor Identification Wizard */}
+        <MotorIdentification motorCount={motorCount} disabled={controlsDisabled} />
 
         <div className={styles.motorCountRow}>
           <span className={styles.motorCountLabel}>Motors:</span>

@@ -430,3 +430,156 @@
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
 }
+
+/* Motor identification wizard */
+.identifySection {
+  padding: 8px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+}
+
+.identifyRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.identifyText {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.identifyBtn {
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 4px 12px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.identifyBtn:hover {
+  background: var(--bg-hover);
+}
+
+.identifyBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.identifyStatus {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.identifyMotorIndicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.identifyMotorLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.identifySpinBadge {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: #ffab40;
+  background: rgba(255, 171, 64, 0.15);
+  border: 1px solid rgba(255, 171, 64, 0.4);
+  border-radius: 3px;
+  padding: 1px 8px;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.identifyProgressBar {
+  height: 4px;
+  background: var(--bg-base);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.identifyProgressFill {
+  height: 100%;
+  background: var(--accent-blue);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.identifyControls {
+  display: flex;
+  gap: 8px;
+}
+
+/* Motor spin direction diagram */
+.diagramContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+}
+
+.diagramFront {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+  letter-spacing: 2px;
+  margin-bottom: 2px;
+}
+
+.diagramSvg {
+  width: 220px;
+  height: 220px;
+}
+
+.diagramLegend {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.frameLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+}
