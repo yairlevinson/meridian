@@ -155,6 +155,17 @@
   cursor: not-allowed;
 }
 
+.sliderFnLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+  width: 90px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sliderValue {
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
@@ -396,6 +407,17 @@
   background: var(--accent-blue);
   border-radius: 5px;
   transition: width 0.1s ease;
+}
+
+.outputFnLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+  width: 80px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .outputValue {

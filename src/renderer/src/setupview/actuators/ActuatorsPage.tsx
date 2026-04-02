@@ -1,9 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useTelemetry } from '../../hooks/useVehicle'
 import { useActuatorTest } from '../../hooks/useActuatorTest'
+import { useParameterStore } from '../../store/parameterStore'
 import { OutputConfigSection } from './OutputConfigSection'
 import { MotorIdentification } from './MotorIdentification'
 import { MotorSpinDirection } from './MotorSpinDirection'
+import { getServoFunctionName } from './servoFunctions'
 import styles from './ActuatorsPage.module.css'
 
 const DEFAULT_MOTOR_COUNT = 4
@@ -146,6 +148,17 @@ export function ActuatorsPage(): React.JSX.Element {
     setSafetyEnabled((prev) => !prev)
   }, [safetyEnabled, stopAllMotors, motorCount])
 
+  // Look up SERVOx_FUNCTION names for slider labels
+  const parameters = useParameterStore((s) => s.parameters)
+  const channelNames = useMemo(() => {
+    const names: (string | null)[] = []
+    for (let i = 1; i <= 16; i++) {
+      const fnVal = parameters.get(`SERVO${i}_FUNCTION`)?.value
+      names.push(getServoFunctionName(fnVal))
+    }
+    return names
+  }, [parameters])
+
   // Live servo output data
   const outputs = servoOutput?.outputs ?? []
 
@@ -239,6 +252,7 @@ export function ActuatorsPage(): React.JSX.Element {
         {Array.from({ length: motorCount }, (_, i) => (
           <div key={`motor-${i}`} className={styles.sliderRow}>
             <span className={styles.sliderLabel}>Motor {i + 1}</span>
+            {channelNames[i] && <span className={styles.sliderFnLabel}>{channelNames[i]}</span>}
             <input
               className={styles.slider}
               type="range"
@@ -261,6 +275,7 @@ export function ActuatorsPage(): React.JSX.Element {
         {Array.from({ length: DEFAULT_SERVO_COUNT }, (_, i) => (
           <div key={`servo-${i}`} className={styles.sliderRow}>
             <span className={styles.sliderLabel}>Servo {i + 1}</span>
+            {channelNames[i] && <span className={styles.sliderFnLabel}>{channelNames[i]}</span>}
             <input
               className={styles.slider}
               type="range"
@@ -296,6 +311,7 @@ export function ActuatorsPage(): React.JSX.Element {
             return (
               <div key={`output-${i}`} className={styles.outputRow}>
                 <span className={styles.outputLabel}>CH{i + 1}</span>
+                {channelNames[i] && <span className={styles.outputFnLabel}>{channelNames[i]}</span>}
                 <div className={styles.outputBarContainer}>
                   <div className={styles.outputBar} style={{ width: `${pct}%` }} />
                 </div>
