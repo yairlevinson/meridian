@@ -140,6 +140,10 @@ export interface Bridge {
   popoutOpen: (view: 'video' | 'map') => Promise<void>
   popoutClose: (view: 'video' | 'map') => Promise<void>
   onPopoutClosed: (cb: (payload: { view: string }) => void) => () => void
+
+  // MAVLink Console
+  mavConsoleWrite: (vehicleId: number, text: string) => Promise<void>
+  onMavConsoleData: (cb: (payload: { vehicleId: number; text: string }) => void) => () => void
 }
 
 const bridge: Bridge = {
@@ -414,6 +418,20 @@ const bridge: Bridge = {
     ipcRenderer.on(IpcEvents.PopoutClosed, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.PopoutClosed, handler)
+    }
+  },
+
+  // MAVLink Console
+  mavConsoleWrite: (vehicleId, text) =>
+    ipcRenderer.invoke(IpcChannels.MavConsoleWrite, { vehicleId, text }),
+  onMavConsoleData: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number; text: string }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.MavConsoleData, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.MavConsoleData, handler)
     }
   }
 }

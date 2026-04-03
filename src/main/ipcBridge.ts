@@ -90,6 +90,11 @@ export function startIpcBridge(
       vehicle.cameraManager.on('imageCaptured', (data) => {
         broadcast(IpcEvents.CameraImageCaptured, { vehicleId: sysid, ...data })
       })
+
+      // Forward MAVLink console data
+      vehicle.on('consoleData', (payload: { text: string }) => {
+        broadcast(IpcEvents.MavConsoleData, { vehicleId: sysid, ...payload })
+      })
     }
   })
 
@@ -559,6 +564,15 @@ export function startIpcBridge(
           1,
           { p1: req.servoInstance, p2: req.pwmValue }
         )
+      }
+    },
+    // MAVLink Console
+    {
+      channel: IpcChannels.MavConsoleWrite,
+      handler: (req: { vehicleId: number; text: string }) => {
+        const vehicle = vehicleManager.getVehicle(req.vehicleId)
+        if (!vehicle) return
+        vehicle.sendConsoleText(req.text)
       }
     },
     {

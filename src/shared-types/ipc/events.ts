@@ -58,5 +58,8 @@ export enum IpcEvents {
   /** Camera state changed */
   CameraStateChanged = 'camera:stateChanged',
   /** Image captured event */
-  CameraImageCaptured = 'camera:imageCaptured'
+  CameraImageCaptured = 'camera:imageCaptured',
+
+  /** MAVLink console data received from autopilot shell */
+  MavConsoleData = 'mavconsole:data'
 }

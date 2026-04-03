@@ -117,5 +117,8 @@ export enum IpcChannels {
 
   // Actuator testing
   ActuatorMotorTest = 'actuator:motorTest',
-  ActuatorServoTest = 'actuator:servoTest'
+  ActuatorServoTest = 'actuator:servoTest',
+
+  // MAVLink Console
+  MavConsoleWrite = 'mavconsole:write'
 }

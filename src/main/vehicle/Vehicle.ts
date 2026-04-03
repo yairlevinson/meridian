@@ -13,6 +13,8 @@ import type { LinkInterface } from '../links/LinkInterface'
 import type { DecodedMessage } from '../mavlink/MavlinkChannel'
 import { MavResult } from '@shared/ipc/MavCommandRequest'
 import { MissionType, type MissionItem } from '@shared/ipc/MissionTypes'
+import { common } from 'mavlink-mappings'
+import { createGcsProtocol } from '../mavlink/constants'
 
 /**
  * Represents a single MAVLink vehicle.
@@ -217,6 +219,19 @@ export class Vehicle extends EventEmitter {
       this.cameraManager.handleImageCaptured(msg.data as Record<string, number>)
     }
 
+    // SERIAL_CONTROL (126) — MAVLink console data from autopilot shell
+    if (msg.msgid === 126) {
+      const sc = msg.data as { device: number; flags: number; count: number; data: number[] }
+      if (sc.device === 10) {
+        // DEV_SHELL
+        const bytes = sc.data.slice(0, sc.count)
+        const text = Buffer.from(bytes).toString('utf8')
+        if (text.length > 0) {
+          this.emit('consoleData', { text })
+        }
+      }
+    }
+
     // Auto-request parameters after first heartbeat
     if (msg.msgid === 0 && !this._parametersRequested) {
       this._parametersRequested = true
@@ -360,6 +375,34 @@ export class Vehicle extends EventEmitter {
       0,
       { p1: 0, p2: 21196 } // 0 = disarm, 21196 = force/emergency
     )
+  }
+
+  private consoleProtocol = createGcsProtocol()
+  private consoleSeq = 0
+
+  /** Send text to the autopilot's MAVLink shell via SERIAL_CONTROL */
+  sendConsoleText(text: string): void {
+    const link = this.commandQueue['link'] as WritableLink | null
+    if (!link) return
+
+    const textWithNewline = text.endsWith('\n') ? text : text + '\n'
+    const bytes = Buffer.from(textWithNewline, 'utf8')
+
+    // SERIAL_CONTROL has a 70-byte data limit — split if needed
+    for (let offset = 0; offset < bytes.length; offset += 70) {
+      const chunk = bytes.subarray(offset, Math.min(offset + 70, bytes.length))
+      const msg = new common.SerialControl()
+      msg.device = 10 // DEV_SHELL
+      msg.flags = 2 // RESPOND
+      msg.timeout = 0
+      msg.baudrate = 0
+      msg.count = chunk.length
+      // Fill the 70-byte data array
+      msg.data = Array.from({ length: 70 }, (_, i) => (i < chunk.length ? chunk[i]! : 0))
+
+      const buf = this.consoleProtocol.serialize(msg, this.consoleSeq++ & 0xff)
+      link.writeBytes(buf)
+    }
   }
 
   destroy(): void {

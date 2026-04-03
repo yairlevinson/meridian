@@ -18,7 +18,8 @@ const items: SidebarItem[] = [
   { page: 'tuning', label: 'Tuning' },
   { page: 'actuators', label: 'Actuators' },
   { page: 'parameters', label: 'Parameters' },
-  { page: 'video', label: 'Video' }
+  { page: 'video', label: 'Video' },
+  { page: 'mavConsole', label: 'MAVLink Console' }
 ]
 
 interface Props {
