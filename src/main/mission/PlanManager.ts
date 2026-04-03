@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { common } from 'mavlink-mappings'
 import type { LinkInterface } from '../links/LinkInterface'
 import { createGcsProtocol } from '../mavlink/constants'
+import { mavLog } from '../mavlink/trafficLog'
 import {
   MissionType,
   MissionProtocolState,
@@ -194,7 +195,10 @@ export class PlanManager extends EventEmitter {
     mi.y = item.y
     mi.z = item.z
     mi.missionType = item.missionType as number as typeof mi.missionType
-    console.log(`[PlanManager] _sendItem seq=${mi.seq} cmd=${mi.command} frame=${mi.frame} x=${mi.x} y=${mi.y} z=${mi.z} mtype=${mi.missionType} tgt=${mi.targetSystem}/${mi.targetComponent}`)
+    mavLog.tx(73, this.targetSystem, this.targetComponent, {
+      seq: mi.seq, cmd: mi.command, frame: mi.frame,
+      x: mi.x, y: mi.y, z: mi.z, mtype: mi.missionType
+    })
     this.link.writeBytes(this.protocol.serialize(mi, this.seq++ & 0xff))
   }
 

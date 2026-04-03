@@ -8,6 +8,7 @@ import {
 } from 'node-mavlink'
 import { ChannelStats } from './stats/ChannelStats'
 import { REGISTRY } from './registry'
+import { mavLog } from './trafficLog'
 
 export { REGISTRY }
 
@@ -32,12 +33,24 @@ export class MavlinkChannel {
   private parser = new MavLinkPacketParser()
   private reader = this.passthrough.pipe(this.splitter).pipe(this.parser)
 
+  /** CRC extra bytes for messages not in mavlink-mappings (e.g. development dialect) */
+  private static readonly EXTRA_CRC_MAGIC: Record<number, number> = {
+    397: 182, // COMPONENT_METADATA
+  }
+
   /** Per-sysid+compid sequence tracking for loss detection */
   private lastSeq = new Map<string, number>()
   private onMessageCb: ((msg: DecodedMessage) => void) | null = null
 
   constructor(id: number) {
     this.id = id
+
+    // Register CRC magic for messages missing from mavlink-mappings
+    const magicNumbers = (this.splitter as unknown as { magicNumbers: Record<number, number> })
+      .magicNumbers
+    for (const [msgid, magic] of Object.entries(MavlinkChannel.EXTRA_CRC_MAGIC)) {
+      magicNumbers[Number(msgid)] = magic
+    }
 
     this.reader.on('data', (packet: MavLinkPacket) => {
       this.stats.totalReceived++
@@ -46,24 +59,36 @@ export class MavlinkChannel {
       const messageClass = REGISTRY[packet.header.msgid] as
         | MavLinkDataConstructor<MavLinkData>
         | undefined
-      if (!messageClass) return
 
-      try {
-        const data = packet.protocol.data(packet.payload, messageClass)
+      if (messageClass) {
+        try {
+          const data = packet.protocol.data(packet.payload, messageClass)
+          mavLog.rx(packet.header.msgid, packet.header.sysid, packet.header.compid, data)
+          this.onMessageCb?.({
+            msgid: packet.header.msgid,
+            sysid: packet.header.sysid,
+            compid: packet.header.compid,
+            seq: packet.header.seq,
+            data
+          })
+        } catch {
+          // Decode failure — skip
+        }
+      } else {
+        // Unknown message — pass raw payload buffer so handlers can decode manually
+        mavLog.rx(packet.header.msgid, packet.header.sysid, packet.header.compid, null)
         this.onMessageCb?.({
           msgid: packet.header.msgid,
           sysid: packet.header.sysid,
           compid: packet.header.compid,
           seq: packet.header.seq,
-          data
+          data: { _rawPayload: packet.payload }
         })
-      } catch {
-        // Decode failure — skip
       }
     })
 
-    this.splitter.on('error', () => {
-      /* swallow framing errors */
+    this.splitter.on('error', (err: Error) => {
+      mavLog.warn('MavLink', `splitter error ch${id}: ${err.message}`)
     })
     this.parser.on('error', () => {
       /* swallow parse errors */

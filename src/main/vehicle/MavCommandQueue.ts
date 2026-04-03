@@ -3,6 +3,7 @@ import { common } from 'mavlink-mappings'
 import type { LinkInterface } from '../links/LinkInterface'
 import { MavResult } from '@shared/ipc/MavCommandRequest'
 import { createGcsProtocol } from '../mavlink/constants'
+import { mavLog } from '../mavlink/trafficLog'
 
 /** Anything that can write bytes — a LinkInterface or a simple callback */
 export type WritableLink = LinkInterface | { writeBytes: (buf: Buffer) => void }
@@ -136,6 +137,17 @@ export class MavCommandQueue extends EventEmitter {
     cmd._param6 = pending.param6
     cmd._param7 = pending.param7
 
+    mavLog.tx(76, pending.targetSystem, pending.targetComponent, {
+      command: pending.command,
+      p1: pending.param1,
+      p2: pending.param2,
+      p3: pending.param3,
+      p4: pending.param4,
+      p5: pending.param5,
+      p6: pending.param6,
+      p7: pending.param7,
+      retry: pending.retryCount
+    })
     const buf = this.protocol.serialize(cmd, this.seq++ & 0xff)
     this.link.writeBytes(buf)
 

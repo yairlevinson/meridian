@@ -14,6 +14,7 @@ import { startIpcBridge } from './ipcBridge'
 import { GCS_SYSID, GCS_COMPID } from './mavlink/constants'
 import { resolveTileUrl } from '@shared/ipc/tileProviders'
 import { VideoManager } from './video/VideoManager'
+import { mavLog } from './mavlink/trafficLog'
 
 // Prevent crashes from TCP socket errors (e.g. EPIPE, unexpected read errors
 // when SITL container shuts down). These are non-fatal — the link will
@@ -222,6 +223,9 @@ function tileCachePut(key: string, headers: Record<string, string>, body: ArrayB
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.meridian-gcs')
+
+  // Start MAVLink traffic logger (writes to ~/meridian-mavlink.log)
+  mavLog.start()
 
   // Grant geolocation permission so the renderer can get the GCS location
   // for the planned home position (QGC-style behavior)
@@ -460,9 +464,6 @@ app.whenReady().then(async () => {
       hb.systemStatus = minimal.MavState.ACTIVE
       hb.mavlinkVersion = 3
       const buf = gcsProto.serialize(hb, gcsSeq++)
-      if (gcsSeq <= 3) {
-        console.log(`[main] GCS heartbeat #${gcsSeq} → 127.0.0.1:${PX4_SITL_PORT} (${buf.length} bytes)`)
-      }
       // Send to PX4 SITL default port and also to all known senders
       udpLink.sendTo(buf, PX4_SITL_PORT, '127.0.0.1')
       udpLink.send(buf)

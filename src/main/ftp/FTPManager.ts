@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events'
 import type { FtpDirectoryEntry } from '@shared/ipc/geo'
-
 // FTP Opcodes
 export const FTP_OPCODE = {
   NONE: 0,
@@ -81,8 +80,11 @@ export class FTPManager extends EventEmitter {
       throw new Error(`FTP: failed to open ${path}: error ${openResp.data[0]}`)
     }
 
-    const session = openResp.data[0]!
-    const fileSize = openResp.data.readUInt32LE(1)
+    if (openResp.data.length < 4) {
+      throw new Error(`FTP: open ${path}: response too short (${openResp.data.length} bytes)`)
+    }
+    const session = openResp.session
+    const fileSize = openResp.data.readUInt32LE(0)
     const chunks: Buffer[] = []
     let offset = 0
 
@@ -91,7 +93,8 @@ export class FTPManager extends EventEmitter {
       const readResp = await this._sendRequest({
         opcode: FTP_OPCODE.READ_FILE,
         session,
-        offset
+        offset,
+        size: MAX_DATA_LENGTH
       })
 
       if (readResp.opcode === FTP_OPCODE.NAK) {
@@ -185,6 +188,7 @@ export class FTPManager extends EventEmitter {
     opcode: number
     session?: number
     offset?: number
+    size?: number
     data?: Buffer
   }): Promise<FTPPayload> {
     return new Promise((resolve, reject) => {
@@ -198,7 +202,7 @@ export class FTPManager extends EventEmitter {
         seqNumber: ++this.seqNumber,
         session: opts.session ?? this.currentSession,
         opcode: opts.opcode,
-        size: opts.data?.length ?? 0,
+        size: opts.size ?? opts.data?.length ?? 0,
         reqOpcode: 0,
         offset: opts.offset ?? 0,
         data: opts.data ?? Buffer.alloc(0)
