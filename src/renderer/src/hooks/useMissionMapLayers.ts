@@ -114,7 +114,7 @@ function addSourcesAndLayers(map: maplibregl.Map): void {
     type: 'symbol',
     source: WP_SOURCE,
     layout: {
-      'text-field': ['+', ['get', 'seq'], 1],
+      'text-field': ['to-string', ['+', ['get', 'seq'], 1]],
       'text-size': 13,
       'text-font': ['Open Sans Regular'],
       'text-allow-overlap': true
