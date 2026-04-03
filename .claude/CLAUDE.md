@@ -2,6 +2,10 @@
 
 A ground control station (GCS) for MAVLink-based autonomous vehicles (ArduPilot/PX4), built with Electron + React + TypeScript.
 
+## IMPORTANT: QGroundControl Reference
+
+Before implementing any MAVLink protocol feature (commands, message handling, FTP, component metadata, actuators, missions, parameters, etc.), **always check the QGroundControl source code first** at `/Users/shlomitlifsh/projects/qgroundcontrol/src/`. QGC is the reference implementation — look at how it handles message IDs, command parameters, protocol sequences, and edge cases. This prevents using wrong message IDs, incorrect parameter semantics, or outdated protocol versions.
+
 ## Architecture
 
 ```

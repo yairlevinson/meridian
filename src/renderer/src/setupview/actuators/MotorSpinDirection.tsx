@@ -10,6 +10,9 @@ import {
 import type { MotorDef } from './motorLayouts'
 import styles from './ActuatorsPage.module.css'
 
+// MAV_AUTOPILOT enum values from heartbeat
+const MAV_AUTOPILOT_PX4 = 12
+
 interface Props {
   highlightMotor?: number // 1-based motor number to highlight (during identification)
 }
@@ -18,22 +21,32 @@ interface Props {
 function useMotorLayout(): { layout: MotorDef[] | null; label: string } {
   const parameters = useParameterStore((s) => s.parameters)
   const core = useTelemetry('core')
-  const autopilot = core?.autopilot ?? 0 // 3=ArduPilot, 12=PX4
+  const autopilot = core?.autopilot ?? 0
 
   return useMemo(() => {
-    if (autopilot === 12) {
-      // PX4: use SYS_AUTOSTART
-      const autostart = parameters.get('SYS_AUTOSTART')?.value ?? 0
-      const result = getPx4MotorLayout(autostart)
+    // Try PX4 detection: SYS_AUTOSTART parameter exists
+    const autostart = parameters.get('SYS_AUTOSTART')?.value
+    if (autopilot === MAV_AUTOPILOT_PX4 || (autostart != null && autostart > 0)) {
+      const result = getPx4MotorLayout(autostart ?? 0)
       if (result) return { layout: result.layout, label: result.name }
-      return { layout: null, label: `SYS_AUTOSTART=${autostart}` }
     }
-    // ArduPilot: use FRAME_CLASS + FRAME_TYPE
-    const frameClass = parameters.get('FRAME_CLASS')?.value ?? 0
+
+    // Try ArduPilot detection: FRAME_CLASS parameter exists
+    const frameClass = parameters.get('FRAME_CLASS')?.value
     const frameType = parameters.get('FRAME_TYPE')?.value ?? 0
-    const layout = getMotorLayout(frameClass, frameType)
-    const label = `${FRAME_CLASS_NAMES[frameClass] ?? 'Unknown'} ${FRAME_TYPE_NAMES[frameType] ?? ''}`
-    return { layout, label }
+    if (frameClass != null && frameClass > 0) {
+      const layout = getMotorLayout(frameClass, frameType)
+      const label = `${FRAME_CLASS_NAMES[frameClass] ?? 'Unknown'} ${FRAME_TYPE_NAMES[frameType] ?? ''}`
+      return { layout, label }
+    }
+
+    // Fallback: unknown autopilot or missing parameters
+    if (autostart != null) return { layout: null, label: `SYS_AUTOSTART=${autostart}` }
+    if (frameClass != null) {
+      const label = `${FRAME_CLASS_NAMES[frameClass] ?? 'Unknown'} ${FRAME_TYPE_NAMES[frameType] ?? ''}`
+      return { layout: null, label }
+    }
+    return { layout: null, label: 'No frame parameters found' }
   }, [autopilot, parameters])
 }
 

@@ -7,8 +7,9 @@ import { ParameterManager } from '../parameters/ParameterManager'
 import { CalibrationManager } from '../calibration/CalibrationManager'
 import { RcCalibrationManager } from '../calibration/RcCalibrationManager'
 import { FirmwareManager } from '../firmware/FirmwareManager'
-import { FTPManager } from '../ftp/FTPManager'
+import { FTPManager, type FTPPayload } from '../ftp/FTPManager'
 import { CameraManager } from '../camera/CameraManager'
+import { ActuatorMetadataManager } from '../actuators/ActuatorMetadataManager'
 import type { LinkInterface } from '../links/LinkInterface'
 import type { DecodedMessage } from '../mavlink/MavlinkChannel'
 import { MavResult } from '@shared/ipc/MavCommandRequest'
@@ -32,7 +33,9 @@ export class Vehicle extends EventEmitter {
   readonly firmwareManager: FirmwareManager
   readonly ftpManager: FTPManager
   readonly cameraManager: CameraManager
+  readonly actuatorMetadata: ActuatorMetadataManager
   private _parametersRequested = false
+  private _ftpSeq = 0
 
   constructor(
     sysid: number,
@@ -54,6 +57,10 @@ export class Vehicle extends EventEmitter {
     this.firmwareManager.setCommandQueue(this.commandQueue)
     this.firmwareManager.setSysId(sysid)
     this.cameraManager = new CameraManager()
+    this.actuatorMetadata = new ActuatorMetadataManager()
+    this.actuatorMetadata.setCommandQueue(this.commandQueue)
+    this.actuatorMetadata.setFtpManager(this.ftpManager)
+    this.actuatorMetadata.setTarget(sysid)
     this.linkManager = new VehicleLinkManager(options)
 
     this.linkManager.on('communicationLost', () => {
@@ -76,6 +83,7 @@ export class Vehicle extends EventEmitter {
       this.calibrationManager.setTarget(sysid)
       this.cameraManager.setLink(link)
       this.cameraManager.setTarget(sysid)
+      this._wireFtpSend(link)
       this.emit('primaryLinkChanged', link)
     })
   }
@@ -93,6 +101,7 @@ export class Vehicle extends EventEmitter {
       this.calibrationManager.setTarget(this.sysid)
       this.cameraManager.setLink(link)
       this.cameraManager.setTarget(this.sysid)
+      this._wireFtpSend(link)
     }
   }
 
@@ -108,6 +117,7 @@ export class Vehicle extends EventEmitter {
     this.calibrationManager.setTarget(this.sysid)
     this.cameraManager.setLink(link as LinkInterface)
     this.cameraManager.setTarget(this.sysid)
+    this._wireFtpSend(link)
   }
 
   /** Handle a decoded MAVLink message */
@@ -232,11 +242,50 @@ export class Vehicle extends EventEmitter {
       }
     }
 
+    // FILE_TRANSFER_PROTOCOL (110) — route to FTP manager
+    if (msg.msgid === 110) {
+      const ftpMsg = msg.data as { targetNetwork: number; targetSystem: number; targetComponent: number; payload: number[] }
+      const buf = Buffer.from(ftpMsg.payload)
+      if (buf.length >= 12) {
+        const size = buf[4] ?? 0
+        const response: FTPPayload = {
+          seqNumber: buf.readUInt16LE(0),
+          session: buf[2]!,
+          opcode: buf[3]!,
+          size,
+          reqOpcode: buf[5]!,
+          offset: buf.readUInt32LE(8),
+          data: buf.subarray(12, 12 + size)
+        }
+        this.ftpManager.handleResponse(response)
+      }
+    }
+
+    // COMPONENT_METADATA (397) — actuator metadata discovery (newer PX4)
+    if (msg.msgid === 397) {
+      const raw = msg.data as { _rawPayload?: Buffer }
+      if (raw._rawPayload && raw._rawPayload.length >= 108) {
+        // Wire format: time_boot_ms(4) + file_crc(4) + uri(char[100])
+        const uri = raw._rawPayload.subarray(8, 108).toString('utf8').replace(/\0/g, '').trim()
+        this.actuatorMetadata.handleComponentMetadata({ uri })
+      }
+    }
+
+    // COMPONENT_INFORMATION (395) — actuator metadata discovery (legacy)
+    if (msg.msgid === 395) {
+      const ci = msg.data as { generalMetadataUri: string; generalMetadataFileCrc: number }
+      this.actuatorMetadata.handleComponentInformation(ci)
+    }
+
     // Auto-request parameters after first heartbeat
     if (msg.msgid === 0 && !this._parametersRequested) {
       this._parametersRequested = true
       // Delay slightly to let the link stabilize
-      setTimeout(() => this.parameterManager.requestAllParameters(), 1000)
+      setTimeout(() => {
+        this.parameterManager.requestAllParameters()
+        // Request actuator metadata after parameters start loading
+        setTimeout(() => this.actuatorMetadata.requestMetadata(), 3000)
+      }, 1000)
     }
 
     // Mission protocol messages
@@ -279,12 +328,10 @@ export class Vehicle extends EventEmitter {
     } else if (msg.msgid === 51 || msg.msgid === 40) {
       // MISSION_REQUEST_INT (51) or legacy MISSION_REQUEST (40)
       const reqSeq = (msg.data as { seq: number }).seq
-      console.log(`[Vehicle] mission request msgid=${msg.msgid} seq=${reqSeq}`)
       this.missionManager.handleMissionRequest(reqSeq)
     } else if (msg.msgid === 47) {
       // MISSION_ACK
       const ackType = (msg.data as { type: number }).type
-      console.log(`[Vehicle] mission ACK type=${ackType}`)
       this.missionManager.handleMissionAck(ackType)
     } else if (msg.msgid === 42) {
       // MISSION_CURRENT
@@ -405,6 +452,33 @@ export class Vehicle extends EventEmitter {
     }
   }
 
+  /** Wire FTP send function so FTPManager can send FILE_TRANSFER_PROTOCOL messages */
+  private _wireFtpSend(link: WritableLink): void {
+    const protocol = createGcsProtocol()
+    this.ftpManager.setSendFunction((payload: FTPPayload) => {
+      const msg = new common.FileTransferProtocol()
+      msg.targetNetwork = 0
+      msg.targetSystem = this.sysid
+      msg.targetComponent = 1 // MAV_COMP_ID_AUTOPILOT1
+
+      // Encode FTP payload into the 251-byte payload field
+      // Layout: seqNumber(2) session(1) opcode(1) size(1) reqOpcode(1) padding(2) offset(4) data(up to 239)
+      const buf = Buffer.alloc(12 + payload.data.length)
+      buf.writeUInt16LE(payload.seqNumber, 0)
+      buf[2] = payload.session
+      buf[3] = payload.opcode
+      buf[4] = payload.size
+      buf[5] = payload.reqOpcode
+      // bytes 6-7: padding (0)
+      buf.writeUInt32LE(payload.offset, 8)
+      payload.data.copy(buf, 12)
+
+      msg.payload = Array.from(buf)
+      const serialized = protocol.serialize(msg, this._ftpSeq++ & 0xff)
+      link.writeBytes(serialized)
+    })
+  }
+
   destroy(): void {
     this.commandQueue.clear()
     this.missionManager.destroy()
@@ -414,6 +488,7 @@ export class Vehicle extends EventEmitter {
     this.firmwareManager.destroy()
     this.ftpManager.destroy()
     this.cameraManager.destroy()
+    this.actuatorMetadata.destroy()
     this.linkManager.destroy()
   }
 }

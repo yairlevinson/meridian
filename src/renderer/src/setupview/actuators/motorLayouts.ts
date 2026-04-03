@@ -166,12 +166,20 @@ export function getPx4MotorLayout(autostart: number): { layout: MotorDef[]; name
 }
 
 export const FRAME_CLASS_NAMES: Record<number, string> = {
+  0: 'Undefined',
   1: 'Quad',
   2: 'Hexa',
   3: 'Octa',
   4: 'OctaQuad',
   5: 'Y6',
-  7: 'Tri'
+  6: 'Heli',
+  7: 'Tri',
+  8: 'SingleCopter',
+  9: 'CoaxCopter',
+  10: 'BiCopter',
+  11: 'Heli_Dual',
+  12: 'DodecaHexa',
+  13: 'HeliQuad'
 }
 
 export const FRAME_TYPE_NAMES: Record<number, string> = {

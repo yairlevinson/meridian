@@ -527,7 +527,12 @@ export function startIpcBridge(
         return vehicleManager.getVehicle(vehicleId)?.cameraManager.state ?? null
       }
     },
-    // Actuator testing
+    // Actuator testing — uses MAV_CMD_ACTUATOR_TEST (310).
+    // Matches QGC implementation (src/Vehicle/Actuators/ActuatorTesting.cc):
+    //   p1 = output value (-1.0..1.0 for servos, 0.0..1.0 for motors, NaN = stop)
+    //   p2 = timeout in seconds (0 = stop immediately)
+    //   p5 = 1000 + actuator function (loaded from vehicle metadata, defaults: motor1=101→1101, servo1=201→1201)
+    // Must be refreshed every ~100ms or PX4 auto-stops the output.
     {
       channel: IpcChannels.ActuatorMotorTest,
       handler: (req: {
@@ -538,18 +543,14 @@ export function startIpcBridge(
       }) => {
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
         if (!vehicle) return
+        const throttleFraction = req.throttlePercent > 0 ? req.throttlePercent / 100 : NaN
+        const timeout = req.throttlePercent > 0 ? 1 : 0
+        const actuatorFunction = vehicle.actuatorMetadata.motorFunction(req.motorInstance)
         return vehicle.commandQueue.sendCommand(
-          common.MavCmd.DO_MOTOR_TEST,
+          310, // MAV_CMD_ACTUATOR_TEST
           req.vehicleId,
           1,
-          {
-            p1: req.motorInstance,
-            p2: 0,
-            p3: req.throttlePercent,
-            p4: req.timeoutSeconds,
-            p5: 1,
-            p6: 0
-          }
+          { p1: throttleFraction, p2: timeout, p5: actuatorFunction }
         )
       }
     },
@@ -558,11 +559,14 @@ export function startIpcBridge(
       handler: (req: { vehicleId: number; servoInstance: number; pwmValue: number }) => {
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
         if (!vehicle) return
+        const normalized = (req.pwmValue - 1500) / 500
+        const timeout = 1
+        const actuatorFunction = vehicle.actuatorMetadata.servoFunction(req.servoInstance)
         return vehicle.commandQueue.sendCommand(
-          common.MavCmd.DO_SET_SERVO,
+          310, // MAV_CMD_ACTUATOR_TEST
           req.vehicleId,
           1,
-          { p1: req.servoInstance, p2: req.pwmValue }
+          { p1: normalized, p2: timeout, p5: actuatorFunction }
         )
       }
     },

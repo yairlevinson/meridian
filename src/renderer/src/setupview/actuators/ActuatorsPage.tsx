@@ -14,7 +14,6 @@ const DEFAULT_TIMEOUT_S = 3
 const SERVO_MIN = 1000
 const SERVO_MAX = 2000
 const SERVO_CENTER = 1500
-const WATCHDOG_MS = 2000
 
 export function ActuatorsPage(): React.JSX.Element {
   const core = useTelemetry('core')
@@ -33,68 +32,86 @@ export function ActuatorsPage(): React.JSX.Element {
   const isArmed = core?.armed ?? false
   const controlsDisabled = isArmed || !safetyEnabled
 
-  // Watchdog: track last interaction time, auto-stop if idle
-  const lastInteraction = useRef(0)
-  const watchdogRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Track whether motors have been used (for cleanup guards)
+  const motorsActive = useRef(false)
 
-  const touchWatchdog = useCallback(() => {
-    lastInteraction.current = Date.now()
+  // Re-send timer: PX4 ACTUATOR_TEST has a built-in ~1s timeout.
+  // We must re-send the current values periodically to keep motors spinning.
+  const resendRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const motorValuesRef = useRef(motorValues)
+  motorValuesRef.current = motorValues
+  const motorTestRef = useRef(motorTest)
+  motorTestRef.current = motorTest
+  const timeoutSRef = useRef(timeoutS)
+  timeoutSRef.current = timeoutS
+  const motorCountRef = useRef(motorCount)
+  motorCountRef.current = motorCount
+
+  const startResend = useCallback(() => {
+    if (resendRef.current) return
+    resendRef.current = setInterval(() => {
+      const vals = motorValuesRef.current
+      const count = motorCountRef.current
+      let anyActive = false
+      for (let i = 0; i < count; i++) {
+        if ((vals[i] ?? 0) > 0) {
+          motorTestRef.current(i + 1, vals[i]!, timeoutSRef.current)
+          anyActive = true
+        }
+      }
+      if (!anyActive) {
+        clearInterval(resendRef.current!)
+        resendRef.current = null
+      }
+    }, 100)
   }, [])
 
-  // Start/stop watchdog when safety switch changes
+  const stopResend = useCallback(() => {
+    if (resendRef.current) {
+      clearInterval(resendRef.current)
+      resendRef.current = null
+    }
+  }, [])
+
+  // Stop all tests when leaving the page — only on unmount, only if motors were used
+  const stopAllMotorsRef = useRef(stopAllMotors)
+  stopAllMotorsRef.current = stopAllMotors
   useEffect(() => {
-    if (safetyEnabled && !isArmed) {
-      watchdogRef.current = setInterval(() => {
-        if (Date.now() - lastInteraction.current > WATCHDOG_MS) {
-          // Auto-stop all motors
-          stopAllMotors(motorCount)
-          setMotorValues(Array(8).fill(0))
-          setAllMotorsValue(0)
-        }
-      }, 500)
-    } else {
-      if (watchdogRef.current) {
-        clearInterval(watchdogRef.current)
-        watchdogRef.current = null
+    return () => {
+      if (resendRef.current) clearInterval(resendRef.current)
+      if (motorsActive.current) {
+        stopAllMotorsRef.current(8)
       }
     }
-    return () => {
-      if (watchdogRef.current) clearInterval(watchdogRef.current)
-    }
-  }, [safetyEnabled, isArmed, motorCount, stopAllMotors])
-
-  // Stop all tests when leaving the page or disabling safety
-  useEffect(() => {
-    return () => {
-      stopAllMotors(8)
-    }
-  }, [stopAllMotors])
+  }, [])
 
   // If vehicle becomes armed while testing, stop all motors
   const armedRef = useRef(isArmed)
   useEffect(() => {
-    if (isArmed && !armedRef.current) {
+    if (isArmed && !armedRef.current && motorsActive.current) {
+      stopResend()
       stopAllMotors(motorCount)
     }
     armedRef.current = isArmed
-  }, [isArmed, motorCount, stopAllMotors])
+  }, [isArmed, motorCount, stopAllMotors, stopResend])
 
   const handleMotorChange = useCallback(
     (index: number, value: number) => {
-      touchWatchdog()
+      motorsActive.current = true
       setMotorValues((prev) => {
         const next = [...prev]
         next[index] = value
         return next
       })
       motorTest(index + 1, value, timeoutS)
+      if (value > 0) startResend()
     },
-    [motorTest, timeoutS, touchWatchdog]
+    [motorTest, timeoutS, startResend]
   )
 
   const handleAllMotorsChange = useCallback(
     (value: number) => {
-      touchWatchdog()
+      motorsActive.current = true
       setAllMotorsValue(value)
       const next = Array(8).fill(0)
       for (let i = 0; i < motorCount; i++) {
@@ -102,13 +119,14 @@ export function ActuatorsPage(): React.JSX.Element {
         motorTest(i + 1, value, timeoutS)
       }
       setMotorValues(next)
+      if (value > 0) startResend()
     },
-    [motorTest, motorCount, timeoutS, touchWatchdog]
+    [motorTest, motorCount, timeoutS, startResend]
   )
 
   const handleServoChange = useCallback(
     (index: number, value: number) => {
-      touchWatchdog()
+      motorsActive.current = true
       setServoValues((prev) => {
         const next = [...prev]
         next[index] = value
@@ -116,12 +134,12 @@ export function ActuatorsPage(): React.JSX.Element {
       })
       servoTest(index + 1, value)
     },
-    [servoTest, touchWatchdog]
+    [servoTest]
   )
 
   const handleServoCenter = useCallback(
     (index: number) => {
-      touchWatchdog()
+      motorsActive.current = true
       setServoValues((prev) => {
         const next = [...prev]
         next[index] = SERVO_CENTER
@@ -129,24 +147,26 @@ export function ActuatorsPage(): React.JSX.Element {
       })
       servoTest(index + 1, SERVO_CENTER)
     },
-    [servoTest, touchWatchdog]
+    [servoTest]
   )
 
   const handleStopAll = useCallback(() => {
+    stopResend()
     stopAllMotors(motorCount)
     setMotorValues(Array(8).fill(0))
     setAllMotorsValue(0)
-  }, [stopAllMotors, motorCount])
+  }, [stopAllMotors, motorCount, stopResend])
 
   const handleSafetyToggle = useCallback(() => {
     if (safetyEnabled) {
       // Turning off: stop everything
+      stopResend()
       stopAllMotors(motorCount)
       setMotorValues(Array(8).fill(0))
       setAllMotorsValue(0)
     }
     setSafetyEnabled((prev) => !prev)
-  }, [safetyEnabled, stopAllMotors, motorCount])
+  }, [safetyEnabled, stopAllMotors, motorCount, stopResend])
 
   // Look up SERVOx_FUNCTION names for slider labels
   const parameters = useParameterStore((s) => s.parameters)
