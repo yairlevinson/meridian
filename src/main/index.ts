@@ -359,6 +359,9 @@ app.whenReady().then(async () => {
 
     console.log(`[main] Connected ${linkManager.getAllStates().length} TCP links`)
 
+    // Auto-detect USB autopilot boards and connect via serial
+    linkManager.startAutoConnect()
+
     // Send GCS heartbeats at 1Hz on all TCP links.
     // PX4's TCP bridge (mavlink-routerd) requires GCS heartbeats before
     // it starts relaying vehicle data to the client.
@@ -449,6 +452,9 @@ app.whenReady().then(async () => {
     udpLink.unref()
     console.log(`[main] Listening for MAVLink on UDP port ${UDP_PORT}`)
 
+    // Auto-detect USB autopilot boards and connect via serial
+    linkManager.startAutoConnect()
+
     // Send GCS heartbeats at 1Hz to PX4 SITL's default MAVLink port.
     // PX4 SITL (started without -o flag) only sends data after it receives
     // a packet from the GCS, so we need to initiate the connection.
@@ -467,6 +473,17 @@ app.whenReady().then(async () => {
       // Send to PX4 SITL default port and also to all known senders
       udpLink.sendTo(buf, PX4_SITL_PORT, '127.0.0.1')
       udpLink.send(buf)
+      // Send on all managed links (serial, TCP) so autopilot starts talking
+      for (const state of linkManager.getAllStates()) {
+        const link = linkManager.getLink(state.id)
+        if (link?.isConnected) {
+          try {
+            link.writeBytes(buf)
+          } catch {
+            /* link closed */
+          }
+        }
+      }
     }, 1000)
 
     app.on('before-quit', () => {
