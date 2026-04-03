@@ -630,6 +630,23 @@ export class VehicleState {
     this.markDirty('camera')
   }
 
+  setFirmwareVersion(major: number, minor: number, patch: number): void {
+    if (
+      this.state.core.firmwareVersionMajor !== major ||
+      this.state.core.firmwareVersionMinor !== minor ||
+      this.state.core.firmwareVersionPatch !== patch
+    ) {
+      this.state.core = {
+        ...this.state.core,
+        firmwareVersionMajor: major,
+        firmwareVersionMinor: minor,
+        firmwareVersionPatch: patch,
+        seq: this.state.core.seq + 1
+      }
+      this.markDirty('core')
+    }
+  }
+
   setSysId(sysid: number): void {
     if (this.state.core.sysid !== sysid) {
       this.state.core.sysid = sysid

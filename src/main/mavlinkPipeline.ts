@@ -27,6 +27,9 @@ export function createPipeline(
 
   // Register CRC magic for messages not in mavlink-mappings
   const magicNumbers = (splitter as unknown as { magicNumbers: Record<number, number> }).magicNumbers
+  magicNumbers[148] = 178 // AUTOPILOT_VERSION
+  magicNumbers[168] = 1 // WIND (ArduPilot)
+  magicNumbers[191] = 92 // MAG_CAL_PROGRESS
   magicNumbers[397] = 182 // COMPONENT_METADATA
 
   const reader = passthrough.pipe(splitter).pipe(parser)

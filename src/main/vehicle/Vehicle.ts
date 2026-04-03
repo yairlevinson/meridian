@@ -271,6 +271,21 @@ export class Vehicle extends EventEmitter {
       }
     }
 
+    // AUTOPILOT_VERSION (148) — firmware version
+    if (msg.msgid === 148) {
+      const raw = msg.data as { _rawPayload?: Buffer }
+      if (raw._rawPayload && raw._rawPayload.length >= 12) {
+        // Wire: capabilities(u64, 8B) + flight_sw_version(u32, 4B @ offset 8)
+        const swVer = raw._rawPayload.readUInt32LE(8)
+        if (swVer !== 0) {
+          const major = (swVer >> 24) & 0xff
+          const minor = (swVer >> 16) & 0xff
+          const patch = (swVer >> 8) & 0xff
+          this.state.setFirmwareVersion(major, minor, patch)
+        }
+      }
+    }
+
     // COMPONENT_INFORMATION (395) — actuator metadata discovery (legacy)
     if (msg.msgid === 395) {
       const ci = msg.data as { generalMetadataUri: string; generalMetadataFileCrc: number }
