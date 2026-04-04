@@ -64,9 +64,9 @@ const CAL_STATUS_PARAMS: Array<{
   params: string[]
   label: string
 }> = [
-  { sensor: CalibrationSensor.Accel, params: ['INS_ACCOFFS_X', 'CAL_ACC0_XOFF'], label: 'Accelerometer' },
-  { sensor: CalibrationSensor.Compass, params: ['COMPASS_OFS_X', 'CAL_MAG0_XOFF'], label: 'Compass' },
-  { sensor: CalibrationSensor.Gyro, params: ['INS_GYROFFS_X', 'CAL_GYRO0_XOFF'], label: 'Gyroscope' }
+  { sensor: CalibrationSensor.Accel, params: ['INS_ACCOFFS_X', 'CAL_ACC0_ID'], label: 'Accelerometer' },
+  { sensor: CalibrationSensor.Compass, params: ['COMPASS_OFS_X', 'CAL_MAG0_ID'], label: 'Compass' },
+  { sensor: CalibrationSensor.Gyro, params: ['INS_GYROFFS_X', 'CAL_GYRO0_ID'], label: 'Gyroscope' }
 ]
 
 interface CalButton {
@@ -150,10 +150,18 @@ export function SensorCalibrationPage(): React.JSX.Element {
   const loadState = useParameterStore((s) => s.loadState)
   const activeVehicleId = useVehicleStore((s) => s.activeVehicleId)
   const vehicles = useVehicleStore((s) => s.vehicles)
-  const autopilot = activeVehicleId ? vehicles[activeVehicleId]?.core?.autopilot : undefined
+  const core = activeVehicleId ? vehicles[activeVehicleId]?.core : undefined
+  const autopilot = core?.autopilot
   const isPX4 = autopilot === MAV_AUTOPILOT_PX4
+  const vehicleType = core?.vehicleType ?? 0
 
-  const calibrationButtons = isPX4 ? PX4_BUTTONS : ARDUPILOT_BUTTONS
+  // Airspeed only relevant for fixed-wing (1), airship (7), VTOL (19-25) — matching QGC
+  const hasAirspeed = vehicleType === 1 || vehicleType === 7 || (vehicleType >= 19 && vehicleType <= 25)
+
+  const calibrationButtons = useMemo(() => {
+    const buttons = isPX4 ? PX4_BUTTONS : ARDUPILOT_BUTTONS
+    return hasAirspeed ? buttons : buttons.filter((b) => b.sensor !== CalibrationSensor.Airspeed)
+  }, [isPX4, hasAirspeed])
 
   const isCalibrating =
     calibrationState !== null &&
@@ -176,13 +184,15 @@ export function SensorCalibrationPage(): React.JSX.Element {
     if (!loadState.parametersReady) return new Map<CalibrationSensor, boolean>()
     const map = new Map<CalibrationSensor, boolean>()
     for (const { sensor, params } of CAL_STATUS_PARAMS) {
-      // Check both ArduPilot and PX4 param names — a non-zero offset means calibrated
+      // Check both ArduPilot and PX4 param names — a non-zero value means calibrated
       const calibrated = params.some((name) => {
         const p = parameters.get(name)
         return p !== undefined && p.value !== 0
       })
       map.set(sensor, calibrated)
     }
+    // Level Horizon has no reliable parameter — QGC always shows it as green
+    map.set(CalibrationSensor.LevelHorizon, true)
     return map
   }, [parameters, loadState.parametersReady])
 
