@@ -85,16 +85,96 @@ function arduActiveSlotForPwm(pwm: number): number {
   return 6
 }
 
+/* ── PX4 switch settings ──────────────────── */
+
+interface SwitchDef {
+  param: string
+  label: string
+  condition?: 'vtol' | 'fixedWing'
+}
+
+const PX4_SWITCHES: SwitchDef[] = [
+  { param: 'RC_MAP_ARM_SW', label: 'Arm switch channel' },
+  { param: 'RC_MAP_GEAR_SW', label: 'Landing gear switch channel' },
+  { param: 'RC_MAP_KILL_SW', label: 'Emergency Kill switch channel' },
+  { param: 'RC_MAP_LOITER_SW', label: 'Loiter switch channel' },
+  { param: 'RC_MAP_OFFB_SW', label: 'Offboard switch channel' },
+  { param: 'RC_MAP_RETURN_SW', label: 'Return switch channel' },
+  { param: 'RC_MAP_TRANS_SW', label: 'Transition switch channel', condition: 'vtol' },
+  { param: 'RC_MAP_FLAPS', label: 'Flaps channel', condition: 'fixedWing' }
+]
+
+/** Channel selector dropdown reused by switch settings */
+function ChannelSelect({
+  value,
+  onChange,
+  maxChannels = 18
+}: {
+  value: number
+  onChange: (ch: number) => void
+  maxChannels?: number
+}): React.JSX.Element {
+  return (
+    <select
+      className={styles.channelSelect}
+      value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+    >
+      <option value={0}>Unassigned</option>
+      {Array.from({ length: maxChannels }, (_, i) => (
+        <option key={i + 1} value={i + 1}>
+          Channel {i + 1}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+/* ── Channel Monitor ─────────────────────── */
+
+function ChannelMonitor({ rc }: { rc: { channels: number[]; channelCount: number } | undefined }): React.JSX.Element {
+  const count = rc?.channelCount ?? 0
+  const channels = rc?.channels ?? []
+  return (
+    <div className={styles.channelMonitor}>
+      <div className={styles.sectionTitle}>Channel Monitor</div>
+      <div className={styles.channelBars}>
+        {Array.from({ length: count }, (_, i) => {
+          const pwm = channels[i] ?? 1500
+          const pct = Math.max(0, Math.min(100, ((pwm - 1000) / 1000) * 100))
+          return (
+            <div key={i} className={styles.channelBarRow}>
+              <span className={styles.channelBarLabel}>{i + 1}</span>
+              <div className={styles.channelBarTrack}>
+                <div className={styles.channelBarFill} style={{ width: `${pct}%` }} />
+              </div>
+              <span className={styles.channelBarValue}>{pwm}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /* ── PX4 Flight Modes ─────────────────────── */
 
 function PX4FlightModesPage(): React.JSX.Element {
   const activeVehicleId = useVehicleStore((s) => s.activeVehicleId)
   const vehicleId = activeVehicleId ?? 1
   const parameters = useParameterStore((s) => s.parameters)
+  const vehicles = useVehicleStore((s) => s.vehicles)
   const rc = useVehicleStore((s) => {
     const vid = s.activeVehicleId
     return vid !== null ? s.vehicles[vid]?.rc : undefined
   })
+
+  const vehicleType = activeVehicleId
+    ? (vehicles[activeVehicleId]?.core?.vehicleType ?? 0)
+    : 0
+  // MAV_TYPE: 1=fixed-wing, 19-25=VTOL
+  const isVtol = vehicleType >= 19 && vehicleType <= 25
+  const isFixedWing = vehicleType === 1 || isVtol
 
   // RC_MAP_FLTMODE: 1-based channel, 0 = unassigned
   const savedChannel = parameters.get('RC_MAP_FLTMODE')?.value ?? 0
@@ -106,15 +186,35 @@ function PX4FlightModesPage(): React.JSX.Element {
     return m
   }, [parameters])
 
+  // Switch settings — read saved values
+  const visibleSwitches = useMemo(() =>
+    PX4_SWITCHES.filter((sw) => {
+      if (sw.condition === 'vtol') return isVtol
+      if (sw.condition === 'fixedWing') return isFixedWing
+      return true
+    }),
+    [isVtol, isFixedWing]
+  )
+
+  const savedSwitchValues = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const sw of visibleSwitches) {
+      m.set(sw.param, parameters.get(sw.param)?.value ?? 0)
+    }
+    return m
+  }, [parameters, visibleSwitches])
+
   const [modeChannel, setModeChannel] = useState(savedChannel)
   const [modes, setModes] = useState<number[]>(savedModes)
+  const [switchValues, setSwitchValues] = useState<Map<string, number>>(savedSwitchValues)
   const [hasChanges, setHasChanges] = useState(false)
 
   useEffect(() => {
     setModeChannel(savedChannel)
     setModes(savedModes)
+    setSwitchValues(savedSwitchValues)
     setHasChanges(false)
-  }, [savedChannel, savedModes])
+  }, [savedChannel, savedModes, savedSwitchValues])
 
   // Active slot detection using RC calibration data
   const activeSlot = useMemo(() => {
@@ -145,6 +245,15 @@ function PX4FlightModesPage(): React.JSX.Element {
     setHasChanges(true)
   }, [])
 
+  const handleSwitchChange = useCallback((param: string, ch: number) => {
+    setSwitchValues((prev) => {
+      const next = new Map(prev)
+      next.set(param, ch)
+      return next
+    })
+    setHasChanges(true)
+  }, [])
+
   const handleSave = useCallback(async () => {
     const bridge = window.bridge
     if (!bridge) return
@@ -152,68 +261,88 @@ function PX4FlightModesPage(): React.JSX.Element {
     for (let i = 0; i < 6; i++) {
       await bridge.setParameter(vehicleId, `COM_FLTMODE${i + 1}`, modes[i]!)
     }
+    for (const [param, value] of switchValues) {
+      if (value !== (savedSwitchValues.get(param) ?? 0)) {
+        await bridge.setParameter(vehicleId, param, value)
+      }
+    }
     setHasChanges(false)
-  }, [vehicleId, modeChannel, modes])
+  }, [vehicleId, modeChannel, modes, switchValues, savedSwitchValues])
 
   const handleDiscard = useCallback(() => {
     setModeChannel(savedChannel)
     setModes(savedModes)
+    setSwitchValues(savedSwitchValues)
     setHasChanges(false)
-  }, [savedChannel, savedModes])
+  }, [savedChannel, savedModes, savedSwitchValues])
 
   return (
     <div className={styles.root}>
       <div className={styles.title}>Flight Modes</div>
 
-      <div className={styles.channelSelector}>
-        <span>Mode channel:</span>
-        <select
-          className={styles.channelSelect}
-          value={modeChannel}
-          onChange={(e) => handleChannelChange(Number(e.target.value))}
-        >
-          <option value={0}>Unassigned</option>
-          {Array.from({ length: 18 }, (_, i) => (
-            <option key={i + 1} value={i + 1}>
-              Channel {i + 1}
-            </option>
-          ))}
-        </select>
-        <span className={styles.paramHint}>RC_MAP_FLTMODE</span>
-      </div>
+      <div className={styles.px4Layout}>
+        {/* Left column: Flight mode settings */}
+        <div className={styles.px4Column}>
+          <div className={styles.sectionTitle}>Flight Mode Settings</div>
 
-      <div className={styles.modeGrid}>
-        {modes.map((modeValue, i) => {
-          const slot = i + 1
-          const isActive = activeSlot === slot
-          return (
-            <div
-              key={slot}
-              className={`${styles.modeRow} ${isActive ? styles.modeRowActive : ''}`}
-            >
-              <span className={styles.modeSlot}>Slot {slot}</span>
-              <select
-                className={styles.modeSelect}
-                value={modeValue}
-                onChange={(e) => handleModeChange(slot, Number(e.target.value))}
-              >
-                {PX4_MODES.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <span className={styles.modeParamName}>COM_FLTMODE{slot}</span>
+          <div className={styles.channelSelector}>
+            <span>Mode channel:</span>
+            <ChannelSelect value={modeChannel} onChange={handleChannelChange} />
+            <span className={styles.paramHint}>RC_MAP_FLTMODE</span>
+          </div>
+
+          <div className={styles.modeGrid}>
+            {modes.map((modeValue, i) => {
+              const slot = i + 1
+              const isActive = activeSlot === slot
+              return (
+                <div
+                  key={slot}
+                  className={`${styles.modeRow} ${isActive ? styles.modeRowActive : ''}`}
+                >
+                  <span className={styles.modeSlot}>Slot {slot}</span>
+                  <select
+                    className={styles.modeSelect}
+                    value={modeValue}
+                    onChange={(e) => handleModeChange(slot, Number(e.target.value))}
+                  >
+                    {PX4_MODES.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className={styles.modeParamName}>COM_FLTMODE{slot}</span>
+                </div>
+              )
+            })}
+          </div>
+
+          {modeChannelPwm > 0 && (
+            <div className={styles.activePwm}>
+              CH{modeChannel} PWM: {modeChannelPwm} → Slot {activeSlot}
             </div>
-          )
-        })}
-      </div>
-
-      {modeChannelPwm > 0 && (
-        <div className={styles.activePwm}>
-          CH{modeChannel} PWM: {modeChannelPwm} → Slot {activeSlot}
+          )}
         </div>
-      )}
+
+        {/* Right column: Switch settings + Channel monitor */}
+        <div className={styles.px4Column}>
+          <div className={styles.sectionTitle}>Switch Settings</div>
+          <div className={styles.switchGrid}>
+            {visibleSwitches.map((sw) => (
+              <div key={sw.param} className={styles.switchRow}>
+                <span className={styles.switchLabel}>{sw.label}</span>
+                <ChannelSelect
+                  value={switchValues.get(sw.param) ?? 0}
+                  onChange={(ch) => handleSwitchChange(sw.param, ch)}
+                />
+              </div>
+            ))}
+          </div>
+
+          <ChannelMonitor rc={rc} />
+        </div>
+      </div>
 
       {hasChanges && (
         <div className={styles.toolbar}>
