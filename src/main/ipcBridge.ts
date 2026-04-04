@@ -449,10 +449,14 @@ export function startIpcBridge(
         const vehicle = vehicleManager.getVehicle(vehicleId)
         if (!vehicle) return null
         const pm = vehicle.parameterManager
-        const modeChannel = pm.getParameter('FLTMODE_CH')?.value ?? 5
+        // Detect PX4 vs ArduPilot by checking for PX4-specific param
+        const isPX4 = pm.getParameter('RC_MAP_FLTMODE') !== undefined
+        const chParam = isPX4 ? 'RC_MAP_FLTMODE' : 'FLTMODE_CH'
+        const modePrefix = isPX4 ? 'COM_FLTMODE' : 'FLTMODE'
+        const modeChannel = pm.getParameter(chParam)?.value ?? (isPX4 ? 0 : 5)
         const modes: Array<{ slot: number; modeNumber: number; modeName: string }> = []
         for (let i = 1; i <= 6; i++) {
-          const modeNum = pm.getParameter(`FLTMODE${i}`)?.value ?? 0
+          const modeNum = pm.getParameter(`${modePrefix}${i}`)?.value ?? (isPX4 ? -1 : 0)
           modes.push({ slot: i, modeNumber: modeNum, modeName: '' })
         }
         return { modeChannel, modes, activeSlot: 0 }
@@ -467,9 +471,13 @@ export function startIpcBridge(
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
         if (!vehicle) return
         const pm = vehicle.parameterManager
-        pm.setParameter('FLTMODE_CH', req.config.modeChannel)
+        // Detect PX4 vs ArduPilot by checking for PX4-specific param
+        const isPX4 = pm.getParameter('RC_MAP_FLTMODE') !== undefined
+        const chParam = isPX4 ? 'RC_MAP_FLTMODE' : 'FLTMODE_CH'
+        const modePrefix = isPX4 ? 'COM_FLTMODE' : 'FLTMODE'
+        pm.setParameter(chParam, req.config.modeChannel)
         for (const mode of req.config.modes) {
-          pm.setParameter(`FLTMODE${mode.slot}`, mode.modeNumber)
+          pm.setParameter(`${modePrefix}${mode.slot}`, mode.modeNumber)
         }
       }
     },
