@@ -255,7 +255,7 @@ function PX4BatteryCard({
           <div className={styles.liveTelemetry}>
             <span className={styles.liveValue}>{battery.voltage.toFixed(1)}V</span>
             <span className={styles.liveValue}>{battery.current.toFixed(1)}A</span>
-            <span className={styles.liveValue}>{battery.remaining}%</span>
+            {battery.remaining >= 0 && <span className={styles.liveValue}>{battery.remaining}%</span>}
           </div>
         )}
       </div>
@@ -294,7 +294,8 @@ function PX4BatteryCard({
                   onChange={(v) => edit('V_CHARGED', v)} />
               )}
               {paramGet('CAPACITY') && (
-                <ParamInput label="Capacity" unit="mAh" value={val('CAPACITY')}
+                <ParamInput label="Capacity" unit="mAh"
+                  value={val('CAPACITY') === -1 ? undefined : val('CAPACITY')}
                   modified={`${prefix}CAPACITY` in edits}
                   onChange={(v) => edit('CAPACITY', v)} />
               )}
@@ -445,7 +446,7 @@ function ArduBatteryCard({
           <div className={styles.liveTelemetry}>
             <span className={styles.liveValue}>{battery.voltage.toFixed(1)}V</span>
             <span className={styles.liveValue}>{battery.current.toFixed(1)}A</span>
-            <span className={styles.liveValue}>{battery.remaining}%</span>
+            {battery.remaining >= 0 && <span className={styles.liveValue}>{battery.remaining}%</span>}
           </div>
         )}
       </div>
@@ -465,7 +466,8 @@ function ArduBatteryCard({
         {isEnabled && (
           <>
             {paramGet('CAPACITY') && (
-              <ParamInput label="Capacity" unit="mAh" value={val('CAPACITY')}
+              <ParamInput label="Capacity" unit="mAh"
+                value={val('CAPACITY') === -1 ? undefined : val('CAPACITY')}
                 modified={`${prefix}CAPACITY` in edits} onChange={(v) => edit('CAPACITY', v)} />
             )}
             {paramGet('ARM_VOLT') && (

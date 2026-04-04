@@ -498,14 +498,34 @@ export class VehicleState {
   private _handleBatteryStatus(bat: common.BatteryStatus): void {
     const existing = this.state.battery.batteries
     const idx = existing.findIndex((b) => b.id === bat.id)
-    const voltage = bat.voltages[0] !== undefined ? bat.voltages[0] / 1000 : 0
+
+    // Sum all valid cell voltages (matching QGC behaviour):
+    // voltages[0..9]: skip UINT16_MAX (65535 = not provided)
+    // voltagesExt[0..3]: skip 0 (not provided)
+    let voltage = 0
+    let cellCount = 0
+    for (let i = 0; i < 10; i++) {
+      const v = bat.voltages[i]
+      if (v === undefined || v === 65535) break
+      voltage += v / 1000
+      cellCount++
+    }
+    if (bat.voltagesExt) {
+      for (let i = 0; i < 4; i++) {
+        const v = bat.voltagesExt[i]
+        if (v === undefined || v === 0) break
+        voltage += v / 1000
+        cellCount++
+      }
+    }
+
     const instance = {
       id: bat.id,
       voltage,
-      current: bat.currentBattery / 100,
-      remaining: bat.batteryRemaining,
+      current: bat.currentBattery === -1 ? 0 : bat.currentBattery / 100,
+      remaining: bat.batteryRemaining === -1 ? -1 : bat.batteryRemaining,
       temperature: bat.temperature / 100,
-      cellCount: bat.voltages.filter((v) => v !== undefined && v < 65535).length,
+      cellCount,
       chargeState: 0
     }
     const batteries = [...existing]
