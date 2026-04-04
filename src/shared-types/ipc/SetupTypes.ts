@@ -86,8 +86,10 @@ export interface RcCalibrationState {
   step: RcCalStep
   channels: Record<number, RcCalibrationChannelData>
   channelCount: number
-  /** Detected stick-to-channel mapping: roll/pitch/yaw/throttle -> channel index */
+  /** Detected stick-to-channel mapping: Roll/Pitch/Yaw/Throttle -> channel index */
   stickMapping: Record<string, number | null>
+  /** Which stick is currently being detected (during DetectSticks step) */
+  currentStick?: string
 }
 
 /** Flight mode configuration */

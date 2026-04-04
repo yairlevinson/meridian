@@ -137,6 +137,12 @@ export class Vehicle extends EventEmitter {
         v.cameraManager.handleCameraHeartbeat()
       }
 
+      // Pass autopilot type to RC calibration manager for correct param names
+      const hbData = msg.data as { autopilot?: number }
+      if (hbData.autopilot !== undefined) {
+        v.rcCalibrationManager.setAutopilotType(hbData.autopilot)
+      }
+
       // Auto-request parameters after first heartbeat
       if (!v._parametersRequested) {
         v._parametersRequested = true
