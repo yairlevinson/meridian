@@ -185,6 +185,7 @@ describe('MockLinkFTP', () => {
 
     const responses: Array<{
       opcode: number
+      session: number
       data: Buffer
       reqOpcode: number
       offset: number
@@ -198,21 +199,23 @@ describe('MockLinkFTP', () => {
       opcode: 4, // OPEN_FILE_RO
       size: 0,
       reqOpcode: 0,
+      burstComplete: 0,
       offset: 0,
       data: Buffer.from('/APM.parm\0')
     })
 
     expect(responses).toHaveLength(1)
     expect(responses[0].opcode).toBe(128) // ACK
-    const session = responses[0].data[0]
+    const session = responses[0].session
 
     // Read file
     ftp.handleFTPRequest({
       seqNumber: 2,
-      session: session!,
+      session,
       opcode: 5, // READ_FILE
       size: 0,
       reqOpcode: 0,
+      burstComplete: 0,
       offset: 0,
       data: Buffer.alloc(0)
     })
@@ -231,6 +234,7 @@ describe('MockLinkFTP', () => {
       opcode: 4,
       size: 0,
       reqOpcode: 0,
+      burstComplete: 0,
       offset: 0,
       data: Buffer.from('/nonexistent\0')
     })
@@ -239,7 +243,7 @@ describe('MockLinkFTP', () => {
   })
 
   it('handles file upload (create + write)', () => {
-    const responses: Array<{ opcode: number; data: Buffer }> = []
+    const responses: Array<{ opcode: number; session: number; data: Buffer }> = []
     link.on('ftpResponse', (r) => responses.push(r))
 
     // Create file
@@ -249,12 +253,13 @@ describe('MockLinkFTP', () => {
       opcode: 6, // CREATE_FILE
       size: 0,
       reqOpcode: 0,
+      burstComplete: 0,
       offset: 0,
       data: Buffer.from('/upload.txt\0')
     })
 
     expect(responses[0].opcode).toBe(128)
-    const session = responses[0].data[0]!
+    const session = responses[0].session
 
     // Write data
     const payload = Buffer.from('hello world')
@@ -264,6 +269,7 @@ describe('MockLinkFTP', () => {
       opcode: 7, // WRITE_FILE
       size: payload.length,
       reqOpcode: 0,
+      burstComplete: 0,
       offset: 0,
       data: payload
     })

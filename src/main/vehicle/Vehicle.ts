@@ -120,130 +120,105 @@ export class Vehicle extends EventEmitter {
     this._wireFtpSend(link)
   }
 
-  /** Handle a decoded MAVLink message */
-  handleMessage(msg: DecodedMessage, linkId: string): void {
-    // Track heartbeats for communication loss detection
-    if (msg.msgid === 0) {
-      this.linkManager.heartbeatReceived(linkId)
-    }
+  // ── Message dispatch table ───────────────────────────────────────
+  // Each handler receives the Vehicle instance and the decoded message.
+  // state.handleMessage() always runs after dispatch (see handleMessage below).
+  private static readonly DISPATCH: Record<
+    number,
+    (v: Vehicle, msg: DecodedMessage, linkId: string) => void
+  > = {
+    // HEARTBEAT (0) — link tracking, camera component, auto-request params
+    0: (v, msg, linkId) => {
+      v.linkManager.heartbeatReceived(linkId)
 
-    // COMMAND_ACK is handled by the command queue
-    if (msg.msgid === 77) {
-      const ack = msg.data as { command: number; result: number }
-      this.commandQueue.handleCommandAck(ack)
-    }
-
-    // PARAM_VALUE (22) is handled by the parameter manager
-    if (msg.msgid === 22) {
-      const pv = msg.data as {
-        paramId: string
-        paramValue: number
-        paramType: number
-        paramCount: number
-        paramIndex: number
+      // Heartbeat from a camera component (compid 100-105)
+      const compid = (msg.data as { targetComponent?: number }).targetComponent
+      if (compid !== undefined && compid >= 100 && compid <= 105) {
+        v.cameraManager.handleCameraHeartbeat()
       }
-      this.parameterManager.handleParamValue(pv)
-    }
 
-    // COMMAND_ACK — also forward calibration-related ACKs
-    if (msg.msgid === 77) {
-      const ack = msg.data as { command: number; result: number }
-      this.calibrationManager.handleCommandAck(ack.command, ack.result)
-    }
+      // Auto-request parameters after first heartbeat
+      if (!v._parametersRequested) {
+        v._parametersRequested = true
+        setTimeout(() => {
+          v.parameterManager.requestAllParameters()
+          v.missionManager.loadFromVehicle()
+          setTimeout(() => v.actuatorMetadata.requestMetadata(), 3000)
+        }, 1000)
+      }
+    },
 
-    // STATUSTEXT (253) — emit for calibration and UI status display
-    if (msg.msgid === 253) {
-      const st = msg.data as { severity: number; text: string }
-      const text = st.text.replace(/\0/g, '')
-      this.emit('statusText', { severity: st.severity, text })
-      this.calibrationManager.handleStatusText(text, st.severity)
-    }
-
-    // MAG_CAL_PROGRESS (191)
-    if (msg.msgid === 191) {
-      this.calibrationManager.handleMagCalProgress(
+    // PARAM_VALUE (22)
+    22: (v, msg) => {
+      v.parameterManager.handleParamValue(
         msg.data as {
-          compassId: number
-          calMask: number
-          calStatus: number
-          attempt: number
-          completionPct: number
-          completionMask: number[]
-          directionX: number
-          directionY: number
-          directionZ: number
+          paramId: string
+          paramValue: number
+          paramType: number
+          paramCount: number
+          paramIndex: number
         }
       )
-    }
+    },
 
-    // MAG_CAL_REPORT (192)
-    if (msg.msgid === 192) {
-      this.calibrationManager.handleMagCalReport(
-        msg.data as {
-          compassId: number
-          calMask: number
-          calStatus: number
-          autosaved: number
-          fitness: number
-          ofsX: number
-          ofsY: number
-          ofsZ: number
-        }
-      )
-    }
+    // MISSION_COUNT (44)
+    44: (v, msg) => {
+      v.missionManager.handleMissionCount((msg.data as { count: number }).count)
+    },
 
-    // RC_CHANNELS (65) — feed live data to RC calibration manager
-    if (msg.msgid === 65) {
+    // MISSION_ITEM (39, legacy)
+    39: (v, msg) => Vehicle._handleMissionItem(v, msg),
+
+    // MISSION_REQUEST (40, legacy)
+    40: (v, msg) => {
+      v.missionManager.handleMissionRequest((msg.data as { seq: number }).seq)
+    },
+
+    // MISSION_CURRENT (42)
+    42: (v, msg) => {
+      v.missionManager.handleMissionCurrent((msg.data as { seq: number }).seq)
+    },
+
+    // MISSION_ACK (47)
+    47: (v, msg) => {
+      v.missionManager.handleMissionAck((msg.data as { type: number }).type)
+    },
+
+    // MISSION_REQUEST_INT (51)
+    51: (v, msg) => {
+      v.missionManager.handleMissionRequest((msg.data as { seq: number }).seq)
+    },
+
+    // RC_CHANNELS (65)
+    65: (v, msg) => {
       const rc = msg.data as { chancount: number; chan1Raw: number; chan2Raw: number; chan3Raw: number; chan4Raw: number; chan5Raw: number; chan6Raw: number; chan7Raw: number; chan8Raw: number; chan9Raw: number; chan10Raw: number; chan11Raw: number; chan12Raw: number; chan13Raw: number; chan14Raw: number; chan15Raw: number; chan16Raw: number; chan17Raw: number; chan18Raw: number }
-      const channels = [
+      const channels: number[] = [
         rc.chan1Raw, rc.chan2Raw, rc.chan3Raw, rc.chan4Raw,
         rc.chan5Raw, rc.chan6Raw, rc.chan7Raw, rc.chan8Raw,
         rc.chan9Raw, rc.chan10Raw, rc.chan11Raw, rc.chan12Raw,
         rc.chan13Raw, rc.chan14Raw, rc.chan15Raw, rc.chan16Raw,
         rc.chan17Raw, rc.chan18Raw
       ]
-      this.rcCalibrationManager.updateChannels(channels, rc.chancount)
-    }
+      v.rcCalibrationManager.updateChannels(channels, rc.chancount)
+    },
 
-    // Camera protocol messages
-    if (msg.msgid === 0) {
-      // Heartbeat from a camera component (compid 100-105)
-      const compid = (msg.data as { targetComponent?: number }).targetComponent
-      if (compid !== undefined && compid >= 100 && compid <= 105) {
-        this.cameraManager.handleCameraHeartbeat()
+    // MISSION_ITEM_INT (73)
+    73: (v, msg) => Vehicle._handleMissionItem(v, msg),
+
+    // COMMAND_ACK (77) — route to queue or calibration, never both for cmd 241
+    77: (v, msg) => {
+      const ack = msg.data as { command: number; result: number }
+      if (ack.command === 241 && v.calibrationManager.isCalibrating) {
+        // Calibration owns PREFLIGHT_CALIBRATION ACKs when active
+        v.calibrationManager.handleCommandAck(ack.command, ack.result)
+      } else {
+        v.commandQueue.handleCommandAck(ack)
+        v.calibrationManager.handleCommandAck(ack.command, ack.result)
       }
-    }
-    if (msg.msgid === 259) {
-      this.cameraManager.handleCameraInformation(msg.data as Record<string, unknown>)
-    }
-    if (msg.msgid === 260) {
-      this.cameraManager.handleCameraSettings(msg.data as Record<string, number>)
-    }
-    if (msg.msgid === 261) {
-      this.cameraManager.handleStorageInformation(msg.data as Record<string, number>)
-    }
-    if (msg.msgid === 262) {
-      this.cameraManager.handleCaptureStatus(msg.data as Record<string, number>)
-    }
-    if (msg.msgid === 263) {
-      this.cameraManager.handleImageCaptured(msg.data as Record<string, number>)
-    }
+    },
 
-    // SERIAL_CONTROL (126) — MAVLink console data from autopilot shell
-    if (msg.msgid === 126) {
-      const sc = msg.data as { device: number; flags: number; count: number; data: number[] }
-      if (sc.device === 10) {
-        // DEV_SHELL
-        const bytes = sc.data.slice(0, sc.count)
-        const text = Buffer.from(bytes).toString('utf8')
-        if (text.length > 0) {
-          this.emit('consoleData', { text })
-        }
-      }
-    }
-
-    // FILE_TRANSFER_PROTOCOL (110) — route to FTP manager
-    if (msg.msgid === 110) {
+    // FILE_TRANSFER_PROTOCOL (110)
+    110: (v, msg) => {
       const ftpMsg = msg.data as { targetNetwork: number; targetSystem: number; targetComponent: number; payload: number[] }
       const buf = Buffer.from(ftpMsg.payload)
       if (buf.length >= 12) {
@@ -254,105 +229,117 @@ export class Vehicle extends EventEmitter {
           opcode: buf[3]!,
           size,
           reqOpcode: buf[5]!,
+          burstComplete: buf[6]!,
           offset: buf.readUInt32LE(8),
           data: buf.subarray(12, 12 + size)
         }
-        this.ftpManager.handleResponse(response)
+        v.ftpManager.handleResponse(response)
       }
-    }
+    },
 
-    // COMPONENT_METADATA (397) — actuator metadata discovery (newer PX4)
-    if (msg.msgid === 397) {
-      const raw = msg.data as { _rawPayload?: Buffer }
-      if (raw._rawPayload && raw._rawPayload.length >= 108) {
-        // Wire format: time_boot_ms(4) + file_crc(4) + uri(char[100])
-        const uri = raw._rawPayload.subarray(8, 108).toString('utf8').replace(/\0/g, '').trim()
-        this.actuatorMetadata.handleComponentMetadata({ uri })
+    // SERIAL_CONTROL (126) — MAVLink console
+    126: (v, msg) => {
+      const sc = msg.data as { device: number; flags: number; count: number; data: number[] }
+      if (sc.device === 10) {
+        const bytes = sc.data.slice(0, sc.count)
+        const text = Buffer.from(bytes).toString('utf8')
+        if (text.length > 0) {
+          v.emit('consoleData', { text })
+        }
       }
-    }
+    },
 
     // AUTOPILOT_VERSION (148) — firmware version
-    if (msg.msgid === 148) {
+    148: (v, msg) => {
       const raw = msg.data as { _rawPayload?: Buffer }
       if (raw._rawPayload && raw._rawPayload.length >= 12) {
-        // Wire: capabilities(u64, 8B) + flight_sw_version(u32, 4B @ offset 8)
         const swVer = raw._rawPayload.readUInt32LE(8)
         if (swVer !== 0) {
           const major = (swVer >> 24) & 0xff
           const minor = (swVer >> 16) & 0xff
           const patch = (swVer >> 8) & 0xff
-          this.state.setFirmwareVersion(major, minor, patch)
+          v.state.setFirmwareVersion(major, minor, patch)
         }
       }
-    }
+    },
 
-    // COMPONENT_INFORMATION (395) — actuator metadata discovery (legacy)
-    if (msg.msgid === 395) {
-      const ci = msg.data as { generalMetadataUri: string; generalMetadataFileCrc: number }
-      this.actuatorMetadata.handleComponentInformation(ci)
-    }
+    // MAG_CAL_PROGRESS (191)
+    191: (v, msg) => {
+      v.calibrationManager.handleMagCalProgress(
+        msg.data as {
+          compassId: number; calMask: number; calStatus: number; attempt: number
+          completionPct: number; completionMask: number[]
+          directionX: number; directionY: number; directionZ: number
+        }
+      )
+    },
 
-    // Auto-request parameters after first heartbeat
-    if (msg.msgid === 0 && !this._parametersRequested) {
-      this._parametersRequested = true
-      // Delay slightly to let the link stabilize
-      setTimeout(() => {
-        this.parameterManager.requestAllParameters()
-        this.missionManager.loadFromVehicle()
-        // Request actuator metadata after parameters start loading
-        setTimeout(() => this.actuatorMetadata.requestMetadata(), 3000)
-      }, 1000)
-    }
+    // MAG_CAL_REPORT (192)
+    192: (v, msg) => {
+      v.calibrationManager.handleMagCalReport(
+        msg.data as {
+          compassId: number; calMask: number; calStatus: number; autosaved: number
+          fitness: number; ofsX: number; ofsY: number; ofsZ: number
+        }
+      )
+    },
 
-    // Mission protocol messages
-    if (msg.msgid === 44) {
-      // MISSION_COUNT
-      this.missionManager.handleMissionCount((msg.data as { count: number }).count)
-    } else if (msg.msgid === 73 || msg.msgid === 39) {
-      // MISSION_ITEM_INT (73) or legacy MISSION_ITEM (39)
-      const d = msg.data as {
-        seq: number
-        frame: number
-        command: number
-        current: number
-        autocontinue: number
-        param1: number
-        param2: number
-        param3: number
-        param4: number
-        x: number
-        y: number
-        z: number
-        missionType: number
+    // STATUSTEXT (253)
+    253: (v, msg) => {
+      const st = msg.data as { severity: number; text: string }
+      const text = st.text.replace(/\0/g, '')
+      v.emit('statusText', { severity: st.severity, text })
+      v.calibrationManager.handleStatusText(text, st.severity)
+    },
+
+    // CAMERA_INFORMATION (259)
+    259: (v, msg) => v.cameraManager.handleCameraInformation(msg.data as Record<string, unknown>),
+    // CAMERA_SETTINGS (260)
+    260: (v, msg) => v.cameraManager.handleCameraSettings(msg.data as Record<string, number>),
+    // STORAGE_INFORMATION (261)
+    261: (v, msg) => v.cameraManager.handleStorageInformation(msg.data as Record<string, number>),
+    // CAMERA_CAPTURE_STATUS (262)
+    262: (v, msg) => v.cameraManager.handleCaptureStatus(msg.data as Record<string, number>),
+    // IMAGE_CAPTURED (263)
+    263: (v, msg) => v.cameraManager.handleImageCaptured(msg.data as Record<string, number>),
+
+    // COMPONENT_INFORMATION (395) — actuator metadata (legacy)
+    395: (v, msg) => {
+      v.actuatorMetadata.handleComponentInformation(
+        msg.data as { generalMetadataUri: string; generalMetadataFileCrc: number }
+      )
+    },
+
+    // COMPONENT_METADATA (397) — actuator metadata (newer PX4)
+    397: (v, msg) => {
+      const raw = msg.data as { _rawPayload?: Buffer }
+      if (raw._rawPayload && raw._rawPayload.length >= 108) {
+        const uri = raw._rawPayload.subarray(8, 108).toString('utf8').replace(/\0/g, '').trim()
+        v.actuatorMetadata.handleComponentMetadata({ uri })
       }
-      const item: MissionItem = {
-        seq: d.seq,
-        frame: d.frame,
-        command: d.command,
-        current: d.current !== 0,
-        autocontinue: d.autocontinue !== 0,
-        param1: d.param1,
-        param2: d.param2,
-        param3: d.param3,
-        param4: d.param4,
-        x: d.x,
-        y: d.y,
-        z: d.z,
-        missionType: d.missionType as MissionType
-      }
-      this.missionManager.handleMissionItemInt(item)
-    } else if (msg.msgid === 51 || msg.msgid === 40) {
-      // MISSION_REQUEST_INT (51) or legacy MISSION_REQUEST (40)
-      const reqSeq = (msg.data as { seq: number }).seq
-      this.missionManager.handleMissionRequest(reqSeq)
-    } else if (msg.msgid === 47) {
-      // MISSION_ACK
-      const ackType = (msg.data as { type: number }).type
-      this.missionManager.handleMissionAck(ackType)
-    } else if (msg.msgid === 42) {
-      // MISSION_CURRENT
-      this.missionManager.handleMissionCurrent((msg.data as { seq: number }).seq)
     }
+  }
+
+  /** Convert raw mission item data to MissionItem */
+  private static _handleMissionItem(v: Vehicle, msg: DecodedMessage): void {
+    const d = msg.data as {
+      seq: number; frame: number; command: number; current: number; autocontinue: number
+      param1: number; param2: number; param3: number; param4: number
+      x: number; y: number; z: number; missionType: number
+    }
+    const item: MissionItem = {
+      seq: d.seq, frame: d.frame, command: d.command,
+      current: d.current !== 0, autocontinue: d.autocontinue !== 0,
+      param1: d.param1, param2: d.param2, param3: d.param3, param4: d.param4,
+      x: d.x, y: d.y, z: d.z, missionType: d.missionType as MissionType
+    }
+    v.missionManager.handleMissionItemInt(item)
+  }
+
+  /** Handle a decoded MAVLink message */
+  handleMessage(msg: DecodedMessage, linkId: string): void {
+    const handler = Vehicle.DISPATCH[msg.msgid]
+    if (handler) handler(this, msg, linkId)
 
     // All messages update the vehicle state
     this.state.handleMessage(msg.msgid, msg.data)
@@ -478,14 +465,15 @@ export class Vehicle extends EventEmitter {
       msg.targetComponent = 1 // MAV_COMP_ID_AUTOPILOT1
 
       // Encode FTP payload into the 251-byte payload field
-      // Layout: seqNumber(2) session(1) opcode(1) size(1) reqOpcode(1) padding(2) offset(4) data(up to 239)
+      // Layout: seqNumber(2) session(1) opcode(1) size(1) reqOpcode(1) burstComplete(1) padding(1) offset(4) data(up to 239)
       const buf = Buffer.alloc(12 + payload.data.length)
       buf.writeUInt16LE(payload.seqNumber, 0)
       buf[2] = payload.session
       buf[3] = payload.opcode
       buf[4] = payload.size
       buf[5] = payload.reqOpcode
-      // bytes 6-7: padding (0)
+      buf[6] = payload.burstComplete
+      // byte 7: padding (0)
       buf.writeUInt32LE(payload.offset, 8)
       payload.data.copy(buf, 12)
 

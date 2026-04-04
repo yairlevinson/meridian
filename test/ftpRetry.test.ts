@@ -4,6 +4,20 @@ import { FTPManager, FTP_OPCODE, FTP_ERROR, type FTPPayload } from '../src/main/
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
 import { MockLinkFTP } from '../src/test-utils/MockLink/MockLinkFTP'
 
+/** Helper: NAK a burst request with UNKNOWN_COMMAND to force sequential fallback */
+function nakBurst(ftpManager: FTPManager, payload: FTPPayload): void {
+  ftpManager.handleResponse({
+    seqNumber: payload.seqNumber + 1,
+    session: payload.session,
+    opcode: FTP_OPCODE.NAK,
+    size: 1,
+    reqOpcode: payload.opcode,
+    burstComplete: 0,
+    offset: 0,
+    data: Buffer.from([FTP_ERROR.UNKNOWN_COMMAND])
+  })
+}
+
 describe('FTPManager — timeout and retry', () => {
   let ftpManager: FTPManager
 
@@ -39,20 +53,21 @@ describe('FTPManager — timeout and retry', () => {
 
   it('succeeds if response arrives before timeout', async () => {
     ftpManager.setSendFunction((payload) => {
-      // Respond immediately with a mock open ACK
       if (payload.opcode === FTP_OPCODE.OPEN_FILE_RO) {
-        const data = Buffer.alloc(5)
-        data.writeUInt8(1, 0) // session
-        data.writeUInt32LE(5, 1) // file size
+        const data = Buffer.alloc(4)
+        data.writeUInt32LE(5, 0) // file size
         ftpManager.handleResponse({
           seqNumber: payload.seqNumber + 1,
           session: 1,
           opcode: FTP_OPCODE.ACK,
-          size: 5,
+          size: 4,
           reqOpcode: payload.opcode,
+          burstComplete: 0,
           offset: 0,
           data
         })
+      } else if (payload.opcode === FTP_OPCODE.BURST_READ_FILE) {
+        nakBurst(ftpManager, payload)
       } else if (payload.opcode === FTP_OPCODE.READ_FILE) {
         ftpManager.handleResponse({
           seqNumber: payload.seqNumber + 1,
@@ -60,6 +75,7 @@ describe('FTPManager — timeout and retry', () => {
           opcode: FTP_OPCODE.ACK,
           size: 5,
           reqOpcode: payload.opcode,
+          burstComplete: 0,
           offset: 0,
           data: Buffer.from('hello')
         })
@@ -70,6 +86,7 @@ describe('FTPManager — timeout and retry', () => {
           opcode: FTP_OPCODE.ACK,
           size: 0,
           reqOpcode: payload.opcode,
+          burstComplete: 0,
           offset: 0,
           data: Buffer.alloc(0)
         })
@@ -87,19 +104,21 @@ describe('FTPManager — timeout and retry', () => {
       if (sendCount === 1 && payload.opcode === FTP_OPCODE.OPEN_FILE_RO) {
         // Respond after a short delay (before timeout)
         setTimeout(() => {
-          const data = Buffer.alloc(5)
-          data.writeUInt8(1, 0)
-          data.writeUInt32LE(3, 1)
+          const data = Buffer.alloc(4)
+          data.writeUInt32LE(3, 0)
           ftpManager.handleResponse({
             seqNumber: payload.seqNumber + 1,
             session: 1,
             opcode: FTP_OPCODE.ACK,
-            size: 5,
+            size: 4,
             reqOpcode: payload.opcode,
+            burstComplete: 0,
             offset: 0,
             data
           })
         }, 500)
+      } else if (payload.opcode === FTP_OPCODE.BURST_READ_FILE) {
+        nakBurst(ftpManager, payload)
       } else if (payload.opcode === FTP_OPCODE.READ_FILE) {
         ftpManager.handleResponse({
           seqNumber: payload.seqNumber + 1,
@@ -107,6 +126,7 @@ describe('FTPManager — timeout and retry', () => {
           opcode: FTP_OPCODE.ACK,
           size: 3,
           reqOpcode: payload.opcode,
+          burstComplete: 0,
           offset: 0,
           data: Buffer.from('abc')
         })
@@ -117,6 +137,7 @@ describe('FTPManager — timeout and retry', () => {
           opcode: FTP_OPCODE.ACK,
           size: 0,
           reqOpcode: payload.opcode,
+          burstComplete: 0,
           offset: 0,
           data: Buffer.alloc(0)
         })
@@ -128,8 +149,8 @@ describe('FTPManager — timeout and retry', () => {
     // Should NOT retry since response cleared the timer
     const result = await downloadPromise
     expect(result.toString()).toBe('abc')
-    // Only 3 sends: OPEN + READ + TERMINATE (no retries)
-    expect(sendCount).toBe(3)
+    // OPEN + BURST(NAK) + READ + TERMINATE (no retries)
+    expect(sendCount).toBe(4)
   })
 })
 
@@ -237,6 +258,7 @@ describe('FTPManager — error handling', () => {
         opcode: FTP_OPCODE.NAK,
         size: 1,
         reqOpcode: payload.opcode,
+        burstComplete: 0,
         offset: 0,
         data: Buffer.from([FTP_ERROR.FILE_NOT_FOUND])
       })
@@ -246,22 +268,22 @@ describe('FTPManager — error handling', () => {
   })
 
   it('throws on NAK response during read', async () => {
-    let _callCount = 0
     ftpManager.setSendFunction((payload) => {
-      _callCount++
       if (payload.opcode === FTP_OPCODE.OPEN_FILE_RO) {
-        const data = Buffer.alloc(5)
-        data.writeUInt8(1, 0)
-        data.writeUInt32LE(100, 1)
+        const data = Buffer.alloc(4)
+        data.writeUInt32LE(100, 0)
         ftpManager.handleResponse({
           seqNumber: payload.seqNumber + 1,
           session: 1,
           opcode: FTP_OPCODE.ACK,
-          size: 5,
+          size: 4,
           reqOpcode: payload.opcode,
+          burstComplete: 0,
           offset: 0,
           data
         })
+      } else if (payload.opcode === FTP_OPCODE.BURST_READ_FILE) {
+        nakBurst(ftpManager, payload)
       } else if (payload.opcode === FTP_OPCODE.READ_FILE) {
         ftpManager.handleResponse({
           seqNumber: payload.seqNumber + 1,
@@ -269,6 +291,7 @@ describe('FTPManager — error handling', () => {
           opcode: FTP_OPCODE.NAK,
           size: 1,
           reqOpcode: payload.opcode,
+          burstComplete: 0,
           offset: 0,
           data: Buffer.from([FTP_ERROR.FAIL])
         })
@@ -286,6 +309,7 @@ describe('FTPManager — error handling', () => {
         opcode: FTP_OPCODE.NAK,
         size: 1,
         reqOpcode: payload.opcode,
+        burstComplete: 0,
         offset: 0,
         data: Buffer.from([FTP_ERROR.EOF])
       })
@@ -293,5 +317,67 @@ describe('FTPManager — error handling', () => {
 
     const entries = await ftpManager.listDirectory('/empty')
     expect(entries).toEqual([])
+  })
+})
+
+describe('FTPManager — burst mode', () => {
+  let ftpManager: FTPManager
+  let link: MockLink
+  let mockFTP: MockLinkFTP
+
+  beforeEach(() => {
+    link = new MockLink()
+    mockFTP = new MockLinkFTP(link)
+    ftpManager = new FTPManager()
+
+    ftpManager.setSendFunction((payload: FTPPayload) => {
+      mockFTP.handleFTPRequest(payload)
+    })
+    link.on('ftpResponse', (response: FTPPayload) => {
+      ftpManager.handleResponse(response)
+    })
+  })
+
+  afterEach(() => ftpManager.destroy())
+
+  it('downloads a file via burst mode', async () => {
+    const content = Buffer.alloc(500, 0x42)
+    mockFTP.addFile('/burst.bin', content)
+
+    const result = await ftpManager.download('/burst.bin')
+    expect(result.length).toBe(500)
+    expect(result.equals(content)).toBe(true)
+  })
+
+  it('falls back to sequential when burst is not supported', async () => {
+    mockFTP.supportsBurst = false
+    const content = Buffer.from('sequential fallback')
+    mockFTP.addFile('/seq.txt', content)
+
+    const result = await ftpManager.download('/seq.txt')
+    expect(result.toString()).toBe('sequential fallback')
+  })
+
+  it('downloads large file (>2390 bytes) requiring multiple burst batches', async () => {
+    // 3000 bytes = more than 10 chunks * 239 per chunk = 2390, needs multiple burst requests
+    const content = Buffer.alloc(3000)
+    for (let i = 0; i < 3000; i++) content[i] = i & 0xff
+    mockFTP.addFile('/large-burst.bin', content)
+
+    const progressEvents: unknown[] = []
+    ftpManager.on('progress', (p) => progressEvents.push(p))
+
+    const result = await ftpManager.download('/large-burst.bin')
+    expect(result.length).toBe(3000)
+    expect(result.equals(content)).toBe(true)
+    expect(progressEvents.length).toBeGreaterThan(0)
+  })
+
+  it('downloads empty file via burst mode', async () => {
+    mockFTP.addFile('/empty.bin', Buffer.alloc(0))
+    // Empty file: open returns size 0, burst sees nothing to read
+    // The download should handle 0-byte files
+    const result = await ftpManager.download('/empty.bin')
+    expect(result.length).toBe(0)
   })
 })

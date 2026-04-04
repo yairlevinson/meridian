@@ -50,18 +50,14 @@ export function useMission(): {
   const savePlan = useCallback(async () => {
     const waypoints = useMissionStore.getState().editableWaypoints
     const items = waypoints.map((wp, i) => waypointToMissionItem(wp, i))
-    await (
-      window.bridge as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>
-    )?.savePlan({
+    await window.bridge?.savePlan({
       fileHeader: { version: 1, createdBy: 'meridian' },
       mission: { items }
     })
   }, [])
 
   const openPlan = useCallback(async () => {
-    const result = await (
-      window.bridge as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>
-    )?.openPlan()
+    const result = await window.bridge?.openPlan()
     if (result && typeof result === 'object' && 'mission' in result) {
       useMissionStore
         .getState()

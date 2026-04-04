@@ -87,8 +87,7 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
   const positions = useAllVehiclePositions()
   const activeVehicleId = useActiveVehicleId()
   const homePos = useHomePosition()
-  const mapProvider =
-    (useSettingsStore((s) => s.settings.mapProvider) as string) || DEFAULT_PROVIDER
+  const mapProvider = useSettingsStore((s) => s.settings.mapProvider) || DEFAULT_PROVIDER
   const setSetting = useSettingsStore((s) => s.setSetting)
 
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)

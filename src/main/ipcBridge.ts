@@ -16,6 +16,7 @@ import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
 import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
+import type { SettingsManager } from './settings/SettingsManager'
 
 const TICK_RATE_MS = 33 // ~30 Hz
 
@@ -31,7 +32,8 @@ export function startIpcBridge(
   vehicleManager: VehicleManager,
   videoManager?: VideoManager,
   linkManager?: LinkManager,
-  forwarder?: MavlinkForwarder
+  forwarder?: MavlinkForwarder,
+  settingsManager?: SettingsManager
 ): () => void {
   const inspector = new MavlinkInspector(broadcast)
   vehicleManager.onRawMessage = inspector.handleMessage
@@ -654,6 +656,20 @@ export function startIpcBridge(
             }
           : null
       }
+    },
+
+    // Settings
+    {
+      channel: IpcChannels.SettingsGetAll,
+      handler: () => settingsManager?.getAll()
+    },
+    {
+      channel: IpcChannels.SettingsSet,
+      handler: (req: { key: string; value: unknown }) => {
+        if (settingsManager) {
+          settingsManager.set(req.key as keyof import('@shared/ipc/AppSettings').AppSettings, req.value as never)
+        }
+      }
     }
   ]
 
@@ -661,9 +677,16 @@ export function startIpcBridge(
     ipcMain.handle(channel, (_event, ...args) => handler(...args))
   }
 
+  // Broadcast settings changes to renderer
+  const onSettingsChanged = (key: string, value: unknown): void => {
+    broadcast(IpcEvents.SettingsChanged, { key, value })
+  }
+  settingsManager?.on('changed', onSettingsChanged)
+
   return () => {
     inspector.disable()
     clearInterval(interval)
+    settingsManager?.removeListener('changed', onSettingsChanged)
     for (const { channel } of handlers) {
       ipcMain.removeHandler(channel)
     }

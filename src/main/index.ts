@@ -3,12 +3,11 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { MavLinkProtocolV2 } from 'node-mavlink'
 import { common, minimal } from 'mavlink-mappings'
-import { UdpLink } from './udpLink'
-import { createPipeline } from './mavlinkPipeline'
 import { VehicleManager } from './vehicle/VehicleManager'
 import { LinkManager } from './links/LinkManager'
 import { MavlinkProtocol } from './mavlink/MavlinkProtocol'
 import { LinkType, type TcpLinkConfig } from '@shared/ipc/LinkState'
+import { UdpLink } from './links/UdpLink'
 import type { StreamRequest } from '@shared/ipc/geo'
 import { startIpcBridge } from './ipcBridge'
 import { GCS_SYSID, GCS_COMPID } from './mavlink/constants'
@@ -343,10 +342,7 @@ app.whenReady().then(async () => {
       const linkId = vehicleToLink.get(sysid)
       const tcpLink = linkId ? linkManager.getLink(linkId) : undefined
       if (tcpLink) {
-        // Give the vehicle a way to send commands back through its TCP link
-        vehicleManager
-          .getVehicle(sysid)
-          ?.setCommandLink({ writeBytes: (buf) => tcpLink.writeBytes(buf) })
+        vehicleManager.getVehicle(sysid)?.addLink(tcpLink)
         if (!streamRequestedFor.has(sysid)) {
           streamRequestedFor.add(sysid)
           requestStreams((buf) => tcpLink.writeBytes(buf), sysid, linkId!)
@@ -359,7 +355,7 @@ app.whenReady().then(async () => {
     forwarder.attachLinkManager(linkManager)
     forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
 
-    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager, forwarder)
+    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager, forwarder, settingsManager)
 
     // Connect to each TCP target
     for (const target of tcpTargets) {
@@ -423,16 +419,15 @@ app.whenReady().then(async () => {
     })
   } else {
     // ---- UDP mode: listen for incoming MAVLink (SyntheticVehicle / single SITL) ----
-    const udpLink = new UdpLink(UDP_PORT)
-
-    // Create LinkManager so serial (and future) links can be added via IPC
     const mavlinkProtocol = new MavlinkProtocol()
     const linkManager = new LinkManager(mavlinkProtocol)
 
+    // Route all decoded messages to the VehicleManager
     linkManager.on('message', (msg, link) => {
       vehicleManager.handleMessage(msg, link.id)
     })
 
+    // Track which link a vehicle came from
     const vehicleToLink = new Map<number, string>()
     linkManager.on('message', (msg, link) => {
       if (!vehicleToLink.has(msg.sysid)) {
@@ -440,8 +435,14 @@ app.whenReady().then(async () => {
       }
     })
 
-    // Wrap UdpLink as a WritableLink for command queue
-    const udpWritable = { writeBytes: (buf: Buffer) => udpLink.send(buf) }
+    // Create root UDP link as a managed link
+    const rootUdpLink = (await linkManager.createLink({
+      type: LinkType.UDP,
+      name: 'Root UDP',
+      listenPort: UDP_PORT
+    })) as UdpLink
+    rootUdpLink.unref()
+    console.log(`[main] Listening for MAVLink on UDP port ${UDP_PORT}`)
 
     const streamRequestedFor = new Set<number>()
     vehicleManager.on('vehicleAdded', (sysid: number) => {
@@ -449,42 +450,20 @@ app.whenReady().then(async () => {
       // Check if vehicle came from a managed link (e.g. serial)
       const linkId = vehicleToLink.get(sysid)
       const managedLink = linkId ? linkManager.getLink(linkId) : undefined
-      if (managedLink) {
-        vehicleManager
-          .getVehicle(sysid)
-          ?.setCommandLink({ writeBytes: (buf) => managedLink.writeBytes(buf) })
-      } else {
-        // Default to UDP
-        vehicleManager.getVehicle(sysid)?.setCommandLink(udpWritable)
-      }
+      const link = managedLink ?? rootUdpLink
+      vehicleManager.getVehicle(sysid)?.addLink(link)
       if (!streamRequestedFor.has(sysid)) {
         streamRequestedFor.add(sysid)
-        if (managedLink) {
-          requestStreams((buf) => managedLink.writeBytes(buf), sysid, linkId!)
-        } else {
-          requestStreams((buf) => udpLink.send(buf), sysid)
-        }
+        requestStreams((buf) => link.writeBytes(buf), sysid, linkId)
       }
-    })
-
-    const cleanupPipeline = createPipeline(udpLink, (msg) => {
-      vehicleManager.handleMessage(msg, 'udp-0')
     })
 
     // --- MAVLink forwarding ---
     const forwarder = new MavlinkForwarder(settingsManager, UDP_PORT)
     forwarder.attachLinkManager(linkManager)
-    forwarder.attachLegacyUdpLink(udpLink)
-    forwarder.setVehicleWriteFn((buf) => {
-      udpLink.send(buf)
-      writeToAllLinks(linkManager, buf)
-    })
+    forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
 
-    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager, forwarder)
-
-    await udpLink.bind()
-    udpLink.unref()
-    console.log(`[main] Listening for MAVLink on UDP port ${UDP_PORT}`)
+    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager, forwarder, settingsManager)
 
     // Auto-detect USB autopilot boards and connect via serial
     linkManager.startAutoConnect()
@@ -505,10 +484,11 @@ app.whenReady().then(async () => {
       hb.mavlinkVersion = 3
       const buf = gcsProto.serialize(hb, gcsSeq++)
       // Send to PX4 SITL default port and also to all known senders
-      udpLink.sendTo(buf, PX4_SITL_PORT, '127.0.0.1')
-      udpLink.send(buf)
-      // Send on all managed links (serial, TCP) so autopilot starts talking
+      rootUdpLink.sendTo(buf, PX4_SITL_PORT, '127.0.0.1')
+      rootUdpLink.writeBytes(buf)
+      // Send on all other managed links (serial, TCP) so autopilot starts talking
       for (const state of linkManager.getAllStates()) {
+        if (state.id === rootUdpLink.id) continue
         const link = linkManager.getLink(state.id)
         if (link?.isConnected) {
           try {
@@ -525,12 +505,10 @@ app.whenReady().then(async () => {
       clearInterval(heartbeatInterval)
       forwarder.destroy()
       cleanupIpcBridge()
-      cleanupPipeline()
       linkManager.disconnectAll()
       mavlinkProtocol.destroy()
       vehicleManager.destroy()
       videoManager.destroy()
-      udpLink.close()
     })
   }
 

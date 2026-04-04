@@ -69,5 +69,8 @@ export enum IpcEvents {
   MavInspectorFields = 'mavInspector:fields',
 
   /** MAVLink forwarding state changed */
-  ForwardingStateChanged = 'forwarding:stateChanged'
+  ForwardingStateChanged = 'forwarding:stateChanged',
+
+  /** App settings changed */
+  SettingsChanged = 'settings:changed'
 }

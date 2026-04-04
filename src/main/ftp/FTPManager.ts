@@ -11,6 +11,7 @@ export const FTP_OPCODE = {
   CREATE_FILE: 6,
   WRITE_FILE: 7,
   REMOVE_FILE: 8,
+  BURST_READ_FILE: 15,
   ACK: 128,
   NAK: 129
 } as const
@@ -33,6 +34,7 @@ export interface FTPPayload {
   opcode: number
   size: number
   reqOpcode: number
+  burstComplete: number
   offset: number
   data: Buffer
 }
@@ -41,9 +43,14 @@ const MAX_DATA_LENGTH = 239
 const DEFAULT_TIMEOUT_MS = 2000
 const DEFAULT_MAX_RETRIES = 3
 
+interface MissingBlock {
+  offset: number
+  length: number
+}
+
 /**
  * FTP protocol manager for MAVLink file transfers.
- * Supports download, upload, and directory listing.
+ * Supports download (with burst mode), upload, and directory listing.
  */
 export class FTPManager extends EventEmitter {
   private seqNumber = 0
@@ -51,6 +58,7 @@ export class FTPManager extends EventEmitter {
   private retryCount = 0
   private retryTimer: ReturnType<typeof setTimeout> | null = null
   private pendingCallback: ((response: FTPPayload) => void) | null = null
+  private burstHandler: ((response: FTPPayload) => void) | null = null
   private sendFn: ((payload: FTPPayload) => void) | null = null
 
   /** Set the function used to send FTP requests to the vehicle */
@@ -64,10 +72,14 @@ export class FTPManager extends EventEmitter {
       clearTimeout(this.retryTimer)
       this.retryTimer = null
     }
-    this.pendingCallback?.(response)
+    if (this.burstHandler) {
+      this.burstHandler(response)
+    } else {
+      this.pendingCallback?.(response)
+    }
   }
 
-  /** Download a file from the vehicle */
+  /** Download a file from the vehicle. Attempts burst mode first, falls back to sequential. */
   async download(path: string): Promise<Buffer> {
     if (path.includes('..')) throw new Error('Path traversal not allowed')
     // Open file
@@ -85,33 +97,203 @@ export class FTPManager extends EventEmitter {
     }
     const session = openResp.session
     const fileSize = openResp.data.readUInt32LE(0)
-    const chunks: Buffer[] = []
-    let offset = 0
 
-    // Read file in chunks
-    while (offset < fileSize) {
-      const readResp = await this._sendRequest({
-        opcode: FTP_OPCODE.READ_FILE,
-        session,
-        offset,
-        size: MAX_DATA_LENGTH
-      })
+    let receivedData: Map<number, Buffer>
+    let missingBlocks: MissingBlock[]
 
-      if (readResp.opcode === FTP_OPCODE.NAK) {
-        const errCode = readResp.data[0]
-        if (errCode === FTP_ERROR.EOF) break
-        throw new Error(`FTP: read error at offset ${offset}: error ${errCode}`)
+    if (fileSize === 0) {
+      receivedData = new Map()
+      missingBlocks = []
+    } else {
+      try {
+        // Try burst mode first
+        const result = await this._burstDownload(session, fileSize, path)
+        receivedData = result.data
+        missingBlocks = result.missingBlocks
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('UNKNOWN_COMMAND')) {
+          // Vehicle doesn't support burst — fall back to sequential
+          receivedData = new Map()
+          missingBlocks = [{ offset: 0, length: fileSize }]
+        } else {
+          throw err
+        }
       }
+    }
 
-      chunks.push(Buffer.from(readResp.data))
-      offset += readResp.data.length
-      this.emit('progress', { path, bytesReceived: offset, totalBytes: fileSize })
+    // Fill missing blocks with sequential READ_FILE
+    for (const block of missingBlocks) {
+      let offset = block.offset
+      const end = block.offset + block.length
+      while (offset < end) {
+        const readResp = await this._sendRequest({
+          opcode: FTP_OPCODE.READ_FILE,
+          session,
+          offset,
+          size: MAX_DATA_LENGTH
+        })
+
+        if (readResp.opcode === FTP_OPCODE.NAK) {
+          const errCode = readResp.data[0]
+          if (errCode === FTP_ERROR.EOF) break
+          throw new Error(`FTP: read error at offset ${offset}: error ${errCode}`)
+        }
+
+        receivedData.set(offset, Buffer.from(readResp.data))
+        offset += readResp.data.length
+        this.emit('progress', { path, bytesReceived: this._totalReceived(receivedData), totalBytes: fileSize })
+      }
     }
 
     // Terminate session
     await this._sendRequest({ opcode: FTP_OPCODE.TERMINATE, session })
 
-    return Buffer.concat(chunks)
+    return this._assembleFile(receivedData, fileSize)
+  }
+
+  /** Burst download: sends one BURST_READ_FILE request, vehicle responds with multiple ACKs */
+  private _burstDownload(
+    session: number,
+    fileSize: number,
+    path: string
+  ): Promise<{ data: Map<number, Buffer>; missingBlocks: MissingBlock[] }> {
+    return new Promise((resolve, reject) => {
+      if (!this.sendFn) {
+        reject(new Error('FTP: no send function'))
+        return
+      }
+
+      const receivedData = new Map<number, Buffer>()
+      let expectedOffset = 0
+      const missingBlocks: MissingBlock[] = []
+      let retryCount = 0
+
+      const sendBurst = (firstRequest: boolean): void => {
+        if (firstRequest) retryCount = 0
+
+        const payload: FTPPayload = {
+          seqNumber: ++this.seqNumber,
+          session,
+          opcode: FTP_OPCODE.BURST_READ_FILE,
+          size: MAX_DATA_LENGTH,
+          reqOpcode: 0,
+          burstComplete: 0,
+          offset: expectedOffset,
+          data: Buffer.alloc(0)
+        }
+
+        this.sendFn!(payload)
+        this.retryTimer = setTimeout(() => {
+          retryCount++
+          if (retryCount > DEFAULT_MAX_RETRIES) {
+            cleanup()
+            reject(new Error(`FTP: burst timeout after ${DEFAULT_MAX_RETRIES} retries`))
+            return
+          }
+          sendBurst(false)
+        }, DEFAULT_TIMEOUT_MS)
+      }
+
+      const cleanup = (): void => {
+        this.burstHandler = null
+        if (this.retryTimer) {
+          clearTimeout(this.retryTimer)
+          this.retryTimer = null
+        }
+      }
+
+      this.burstHandler = (response: FTPPayload): void => {
+        // Ignore responses for wrong request type
+        if (response.reqOpcode !== FTP_OPCODE.BURST_READ_FILE) return
+        if (response.session !== session) return
+
+        // Clear timeout — we got a response
+        if (this.retryTimer) {
+          clearTimeout(this.retryTimer)
+          this.retryTimer = null
+        }
+
+        if (response.opcode === FTP_OPCODE.ACK) {
+          // Detect gaps: if response offset is ahead of expected, record missing block
+          if (response.offset > expectedOffset) {
+            missingBlocks.push({
+              offset: expectedOffset,
+              length: response.offset - expectedOffset
+            })
+          } else if (response.offset < expectedOffset) {
+            // Already received this data, restart timeout and wait
+            this.retryTimer = setTimeout(() => {
+              retryCount++
+              if (retryCount > DEFAULT_MAX_RETRIES) {
+                cleanup()
+                reject(new Error(`FTP: burst timeout after ${DEFAULT_MAX_RETRIES} retries`))
+                return
+              }
+              sendBurst(false)
+            }, DEFAULT_TIMEOUT_MS)
+            return
+          }
+
+          // Store received chunk
+          receivedData.set(response.offset, Buffer.from(response.data))
+          expectedOffset = response.offset + response.data.length
+
+          this.emit('progress', {
+            path,
+            bytesReceived: this._totalReceived(receivedData),
+            totalBytes: fileSize
+          })
+
+          if (response.burstComplete) {
+            // Current burst batch done, request next batch from expectedOffset
+            sendBurst(true)
+          } else {
+            // More packets coming in this burst, just wait with timeout
+            this.retryTimer = setTimeout(() => {
+              retryCount++
+              if (retryCount > DEFAULT_MAX_RETRIES) {
+                cleanup()
+                reject(new Error(`FTP: burst timeout after ${DEFAULT_MAX_RETRIES} retries`))
+                return
+              }
+              sendBurst(false)
+            }, DEFAULT_TIMEOUT_MS)
+          }
+        } else if (response.opcode === FTP_OPCODE.NAK) {
+          const errCode = response.data[0]
+
+          if (errCode === FTP_ERROR.EOF) {
+            // Burst has gone through the whole file
+            cleanup()
+            resolve({ data: receivedData, missingBlocks })
+          } else if (errCode === FTP_ERROR.UNKNOWN_COMMAND) {
+            // Vehicle doesn't support burst mode
+            cleanup()
+            reject(new Error('FTP: UNKNOWN_COMMAND — burst not supported'))
+          } else {
+            cleanup()
+            reject(new Error(`FTP: burst read error: ${errCode}`))
+          }
+        }
+      }
+
+      sendBurst(true)
+    })
+  }
+
+  private _totalReceived(data: Map<number, Buffer>): number {
+    let total = 0
+    for (const chunk of data.values()) total += chunk.length
+    return total
+  }
+
+  private _assembleFile(data: Map<number, Buffer>, fileSize: number): Buffer {
+    if (data.size === 0) return Buffer.alloc(0)
+    const result = Buffer.alloc(fileSize)
+    for (const [offset, chunk] of data) {
+      chunk.copy(result, offset)
+    }
+    return result
   }
 
   /** Upload a file to the vehicle */
@@ -127,7 +309,7 @@ export class FTPManager extends EventEmitter {
       throw new Error(`FTP: failed to create ${path}: error ${createResp.data[0]}`)
     }
 
-    const session = createResp.data[0]!
+    const session = createResp.session
     let offset = 0
 
     while (offset < content.length) {
@@ -204,6 +386,7 @@ export class FTPManager extends EventEmitter {
         opcode: opts.opcode,
         size: opts.size ?? opts.data?.length ?? 0,
         reqOpcode: 0,
+        burstComplete: 0,
         offset: opts.offset ?? 0,
         data: opts.data ?? Buffer.alloc(0)
       }

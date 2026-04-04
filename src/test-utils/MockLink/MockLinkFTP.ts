@@ -14,8 +14,11 @@ const FTP_OPCODE_OPEN_FILE_RO = 4
 const FTP_OPCODE_READ_FILE = 5
 const FTP_OPCODE_CREATE_FILE = 6
 const FTP_OPCODE_WRITE_FILE = 7
+const FTP_OPCODE_BURST_READ_FILE = 15
 const FTP_OPCODE_ACK = 128
 const FTP_OPCODE_NAK = 129
+
+const MAX_DATA_LENGTH = 239
 
 interface FTPPayload {
   seqNumber: number
@@ -23,6 +26,7 @@ interface FTPPayload {
   opcode: number
   size: number
   reqOpcode: number
+  burstComplete: number
   offset: number
   data: Buffer
 }
@@ -32,6 +36,7 @@ export class MockLinkFTP {
   private sessions = new Map<number, { path: string; offset: number }>()
   private nextSession = 1
   private failureMode = FailureMode.NoFailure
+  supportsBurst = true
 
   constructor(private link: MockLink) {}
 
@@ -59,6 +64,9 @@ export class MockLinkFTP {
         break
       case FTP_OPCODE_LIST_DIRECTORY:
         this._handleListDirectory(payload)
+        break
+      case FTP_OPCODE_BURST_READ_FILE:
+        this._handleBurstReadFile(payload)
         break
       case FTP_OPCODE_TERMINATE:
         this._handleTerminate(payload)
@@ -89,11 +97,20 @@ export class MockLinkFTP {
     const session = this.nextSession++
     this.sessions.set(session, { path, offset: 0 })
 
-    // ACK with session and file size
-    const data = Buffer.alloc(5)
-    data.writeUInt8(session, 0)
-    data.writeUInt32LE(file.length, 1)
-    this._sendAck(payload, data)
+    // ACK with file size in data, session in header (per MAVLink FTP protocol)
+    const data = Buffer.alloc(4)
+    data.writeUInt32LE(file.length, 0)
+    const response: FTPPayload = {
+      seqNumber: payload.seqNumber + 1,
+      session, // new session ID in header
+      opcode: FTP_OPCODE_ACK,
+      size: data.length,
+      reqOpcode: payload.opcode,
+      burstComplete: 0,
+      offset: payload.offset,
+      data
+    }
+    this.link.emit('ftpResponse', response)
   }
 
   private _handleReadFile(payload: FTPPayload): void {
@@ -111,11 +128,11 @@ export class MockLinkFTP {
 
     const offset = payload.offset
     if (offset >= file.length) {
-      this._sendNak(payload, 6) // EOF
+      this._sendNak(payload, 5) // EOF
       return
     }
 
-    const chunkSize = Math.min(239, file.length - offset) // MAX_DATA_LENGTH
+    const chunkSize = Math.min(MAX_DATA_LENGTH, file.length - offset)
     const chunk = file.subarray(offset, offset + chunkSize)
     this._sendAck(payload, chunk)
   }
@@ -126,9 +143,18 @@ export class MockLinkFTP {
     this.sessions.set(session, { path, offset: 0 })
     this.files.set(path, Buffer.alloc(0))
 
-    const data = Buffer.alloc(1)
-    data.writeUInt8(session, 0)
-    this._sendAck(payload, data)
+    // Session in header, not in data (per MAVLink FTP protocol)
+    const response: FTPPayload = {
+      seqNumber: payload.seqNumber + 1,
+      session, // new session ID
+      opcode: FTP_OPCODE_ACK,
+      size: 0,
+      reqOpcode: payload.opcode,
+      burstComplete: 0,
+      offset: payload.offset,
+      data: Buffer.alloc(0)
+    }
+    this.link.emit('ftpResponse', response)
   }
 
   private _handleWriteFile(payload: FTPPayload): void {
@@ -161,12 +187,73 @@ export class MockLinkFTP {
     }
 
     if (entries.length === 0) {
-      this._sendNak(payload, 6) // EOF (empty dir)
+      this._sendNak(payload, 5) // EOF (empty dir)
       return
     }
 
     const data = Buffer.from(entries.join('\0') + '\0')
     this._sendAck(payload, data)
+  }
+
+  private _handleBurstReadFile(payload: FTPPayload): void {
+    if (!this.supportsBurst) {
+      this._sendNak(payload, 6 /* UNKNOWN_COMMAND */)
+      return
+    }
+
+    const sess = this.sessions.get(payload.session)
+    if (!sess) {
+      this._sendNak(payload, 3) // InvalidSession
+      return
+    }
+
+    const file = this.files.get(sess.path)
+    if (!file) {
+      this._sendNak(payload, 2)
+      return
+    }
+
+    let offset = payload.offset
+    // Send multiple chunks in a burst (up to 10 chunks per burst, matching typical autopilot behavior)
+    const maxChunksPerBurst = 10
+    let chunksSent = 0
+    let seqNum = payload.seqNumber + 1
+
+    while (offset < file.length && chunksSent < maxChunksPerBurst) {
+      const chunkSize = Math.min(MAX_DATA_LENGTH, file.length - offset)
+      const chunk = file.subarray(offset, offset + chunkSize)
+      const isLastInBurst = chunksSent === maxChunksPerBurst - 1 || offset + chunkSize >= file.length
+
+      const response: FTPPayload = {
+        seqNumber: seqNum++,
+        session: payload.session,
+        opcode: FTP_OPCODE_ACK,
+        size: chunk.length,
+        reqOpcode: FTP_OPCODE_BURST_READ_FILE,
+        burstComplete: isLastInBurst ? 1 : 0,
+        offset,
+        data: chunk
+      }
+      this.link.emit('ftpResponse', response)
+
+      offset += chunkSize
+      chunksSent++
+    }
+
+    // If we've read the entire file, send EOF NAK
+    if (offset >= file.length) {
+      const eofResponse: FTPPayload = {
+        seqNumber: seqNum,
+        session: payload.session,
+        opcode: FTP_OPCODE_NAK,
+        size: 1,
+        reqOpcode: FTP_OPCODE_BURST_READ_FILE,
+        burstComplete: 0,
+        offset,
+        data: Buffer.from([5]) // EOF
+      }
+      this.link.emit('ftpResponse', eofResponse)
+    }
   }
 
   private _handleTerminate(payload: FTPPayload): void {
@@ -175,18 +262,16 @@ export class MockLinkFTP {
   }
 
   private _sendAck(req: FTPPayload, data: Buffer): void {
-    // In a real implementation, this would be a FILE_TRANSFER_PROTOCOL message.
-    // For testing, we emit a synthetic event.
     const response: FTPPayload = {
       seqNumber: req.seqNumber + 1,
       session: req.session,
       opcode: FTP_OPCODE_ACK,
       size: data.length,
       reqOpcode: req.opcode,
+      burstComplete: 0,
       offset: req.offset,
       data
     }
-    // Emit as an event the FTP manager can listen to
     this.link.emit('ftpResponse', response)
   }
 
@@ -198,6 +283,7 @@ export class MockLinkFTP {
       opcode: FTP_OPCODE_NAK,
       size: 1,
       reqOpcode: req.opcode,
+      burstComplete: 0,
       offset: req.offset,
       data
     }

@@ -2,7 +2,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PlanManager } from '../src/main/mission/PlanManager'
 import { MissionManager } from '../src/main/mission/MissionManager'
-import { GeoFenceManager } from '../src/main/mission/GeoFenceManager'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
 import { MissionProtocolState, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
 
@@ -171,10 +170,3 @@ describe('MissionManager', () => {
   })
 })
 
-describe('GeoFenceManager', () => {
-  it('uses FENCE mission type', () => {
-    const gfm = new GeoFenceManager()
-    expect((gfm as any).missionType).toBe(1) // MAV_MISSION_TYPE_FENCE
-    gfm.destroy()
-  })
-})

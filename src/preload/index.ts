@@ -16,6 +16,7 @@ import type {
 } from '../shared-types/ipc/SetupTypes'
 import type { CameraState } from '../shared-types/ipc/CameraTypes'
 import type { ForwardingState } from '../shared-types/ipc/ForwardingTypes'
+import type { AppSettings } from '../shared-types/ipc/AppSettings'
 
 export interface Bridge {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
@@ -160,6 +161,11 @@ export interface Bridge {
   onMavInspectorFields: (
     cb: (payload: import('../shared-types/ipc/MavInspectorTypes').InspectorFieldsPayload) => void
   ) => () => void
+
+  // Settings
+  settingsGetAll: () => Promise<AppSettings>
+  settingsSet: (key: string, value: unknown) => Promise<void>
+  onSettingsChanged: (cb: (payload: { key: string; value: unknown }) => void) => () => void
 
   // MAVLink Forwarding
   forwardingGetState: () => Promise<ForwardingState>
@@ -487,6 +493,20 @@ const bridge: Bridge = {
     ipcRenderer.on(IpcEvents.MavInspectorFields, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.MavInspectorFields, handler)
+    }
+  },
+
+  // Settings
+  settingsGetAll: () => ipcRenderer.invoke(IpcChannels.SettingsGetAll),
+  settingsSet: (key, value) => ipcRenderer.invoke(IpcChannels.SettingsSet, { key, value }),
+  onSettingsChanged: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { key: string; value: unknown }
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.SettingsChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.SettingsChanged, handler)
     }
   },
 

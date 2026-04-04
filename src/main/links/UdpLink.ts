@@ -4,11 +4,13 @@ import { LinkConnectionStatus, type UdpLinkConfig } from '@shared/ipc/LinkState'
 
 /**
  * UDP link transport.
- * Auto-discovers first sender as target (standard MAVLink UDP auto-discovery).
+ * Auto-discovers senders as targets (standard MAVLink UDP auto-discovery).
+ * Supports multi-sender broadcast and explicit sendTo for SITL probing.
  */
 export class UdpLink extends LinkInterface {
   private socket = dgram.createSocket('udp4')
-  private remoteAddress: { address: string; port: number } | null = null
+  /** All known senders, keyed by "address:port" */
+  private remoteSenders = new Map<string, { address: string; port: number }>()
   private listenPort: number
 
   constructor(id: string, config: UdpLinkConfig) {
@@ -16,8 +18,10 @@ export class UdpLink extends LinkInterface {
     this.listenPort = config.listenPort
 
     this.socket.on('message', (msg, rinfo) => {
-      if (!this.remoteAddress) {
-        this.remoteAddress = { address: rinfo.address, port: rinfo.port }
+      const key = `${rinfo.address}:${rinfo.port}`
+      if (!this.remoteSenders.has(key)) {
+        console.log(`[UdpLink] discovered sender at ${key}`)
+        this.remoteSenders.set(key, { address: rinfo.address, port: rinfo.port })
       }
       this.emit('data', msg)
     })
@@ -49,10 +53,16 @@ export class UdpLink extends LinkInterface {
     this.emit('disconnected')
   }
 
+  /** Send to all known senders (each vehicle gets the packet). */
   writeBytes(buf: Buffer): void {
-    if (this.remoteAddress) {
-      this.socket.send(buf, this.remoteAddress.port, this.remoteAddress.address)
+    for (const { address, port } of this.remoteSenders.values()) {
+      this.socket.send(buf, port, address)
     }
+  }
+
+  /** Send to a specific address:port (used for initial connection probes like PX4 SITL). */
+  sendTo(buf: Buffer, port: number, address: string): void {
+    this.socket.send(buf, port, address)
   }
 
   unref(): void {

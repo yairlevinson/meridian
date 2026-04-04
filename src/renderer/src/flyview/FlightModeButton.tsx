@@ -1,16 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useTelemetry } from '../hooks/useVehicle'
 import { useCommand } from '../hooks/useCommand'
+import { getModeNamesForVehicleType, mavTypeToVehicleType } from '@shared/ipc/SetupTypes'
 import styles from './FlightModeButton.module.css'
-
-// ArduCopter mode numbers
-const COPTER_MODES: { name: string; value: number }[] = [
-  { name: 'Stabilize', value: 0 },
-  { name: 'Auto', value: 3 },
-  { name: 'Guided', value: 4 },
-  { name: 'RTL', value: 6 },
-  { name: 'Land', value: 9 }
-]
 
 export function FlightModeButton(): React.JSX.Element {
   const core = useTelemetry('core')
@@ -19,6 +11,15 @@ export function FlightModeButton(): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
 
   const modeName = core?.flightModeName || (core?.flightMode != null ? `Unknown` : 'Mode ---')
+
+  const modes = useMemo(() => {
+    const vehicleType = mavTypeToVehicleType(core?.vehicleType ?? 2)
+    const modeNames = getModeNamesForVehicleType(vehicleType)
+    return Object.entries(modeNames).map(([value, name]) => ({
+      name,
+      value: Number(value)
+    }))
+  }, [core?.vehicleType])
 
   useEffect(() => {
     if (!open) return
@@ -40,7 +41,7 @@ export function FlightModeButton(): React.JSX.Element {
       </button>
       {open && (
         <div className={styles.dropdown}>
-          {COPTER_MODES.map((m) => (
+          {modes.map((m) => (
             <button
               key={m.value}
               onClick={() => {

@@ -28,8 +28,6 @@ export class MavlinkForwarder extends EventEmitter {
   private targetCounter = 0
   private vehicleWriteFn: ((buf: Buffer) => void) | null = null
   private attachedLinks = new Map<string, (buf: Buffer) => void>()
-  private legacyUdpHandler: ((buf: Buffer) => void) | null = null
-  private legacyUdpLink: EventEmitter | null = null
   private ownPort: number
 
   constructor(
@@ -96,13 +94,6 @@ export class MavlinkForwarder extends EventEmitter {
       link.removeListener('data', handler)
       this.attachedLinks.delete(link.id)
     }
-  }
-
-  attachLegacyUdpLink(udpLink: EventEmitter): void {
-    if (this.legacyUdpHandler) return
-    this.legacyUdpLink = udpLink
-    this.legacyUdpHandler = (buf: Buffer): void => this._onLinkData(buf)
-    udpLink.on('data', this.legacyUdpHandler)
   }
 
   addTarget(host: string, port: number): string {
@@ -213,11 +204,6 @@ export class MavlinkForwarder extends EventEmitter {
     for (const [linkId] of this.attachedLinks) {
       // Links may already be destroyed, just clear the map
       this.attachedLinks.delete(linkId)
-    }
-    if (this.legacyUdpLink && this.legacyUdpHandler) {
-      this.legacyUdpLink.removeListener('data', this.legacyUdpHandler)
-      this.legacyUdpHandler = null
-      this.legacyUdpLink = null
     }
   }
 

@@ -230,6 +230,22 @@ export enum VehicleType {
   Sub = 'sub'
 }
 
+/** Map MAV_TYPE number to VehicleType. Defaults to Copter for unknown types. */
+export function mavTypeToVehicleType(mavType: number): VehicleType {
+  // MAV_TYPE values from mavlink-mappings minimal.MavType
+  switch (mavType) {
+    case 1:  // FIXED_WING
+      return VehicleType.Plane
+    case 10: // GROUND_ROVER
+    case 11: // SURFACE_BOAT
+      return VehicleType.Rover
+    case 12: // SUBMARINE
+      return VehicleType.Sub
+    default: // QUADROTOR(2), HEXAROTOR(13), OCTOROTOR(14), TRICOPTER(15), HELICOPTER(4), etc.
+      return VehicleType.Copter
+  }
+}
+
 /** Get mode names for a given vehicle type */
 export function getModeNamesForVehicleType(type: VehicleType): Record<number, string> {
   switch (type) {
