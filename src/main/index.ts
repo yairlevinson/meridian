@@ -394,7 +394,7 @@ app.whenReady().then(async () => {
       hb.customMode = 0
       hb.systemStatus = minimal.MavState.ACTIVE
       hb.mavlinkVersion = 3
-      const buf = gcsProto.serialize(hb, gcsSeq++)
+      const buf = gcsProto.serialize(hb, gcsSeq++ & 0xff)
       for (const state of linkManager.getAllStates()) {
         const link = linkManager.getLink(state.id)
         if (link?.isConnected) {
@@ -482,7 +482,7 @@ app.whenReady().then(async () => {
       hb.customMode = 0
       hb.systemStatus = minimal.MavState.ACTIVE
       hb.mavlinkVersion = 3
-      const buf = gcsProto.serialize(hb, gcsSeq++)
+      const buf = gcsProto.serialize(hb, gcsSeq++ & 0xff)
       // Send to PX4 SITL default port and also to all known senders
       rootUdpLink.sendTo(buf, PX4_SITL_PORT, '127.0.0.1')
       rootUdpLink.writeBytes(buf)
