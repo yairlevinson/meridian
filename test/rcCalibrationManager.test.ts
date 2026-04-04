@@ -45,7 +45,7 @@ describe('RcCalibrationManager', () => {
     // Start fresh
     mgr.start()
     expect(mgr.state.step).toBe(RcCalStep.Center)
-    expect(mgr.state.stickMapping.roll).toBeNull()
+    expect(mgr.state.stickMapping.Roll).toBeNull()
   })
 
   // --- Step progression ---
@@ -203,7 +203,7 @@ describe('RcCalibrationManager', () => {
       // Deflect channel 0 beyond threshold (100 PWM)
       mgr.updateChannels([1650, 1500, 1500, 1500], 4)
 
-      expect(mgr.state.stickMapping.roll).toBe(0)
+      expect(mgr.state.stickMapping.Roll).toBe(0)
     })
 
     it('does not map a channel already assigned to another stick', () => {
@@ -213,17 +213,17 @@ describe('RcCalibrationManager', () => {
 
       // Map channel 0 to roll
       mgr.updateChannels([1650, 1500, 1500, 1500], 4)
-      expect(mgr.state.stickMapping.roll).toBe(0)
+      expect(mgr.state.stickMapping.Roll).toBe(0)
 
       mgr.nextStep() // -> pitch
 
       // Try to map channel 0 to pitch too — should be rejected
       mgr.updateChannels([1650, 1500, 1500, 1500], 4)
-      expect(mgr.state.stickMapping.pitch).toBeNull()
+      expect(mgr.state.stickMapping.Pitch).toBeNull()
 
       // Map channel 1 to pitch instead
       mgr.updateChannels([1650, 1650, 1500, 1500], 4)
-      expect(mgr.state.stickMapping.pitch).toBe(1)
+      expect(mgr.state.stickMapping.Pitch).toBe(1)
     })
 
     it('does not detect sticks below threshold', () => {
@@ -233,7 +233,7 @@ describe('RcCalibrationManager', () => {
 
       // Deflect channel 0 by only 50 (below 100 threshold)
       mgr.updateChannels([1550, 1500, 1500, 1500], 4)
-      expect(mgr.state.stickMapping.roll).toBeNull()
+      expect(mgr.state.stickMapping.Roll).toBeNull()
     })
   })
 
