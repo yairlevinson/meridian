@@ -53,10 +53,11 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 
 ### Additional Systems
 
-- Gimbal control with quaternion-to-Euler conversion
+- MAVLink Inspector with real-time message viewer and field drill-down
+- MAVLink Console (serial terminal over MAVLink)
+- MAVLink forwarding with configurable UDP targets
 - GeoFence and Rally Point management
 - MAVLink FTP for file transfer to/from the vehicle
-- MAVLink 2 message signing support
 
 ## Architecture
 
@@ -350,54 +351,70 @@ meridian/
 ├── src/
 │   ├── main/                    # Electron main process
 │   │   ├── index.ts             # App entry, window creation, MAVLink setup
-│   │   ├── ipcBridge.ts         # IPC handlers between main ↔ renderer
-│   │   ├── udpLink.ts           # UDP socket wrapper
-│   │   ├── mavlinkPipeline.ts   # MAVLink stream parsing pipeline
+│   │   ├── ipcBridge.ts         # IPC handlers, delta-encoded telemetry push
+│   │   ├── vehicleState.ts      # Vehicle state groups, MAVLink → telemetry
 │   │   ├── mavlink/
-│   │   │   ├── MavlinkProtocol.ts
+│   │   │   ├── MavlinkProtocol.ts   # Channel pool + parse/serialize
 │   │   │   └── constants.ts
-│   │   ├── camera/
-│   │   │   └── CameraManager.ts     # MAVLink camera protocol (discovery, capture, recording)
 │   │   ├── vehicle/
 │   │   │   ├── VehicleManager.ts    # Multi-vehicle registry
-│   │   │   ├── Vehicle.ts           # Per-vehicle state & message handling
-│   │   │   ├── PlanManager.ts       # Mission/fence/rally protocol
-│   │   │   ├── GimbalController.ts  # Gimbal angle tracking & commands
-│   │   │   └── AdsbVehicleManager.ts
+│   │   │   └── Vehicle.ts          # Per-vehicle state & message handling
 │   │   ├── links/
-│   │   │   ├── LinkManager.ts       # Multi-link management
+│   │   │   ├── LinkManager.ts       # Multi-link management, serial auto-connect
+│   │   │   ├── UdpLink.ts          # UDP socket wrapper
 │   │   │   └── TcpLink.ts          # TCP socket wrapper
-│   │   └── ftp/
-│   │       └── MavlinkFtp.ts       # MAVLink FTP implementation
+│   │   ├── camera/
+│   │   │   └── CameraManager.ts     # MAVLink camera protocol
+│   │   ├── calibration/
+│   │   │   ├── CalibrationManager.ts    # Sensor calibration state machine
+│   │   │   └── RcCalibrationManager.ts  # RC calibration (PX4 + ArduPilot)
+│   │   ├── mission/
+│   │   │   └── PlanManager.ts       # Mission/fence/rally protocol
+│   │   ├── parameters/
+│   │   │   └── ParameterManager.ts  # Parameter download/set protocol
+│   │   ├── ftp/
+│   │   │   └── FTPManager.ts        # MAVLink FTP implementation
+│   │   ├── forwarding/
+│   │   │   └── MavlinkForwarder.ts  # UDP MAVLink forwarding
+│   │   ├── video/
+│   │   │   └── VideoManager.ts      # ffmpeg + WebSocket streaming
+│   │   ├── settings/
+│   │   │   └── SettingsManager.ts   # App settings persistence
+│   │   └── terrain/                 # Custom tile:// protocol handler
 │   ├── renderer/                # React renderer process
 │   │   └── src/
 │   │       ├── App.tsx
-│   │       ├── components/
-│   │       │   └── MapView.tsx      # MapLibre fly view with provider switching
+│   │       ├── flyview/             # FlyView, instruments, guided actions
 │   │       ├── planview/            # Mission planning UI
-│   │       ├── hooks/
-│   │       │   ├── useMission.ts
-│   │       │   └── useMissionMapLayers.ts
-│   │       ├── store/
-│   │       │   ├── vehicleStore.ts
-│   │       │   ├── missionStore.ts
-│   │       │   ├── cameraStore.ts     # Per-vehicle camera state
-│   │       │   └── settingsStore.ts
-│   │       └── map/providers/
-│   │           └── ProviderRegistry.ts
+│   │       ├── setupview/           # 15-page setup & configuration
+│   │       │   ├── summary/         # Dashboard with card-based checklist
+│   │       │   ├── sensors/         # Accel, compass, gyro calibration
+│   │       │   ├── radio/           # RC calibration with channel bars
+│   │       │   ├── flightmodes/     # Flight mode assignment
+│   │       │   ├── power/           # Battery config with cell visualization
+│   │       │   ├── safety/          # Failsafe config (PX4 + ArduPilot)
+│   │       │   ├── airframe/        # Frame selection with SVG previews
+│   │       │   ├── actuators/       # Motor test, spin direction, outputs
+│   │       │   ├── tuning/          # PID tuning groups
+│   │       │   ├── firmware/        # Firmware upgrade
+│   │       │   ├── parameters/      # Parameter editor
+│   │       │   ├── video/           # Video stream settings
+│   │       │   ├── inspector/       # MAVLink message inspector
+│   │       │   ├── console/         # MAVLink serial console
+│   │       │   └── forwarding/      # MAVLink forwarding settings
+│   │       ├── components/          # Shared UI (AttitudeIndicator, Compass, etc.)
+│   │       ├── store/               # Zustand stores
+│   │       ├── hooks/               # useVehicle, useMission, useCommand, etc.
+│   │       └── map/providers/       # Tile provider registry
 │   ├── preload/                 # Electron preload (contextBridge)
 │   │   └── index.ts
 │   └── shared-types/            # Types shared between main & renderer
 │       └── ipc/
-│           ├── tileProviders.ts     # Tile provider definitions & URL resolution
-│           ├── MissionTypes.ts
-│           ├── LinkState.ts
-│           └── geo.ts
 ├── test/
 │   ├── *.test.ts                # Unit tests (Vitest)
-│   └── e2e/
-│       ├── app.spec.ts          # Playwright E2E tests
-│       └── fixtures/
+│   └── e2e/                     # Playwright E2E tests
+├── .github/workflows/
+│   └── build.yml                # CI: prettier, typecheck, tests, cross-platform builds
 ├── bridge.py                    # TCP↔UDP MAVLink bridge for SITL
 ├── electron.vite.config.ts
 ├── electron-builder.yml
@@ -410,7 +427,7 @@ meridian/
 | Layer            | Technology                      |
 | ---------------- | ------------------------------- |
 | Desktop shell    | Electron                        |
-| UI framework     | React 18 + TypeScript           |
+| UI framework     | React 19 + TypeScript           |
 | State management | Zustand                         |
 | Map rendering    | MapLibre GL JS                  |
 | MAVLink parsing  | node-mavlink + mavlink-mappings |
@@ -425,35 +442,36 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 
 ### Communication & Links
 
-| Feature                 | Status | Notes                                             |
-| ----------------------- | ------ | ------------------------------------------------- |
-| UDP Link                | ✅     | Configurable port, auto-discovery                 |
-| TCP Link                | ✅     | Multi-SITL support                                |
-| Serial Link             | ✅     | Full serialport with baud rate, flow control, DTR |
-| MAVLink Signing         | ✅     | Key management, per-channel signing               |
-| Log Replay Link         | ✅     | `.mavlink` binary replay with speed control       |
-| Multi-Link Failover     | ✅     | Heartbeat-based automatic failover                |
-| Bluetooth Link          | ❌     |                                                   |
-| ADS-B TCP Receiver Link | ❌     |                                                   |
+| Feature             | Status | Notes                                                    |
+| ------------------- | ------ | -------------------------------------------------------- |
+| UDP Link            | ✅     | Configurable port, auto-discovery                        |
+| TCP Link            | ✅     | Multi-SITL support                                       |
+| Serial Link         | ✅     | Auto-detect USB autopilots, baud rate, flow control, DTR |
+| MAVLink Forwarding  | ✅     | UDP forwarding with configurable targets, settings UI    |
+| Log Replay Link     | ✅     | `.mavlink` binary replay with speed control              |
+| Multi-Link Failover | ✅     | Heartbeat-based automatic failover                       |
+| Bluetooth Link      | ❌     |                                                          |
 
 ### Vehicle Setup & Configuration
 
-| Feature                | Status | Notes                                                       |
-| ---------------------- | ------ | ----------------------------------------------------------- |
-| Setup View             | ✅     | 11-page setup with sidebar navigation                       |
-| Airframe Selection     | ✅     | 11 frame classes, 18+ frame types                           |
-| Sensor Calibration     | ✅     | Accel, compass, gyro, level horizon, baro, ESC (8 types)    |
-| Radio/RC Calibration   | ✅     | 16-channel stick detection, min/max/trim, reversal          |
-| Flight Mode Assignment | ✅     | All 4 ArduPilot vehicle types                               |
-| Power/Battery Config   | ✅     | Monitor type, capacity, pins, multipliers                   |
-| Safety/Failsafe Config | ✅     | Throttle, battery, GCS failsafe, geofence, arming checks    |
-| PID Tuning             | ✅     | 8 groups, 40+ params (rate, position, velocity)             |
-| Firmware Upgrade       | ✅     | MAVLink FTP upload, reboot, board info                      |
-| Parameter Editor       | ✅     | Search, edit, refresh, progress tracking                    |
-| Motor/Servo Testing    | ✅     | Motor test sliders, servo test, motor identification wizard |
-| Motor Spin Direction   | ✅     | Visual CW/CCW diagram for Quad/Hexa/Octa/Y6/Tri frames      |
-| Output Configuration   | ✅     | SERVOx function assignment, PWM min/max/trim, reversed      |
-| Gimbal/Mount Setup UI  | ❌     |                                                             |
+| Feature                | Status | Notes                                                               |
+| ---------------------- | ------ | ------------------------------------------------------------------- |
+| Setup View             | ✅     | 15-page setup with sidebar navigation and summary dashboard         |
+| Summary Dashboard      | ✅     | Card-based overview with clickable navigation to setup pages        |
+| Airframe Selection     | ✅     | 11 frame classes, 18+ frame types                                   |
+| Sensor Calibration     | ✅     | Accel, compass, gyro, level horizon, baro, ESC (8 types)            |
+| Radio/RC Calibration   | ✅     | PX4 + ArduPilot, 16-channel stick detection, min/max/trim, reversal |
+| Flight Mode Assignment | ✅     | PX4 + ArduPilot (all 4 vehicle types), switch indicators            |
+| Power/Battery Config   | ✅     | PX4 + ArduPilot, voltage/current calibration, cell visualization    |
+| Safety/Failsafe Config | ✅     | PX4 + ArduPilot, battery/RC/GCS/datalink failsafe, geofence, RTL    |
+| PID Tuning             | ✅     | 8 groups, 40+ params (rate, position, velocity)                     |
+| Firmware Upgrade       | ✅     | MAVLink FTP upload, reboot, board info                              |
+| Parameter Editor       | ✅     | Search, edit, refresh, progress tracking                            |
+| Motor/Servo Testing    | ✅     | Motor test sliders, servo test, motor identification wizard         |
+| Motor Spin Direction   | ✅     | Visual CW/CCW diagram for Quad/Hexa/Octa/Y6/Tri frames              |
+| Output Configuration   | ✅     | SERVOx function assignment, PWM min/max/trim, reversed              |
+| Video Settings         | ✅     | Stream source config, recording format, settings UI                 |
+| Gimbal/Mount Setup UI  | ❌     |                                                                     |
 
 ### Mission Planning
 
@@ -516,15 +534,15 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 
 ### Analysis & Logging
 
-| Feature               | Status | Notes                              |
-| --------------------- | ------ | ---------------------------------- |
-| MAVLink Log Recording | ✅     | ULog format with sequence tracking |
-| Log Replay            | ✅     | Binary `.mavlink` replay           |
-| MAVLink Inspector     | ❌     | Real-time message viewer           |
-| MAVLink Console       | ❌     | Serial console over MAVLink        |
-| Log Download Browser  | ❌     |                                    |
-| GeoTagging            | ❌     | Image geotagging from logs         |
-| Vibration Analysis    | ❌     |                                    |
+| Feature               | Status | Notes                                          |
+| --------------------- | ------ | ---------------------------------------------- |
+| MAVLink Log Recording | ✅     | Traffic log with timestamps, sysid:compid      |
+| Log Replay            | ✅     | Binary `.mavlink` replay                       |
+| MAVLink Inspector     | ✅     | Real-time message viewer with field drill-down |
+| MAVLink Console       | ✅     | Serial console over MAVLink (SERIAL_CONTROL)   |
+| Log Download Browser  | ❌     |                                                |
+| GeoTagging            | ❌     | Image geotagging from logs                     |
+| Vibration Analysis    | ❌     |                                                |
 
 ### GPS & Positioning
 
@@ -547,13 +565,13 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 
 ### Safety & Compliance
 
-| Feature                  | Status | Notes                                            |
-| ------------------------ | ------ | ------------------------------------------------ |
-| Pre-Flight Checklist     | ✅     | GPS, battery, sensors, comms, RC + manual checks |
-| Failsafe Configuration   | ✅     | Throttle, battery, GCS, geofence                 |
-| Arming Check Config      | ✅     | ARMING_CHECK parameter                           |
-| Remote ID / UTM          | ❌     |                                                  |
-| Object Avoidance Display | ❌     | Proximity sensor visualization                   |
+| Feature                  | Status | Notes                                                 |
+| ------------------------ | ------ | ----------------------------------------------------- |
+| Pre-Flight Checklist     | ✅     | GPS, battery, sensors, comms, RC + manual checks      |
+| Failsafe Configuration   | ✅     | PX4 + ArduPilot, battery/RC/GCS/datalink/geofence/RTL |
+| Arming Check Config      | ✅     | ARMING_CHECK parameter                                |
+| Remote ID / UTM          | ❌     |                                                       |
+| Object Avoidance Display | ❌     | Proximity sensor visualization                        |
 
 ### Other
 
@@ -575,14 +593,13 @@ The feature parity table above covers all individual items. The most significant
 
 1. **Survey/Scan mission types** — No automated camera survey, structure scan, or corridor scan patterns. Only basic waypoint missions are supported.
 2. **RTK GPS / NTRIP** — No differential GPS support for precision operations.
-3. **MAVLink Inspector & Console** — No real-time message viewer or serial console for debugging.
-4. **In-flight adjustments** — Cannot change altitude, heading, or speed mid-flight from the UI (only via guided actions like Go-To, RTL, Land).
-5. **Orbit / Follow Me** — No circle-around-point or GPS-follow modes.
-6. **Advanced mission commands** — No DO_JUMP, speed/delay, servo/relay, camera trigger, or ROI commands in the mission editor.
-7. **Offline maps** — Only a 500-tile LRU cache; no bulk region download for field use.
-8. **Mobile platforms** — Desktop only (macOS, Windows, Linux); no Android/iOS.
-9. **Multiple video streams** — Only a single video stream at a time.
-10. **Log analysis** — Can record logs but has no built-in viewer, download browser, or vibration analysis.
+3. **In-flight adjustments** — Cannot change altitude, heading, or speed mid-flight from the UI (only via guided actions like Go-To, RTL, Land).
+4. **Orbit / Follow Me** — No circle-around-point or GPS-follow modes.
+5. **Advanced mission commands** — No DO_JUMP, speed/delay, servo/relay, camera trigger, or ROI commands in the mission editor.
+6. **Offline maps** — Only a 500-tile LRU cache; no bulk region download for field use.
+7. **Mobile platforms** — Desktop only (macOS, Windows, Linux); no Android/iOS.
+8. **Multiple video streams** — Only a single video stream at a time.
+9. **Log analysis** — Can record logs but has no built-in download browser or vibration analysis.
 
 ## License
 
