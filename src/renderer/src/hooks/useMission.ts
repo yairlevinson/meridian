@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useVehicleStore } from '../store/vehicleStore'
 import { useMissionStore } from '../store/missionStore'
 import { waypointToMissionItem } from '../store/missionStoreHelpers'
-import { MissionProtocolState } from '../../../shared-types/ipc/MissionTypes'
+import { MissionProtocolState, type MissionItem } from '../../../shared-types/ipc/MissionTypes'
 
 export function useMission(): {
   uploadMission: () => Promise<unknown>
@@ -40,7 +40,7 @@ export function useMission(): {
         'items' in result &&
         Array.isArray((result as { items: unknown[] }).items)
       ) {
-        useMissionStore.getState().loadFromItems((result as { items: unknown[] }).items)
+        useMissionStore.getState().loadFromItems((result as { items: MissionItem[] }).items)
       }
     } finally {
       useMissionStore.getState().setProtocolState(MissionProtocolState.Idle)
@@ -61,7 +61,7 @@ export function useMission(): {
     if (result && typeof result === 'object' && 'mission' in result) {
       useMissionStore
         .getState()
-        .loadFromItems((result as { mission: { items: unknown[] } }).mission.items)
+        .loadFromItems((result as { mission: { items: MissionItem[] } }).mission.items)
     }
   }, [])
 

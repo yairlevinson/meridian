@@ -6,12 +6,6 @@ import styles from './FirmwarePage.module.css'
 
 const ALLOWED_EXTENSIONS = ['.apj', '.px4', '.bin']
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
 function statusBadgeClass(status: FirmwareUpgradeStatus): string {
   switch (status) {
     case FirmwareUpgradeStatus.Uploading:

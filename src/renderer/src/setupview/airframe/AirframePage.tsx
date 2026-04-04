@@ -7,8 +7,7 @@ import {
   ARDU_FRAME_CLASSES,
   ARDU_FRAME_TYPES,
   findGroupByAutostartId,
-  type AirframeGroup,
-  type ArduFrameClass
+  type AirframeGroup
 } from './airframeData'
 import styles from './AirframePage.module.css'
 

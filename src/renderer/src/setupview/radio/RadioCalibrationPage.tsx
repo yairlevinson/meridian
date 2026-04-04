@@ -84,8 +84,9 @@ export function RadioCalibrationPage(): React.JSX.Element {
   const attitudeChannels = useMemo(() => {
     const result: Array<{ index: number; label: string }> = []
     for (let i = 0; i < Math.max(channelCount, 4); i++) {
-      if (channelFunctions[i]) {
-        result.push({ index: i, label: channelFunctions[i] })
+      const fn = channelFunctions[i]
+      if (fn) {
+        result.push({ index: i, label: fn })
       }
     }
     return result
