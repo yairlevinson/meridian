@@ -13,6 +13,7 @@ import { ActuatorsPage } from './actuators/ActuatorsPage'
 import { FirmwarePage } from './firmware/FirmwarePage'
 import { VideoSettingsPage } from './video/VideoSettingsPage'
 import { MavConsoleView } from './console/MavConsoleView'
+import { MavInspectorView } from './inspector/MavInspectorView'
 import styles from './SetupView.module.css'
 
 function PageContent(): React.JSX.Element {
@@ -45,6 +46,8 @@ function PageContent(): React.JSX.Element {
       return <VideoSettingsPage />
     case 'mavConsole':
       return <MavConsoleView />
+    case 'mavInspector':
+      return <MavInspectorView />
   }
 }
 

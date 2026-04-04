@@ -14,6 +14,7 @@ import { CalibrationSensor } from '@shared/ipc/SetupTypes'
 import { CameraMode } from '@shared/ipc/CameraTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
+import { MavlinkInspector } from './mavlink/MavlinkInspector'
 
 const TICK_RATE_MS = 33 // ~30 Hz
 
@@ -30,6 +31,9 @@ export function startIpcBridge(
   videoManager?: VideoManager,
   linkManager?: LinkManager
 ): () => void {
+  const inspector = new MavlinkInspector(broadcast)
+  vehicleManager.onRawMessage = inspector.handleMessage
+
   let sentCount = 0
   let skippedCount = 0
   let lastLogTime = Date.now()
@@ -579,6 +583,24 @@ export function startIpcBridge(
         vehicle.sendConsoleText(req.text)
       }
     },
+    // MAVLink Inspector
+    {
+      channel: IpcChannels.MavInspectorEnable,
+      handler: () => inspector.enable()
+    },
+    {
+      channel: IpcChannels.MavInspectorDisable,
+      handler: () => inspector.disable()
+    },
+    {
+      channel: IpcChannels.MavInspectorSelect,
+      handler: (req: { sysid: number; compid: number; msgid: number }) =>
+        inspector.select(req.sysid, req.compid, req.msgid)
+    },
+    {
+      channel: IpcChannels.MavInspectorDeselect,
+      handler: () => inspector.deselect()
+    },
     {
       channel: IpcChannels.FirmwareGetBoardInfo,
       handler: (vehicleId: number) => {
@@ -603,6 +625,7 @@ export function startIpcBridge(
   }
 
   return () => {
+    inspector.disable()
     clearInterval(interval)
     for (const { channel } of handlers) {
       ipcMain.removeHandler(channel)

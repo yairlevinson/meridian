@@ -120,5 +120,11 @@ export enum IpcChannels {
   ActuatorServoTest = 'actuator:servoTest',
 
   // MAVLink Console
-  MavConsoleWrite = 'mavconsole:write'
+  MavConsoleWrite = 'mavconsole:write',
+
+  // MAVLink Inspector
+  MavInspectorEnable = 'mavInspector:enable',
+  MavInspectorDisable = 'mavInspector:disable',
+  MavInspectorSelect = 'mavInspector:select',
+  MavInspectorDeselect = 'mavInspector:deselect'
 }

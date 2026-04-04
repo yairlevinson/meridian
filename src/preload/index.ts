@@ -144,6 +144,18 @@ export interface Bridge {
   // MAVLink Console
   mavConsoleWrite: (vehicleId: number, text: string) => Promise<void>
   onMavConsoleData: (cb: (payload: { vehicleId: number; text: string }) => void) => () => void
+
+  // MAVLink Inspector
+  mavInspectorEnable: () => Promise<void>
+  mavInspectorDisable: () => Promise<void>
+  mavInspectorSelect: (sysid: number, compid: number, msgid: number) => Promise<void>
+  mavInspectorDeselect: () => Promise<void>
+  onMavInspectorSnapshot: (
+    cb: (payload: import('../shared-types/ipc/MavInspectorTypes').InspectorSnapshotPayload) => void
+  ) => () => void
+  onMavInspectorFields: (
+    cb: (payload: import('../shared-types/ipc/MavInspectorTypes').InspectorFieldsPayload) => void
+  ) => () => void
 }
 
 const bridge: Bridge = {
@@ -432,6 +444,29 @@ const bridge: Bridge = {
     ipcRenderer.on(IpcEvents.MavConsoleData, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.MavConsoleData, handler)
+    }
+  },
+
+  // MAVLink Inspector
+  mavInspectorEnable: () => ipcRenderer.invoke(IpcChannels.MavInspectorEnable),
+  mavInspectorDisable: () => ipcRenderer.invoke(IpcChannels.MavInspectorDisable),
+  mavInspectorSelect: (sysid, compid, msgid) =>
+    ipcRenderer.invoke(IpcChannels.MavInspectorSelect, { sysid, compid, msgid }),
+  mavInspectorDeselect: () => ipcRenderer.invoke(IpcChannels.MavInspectorDeselect),
+  onMavInspectorSnapshot: (cb) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void =>
+      cb(payload as import('../shared-types/ipc/MavInspectorTypes').InspectorSnapshotPayload)
+    ipcRenderer.on(IpcEvents.MavInspectorSnapshot, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.MavInspectorSnapshot, handler)
+    }
+  },
+  onMavInspectorFields: (cb) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void =>
+      cb(payload as import('../shared-types/ipc/MavInspectorTypes').InspectorFieldsPayload)
+    ipcRenderer.on(IpcEvents.MavInspectorFields, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.MavInspectorFields, handler)
     }
   }
 }

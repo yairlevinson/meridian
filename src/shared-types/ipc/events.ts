@@ -61,5 +61,10 @@ export enum IpcEvents {
   CameraImageCaptured = 'camera:imageCaptured',
 
   /** MAVLink console data received from autopilot shell */
-  MavConsoleData = 'mavconsole:data'
+  MavConsoleData = 'mavconsole:data',
+
+  /** MAVLink Inspector: 1 Hz message list snapshot */
+  MavInspectorSnapshot = 'mavInspector:snapshot',
+  /** MAVLink Inspector: 5 Hz field values for selected message */
+  MavInspectorFields = 'mavInspector:fields'
 }

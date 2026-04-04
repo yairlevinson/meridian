@@ -9,8 +9,13 @@ import type { DecodedMessage } from '../mavlink/MavlinkChannel'
 export class VehicleManager extends EventEmitter {
   private vehicles = new Map<number, Vehicle>()
 
+  /** Optional callback invoked for every message before sysid filtering (used by MAVLink Inspector) */
+  onRawMessage?: (msg: DecodedMessage) => void
+
   /** Route a decoded message to the correct vehicle. Auto-creates on first heartbeat. */
   handleMessage(msg: DecodedMessage, linkId: string): void {
+    this.onRawMessage?.(msg)
+
     const sysid = msg.sysid
     // Filter out GCS sysids (>= 200) and broadcast (sysid 0)
     if (sysid === 0 || sysid >= 200) return
