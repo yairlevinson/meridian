@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParameterStore } from '../../store/parameterStore'
 import { useVehicleStore } from '../../store/vehicleStore'
 import { ParameterLoading } from '../ParameterLoading'

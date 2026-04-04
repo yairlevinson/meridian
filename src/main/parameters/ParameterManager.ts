@@ -21,17 +21,17 @@ function decodeParamValue(rawFloat: number, paramType: number): number {
   _f32[0] = rawFloat
   switch (paramType) {
     case ParamValueType.UINT8:
-      return _u8[0]
+      return _u8[0]!
     case ParamValueType.INT8:
-      return _i8[0]
+      return _i8[0]!
     case ParamValueType.UINT16:
-      return _u16[0]
+      return _u16[0]!
     case ParamValueType.INT16:
-      return _i16[0]
+      return _i16[0]!
     case ParamValueType.UINT32:
-      return _u32[0]
+      return _u32[0]!
     case ParamValueType.INT32:
-      return _i32[0]
+      return _i32[0]!
     case ParamValueType.REAL32:
     default:
       return rawFloat
@@ -43,22 +43,22 @@ function encodeParamValue(value: number, paramType: number): number {
   switch (paramType) {
     case ParamValueType.UINT8:
       _u8[0] = value
-      return _f32[0]
+      return _f32[0]!
     case ParamValueType.INT8:
       _i8[0] = value
-      return _f32[0]
+      return _f32[0]!
     case ParamValueType.UINT16:
       _u16[0] = value
-      return _f32[0]
+      return _f32[0]!
     case ParamValueType.INT16:
       _i16[0] = value
-      return _f32[0]
+      return _f32[0]!
     case ParamValueType.UINT32:
       _u32[0] = value
-      return _f32[0]
+      return _f32[0]!
     case ParamValueType.INT32:
       _i32[0] = value
-      return _f32[0]
+      return _f32[0]!
     case ParamValueType.REAL32:
     default:
       return value

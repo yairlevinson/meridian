@@ -49,8 +49,8 @@ export function parseTlog(buf: Buffer): TlogEntry[] {
       // MAVLink v2: FD [len] [incompat] [compat] [seq] [sysid] [compid] [msgid0] [msgid1] [msgid2] [payload...] [crc0] [crc1]
       // Total: 10 header + len payload + 2 crc = 12 + len
       if (offset + 2 > buf.length) break
-      const payloadLen = buf[offset + 1]
-      const incompatFlags = buf[offset + 2]
+      const payloadLen = buf[offset + 1]!
+      const incompatFlags = buf[offset + 2]!
       frameLen = 12 + payloadLen
       // If signing bit set (0x01), add 13 bytes for signature
       if (incompatFlags & 0x01) {
@@ -60,7 +60,7 @@ export function parseTlog(buf: Buffer): TlogEntry[] {
       // MAVLink v1: FE [len] [seq] [sysid] [compid] [msgid] [payload...] [crc0] [crc1]
       // Total: 6 header + len payload + 2 crc = 8 + len
       if (offset + 2 > buf.length) break
-      const payloadLen = buf[offset + 1]
+      const payloadLen = buf[offset + 1]!
       frameLen = 8 + payloadLen
     } else {
       // Unknown magic — skip byte and try to resync
@@ -104,8 +104,8 @@ export class TlogReplay {
   /** Duration of the capture in seconds */
   get durationSec(): number {
     if (this.entries.length < 2) return 0
-    const first = this.entries[0].timestampUs
-    const last = this.entries[this.entries.length - 1].timestampUs
+    const first = this.entries[0]!.timestampUs
+    const last = this.entries[this.entries.length - 1]!.timestampUs
     return Number(last - first) / 1e6
   }
 
@@ -156,7 +156,7 @@ export class TlogReplay {
 
     if (this.entries.length === 0) return snapshots
 
-    const startUs = this.entries[0].timestampUs
+    const startUs = this.entries[0]!.timestampUs
     let nextSnapshotUs = startUs + BigInt(intervalMs * 1000)
 
     for (const entry of this.entries) {
@@ -176,7 +176,7 @@ export class TlogReplay {
     // Final snapshot
     await new Promise((resolve) => setTimeout(resolve, 500))
     snapshots.push({
-      timestampUs: this.entries[this.entries.length - 1].timestampUs,
+      timestampUs: this.entries[this.entries.length - 1]!.timestampUs,
       snapshot: vehicle.state.getSnapshot()
     })
 

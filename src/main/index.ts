@@ -21,7 +21,8 @@ import { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 // when SITL container shuts down). These are non-fatal — the link will
 // reconnect or the app will show disconnected state.
 process.on('uncaughtException', (err) => {
-  if (err.code === 'EPIPE' || err.code === 'ECONNRESET' || err.code === 'ERR_OUT_OF_RANGE') {
+  const code = (err as NodeJS.ErrnoException).code
+  if (code === 'EPIPE' || code === 'ECONNRESET' || code === 'ERR_OUT_OF_RANGE') {
     console.warn('[main] Suppressed socket error:', err.message)
     return
   }
@@ -35,6 +36,8 @@ const UDP_PORT = parseInt(process.env.GC_UDP_PORT || '14550', 10)
 // e.g. GC_TCP_LINKS="127.0.0.1:5760,127.0.0.1:5761,..."
 const TCP_LINKS = process.env.GC_TCP_LINKS || ''
 
+// Assigned on app-ready; kept for future multi-window management
+// @ts-expect-error written but not yet read
 let _mainWindow: BrowserWindow | null = null
 
 function createWindow(): BrowserWindow {
@@ -164,13 +167,13 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
     cmd.targetComponent = 0
     cmd.command = 511 // MAV_CMD_SET_MESSAGE_INTERVAL
     cmd.confirmation = 0
-    cmd.param1 = msgId
-    cmd.param2 = Math.round(1_000_000 / rate) // interval in microseconds
-    cmd.param3 = 0
-    cmd.param4 = 0
-    cmd.param5 = 0
-    cmd.param6 = 0
-    cmd.param7 = 0
+    cmd._param1 = msgId
+    cmd._param2 = Math.round(1_000_000 / rate) // interval in microseconds
+    cmd._param3 = 0
+    cmd._param4 = 0
+    cmd._param5 = 0
+    cmd._param6 = 0
+    cmd._param7 = 0
 
     writeFn(proto.serialize(cmd, seq++))
   }
@@ -184,13 +187,13 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
   reqHome.targetComponent = 0
   reqHome.command = 512 // MAV_CMD_REQUEST_MESSAGE
   reqHome.confirmation = 0
-  reqHome.param1 = 242 // HOME_POSITION message id
-  reqHome.param2 = 0
-  reqHome.param3 = 0
-  reqHome.param4 = 0
-  reqHome.param5 = 0
-  reqHome.param6 = 0
-  reqHome.param7 = 0
+  reqHome._param1 = 242 // HOME_POSITION message id
+  reqHome._param2 = 0
+  reqHome._param3 = 0
+  reqHome._param4 = 0
+  reqHome._param5 = 0
+  reqHome._param6 = 0
+  reqHome._param7 = 0
   writeFn(proto.serialize(reqHome, seq++))
 }
 
@@ -390,7 +393,7 @@ app.whenReady().then(async () => {
       const hb = new minimal.Heartbeat()
       hb.type = minimal.MavType.GCS
       hb.autopilot = minimal.MavAutopilot.INVALID
-      hb.baseMode = 0
+      hb.baseMode = 0 as minimal.MavModeFlag
       hb.customMode = 0
       hb.systemStatus = minimal.MavState.ACTIVE
       hb.mavlinkVersion = 3
@@ -478,7 +481,7 @@ app.whenReady().then(async () => {
       const hb = new minimal.Heartbeat()
       hb.type = minimal.MavType.GCS
       hb.autopilot = minimal.MavAutopilot.INVALID
-      hb.baseMode = 0
+      hb.baseMode = 0 as minimal.MavModeFlag
       hb.customMode = 0
       hb.systemStatus = minimal.MavState.ACTIVE
       hb.mavlinkVersion = 3

@@ -71,7 +71,7 @@ export class VideoWebSocketServer extends EventEmitter {
 
       this.wss.on('listening', () => {
         const addr = this.wss!.address()
-        this._port = typeof addr === 'object' ? addr.port : null
+        this._port = typeof addr === 'object' && addr !== null ? addr.port : null
         console.log(`[VideoWS] listening on port ${this._port}`)
         resolve(this._port!)
       })
