@@ -41,6 +41,9 @@ function calibrationParams(sensor: CalibrationSensor): {
     case CalibrationSensor.AccelSimple:
       p.p5 = 4
       break
+    case CalibrationSensor.Airspeed:
+      p.p6 = 1
+      break
     case CalibrationSensor.CompassMot:
       p.p6 = 1
       break
@@ -51,9 +54,26 @@ function calibrationParams(sensor: CalibrationSensor): {
   return p
 }
 
-/** Parse STATUSTEXT to detect calibration orientation keywords */
+/** Parse STATUSTEXT to detect calibration orientation keywords.
+ * Handles both PX4 ("[cal] down orientation detected") and ArduPilot ("Place vehicle level") formats.
+ */
 function parseOrientation(text: string): CalibrationOrientation | null {
   const lower = text.toLowerCase()
+
+  // PX4 format: "[cal] <side> orientation detected" or "[cal] <side> side done"
+  const px4Match = lower.match(/\[cal\]\s+(down|up|front|back|left|right)\s+(orientation|side)/)
+  if (px4Match) {
+    switch (px4Match[1]) {
+      case 'down': return CalibrationOrientation.Level
+      case 'up': return CalibrationOrientation.UpsideDown
+      case 'front': return CalibrationOrientation.NoseDown
+      case 'back': return CalibrationOrientation.NoseUp
+      case 'left': return CalibrationOrientation.LeftSide
+      case 'right': return CalibrationOrientation.RightSide
+    }
+  }
+
+  // ArduPilot format
   if (lower.includes('level') && !lower.includes('horizon')) return CalibrationOrientation.Level
   if (lower.includes('upside') || lower.includes('inverted'))
     return CalibrationOrientation.UpsideDown
@@ -62,7 +82,6 @@ function parseOrientation(text: string): CalibrationOrientation | null {
   if (lower.includes('nose up') || lower.includes('noseup')) return CalibrationOrientation.NoseUp
   if (lower.includes('left')) return CalibrationOrientation.LeftSide
   if (lower.includes('right')) return CalibrationOrientation.RightSide
-  // "level" in the context of level horizon calibration
   if (lower.includes('level')) return CalibrationOrientation.Level
   return null
 }
@@ -80,13 +99,18 @@ export class CalibrationManager extends EventEmitter {
     sensor: CalibrationSensor.Gyro,
     status: CalibrationStatus.Idle,
     message: '',
+    messages: [],
     progress: 0,
     orientationsCompleted: [],
     currentOrientation: null
   }
 
   get state(): CalibrationState {
-    return { ...this._state }
+    return {
+      ...this._state,
+      messages: [...this._state.messages],
+      orientationsCompleted: [...this._state.orientationsCompleted]
+    }
   }
 
   get isCalibrating(): boolean {
@@ -115,6 +139,7 @@ export class CalibrationManager extends EventEmitter {
       sensor,
       status: CalibrationStatus.Started,
       message: `Starting ${sensor} calibration...`,
+      messages: [],
       progress: 0,
       orientationsCompleted: [],
       currentOrientation: null
@@ -170,10 +195,12 @@ export class CalibrationManager extends EventEmitter {
   handleStatusText(text: string, _severity: number): void {
     if (!this.isCalibrating) return
 
+    const lower = text.toLowerCase()
     this._state.message = text
+    this._state.messages.push(text)
 
     // Check for completion
-    if (text.toLowerCase().includes('calibration successful') || text.toLowerCase().includes('calibration done')) {
+    if (lower.includes('calibration successful') || lower.includes('calibration done')) {
       this._state.status = CalibrationStatus.Complete
       this._state.progress = 1
       this._emitState()
@@ -181,24 +208,51 @@ export class CalibrationManager extends EventEmitter {
     }
 
     // Check for failure
-    if (text.toLowerCase().includes('calibration failed') || text.toLowerCase().includes('cal failed')) {
+    if (lower.includes('calibration failed') || lower.includes('cal failed')) {
       this._state.status = CalibrationStatus.Failed
       this._emitState()
       return
     }
 
     // Check for cancel
-    if (text.toLowerCase().includes('calibration cancelled') || text.toLowerCase().includes('calibration canceled')) {
+    if (lower.includes('calibration cancelled') || lower.includes('calibration canceled')) {
       this._state.status = CalibrationStatus.Cancelled
       this._emitState()
       return
     }
 
-    // Check for orientation instructions (accel 6-side calibration)
-    if (text.toLowerCase().includes('place vehicle') || text.toLowerCase().includes('hold vehicle')) {
+    // PX4: "[cal] <side> orientation detected" — vehicle placed in new orientation
+    if (lower.includes('orientation detected')) {
       const orientation = parseOrientation(text)
       if (orientation) {
-        // If we were waiting on a previous orientation, mark it done
+        console.log(`[Calibration] Orientation detected: ${orientation}`)
+        this._state.currentOrientation = orientation
+        this._state.status = CalibrationStatus.Collecting
+        this._state.progress = this._state.orientationsCompleted.length / 6
+      }
+    }
+
+    // PX4: "[cal] <side> side done" — orientation completed
+    if (lower.includes('side done')) {
+      const orientation = parseOrientation(text)
+      if (orientation && !this._state.orientationsCompleted.includes(orientation)) {
+        this._state.orientationsCompleted.push(orientation)
+        console.log(`[Calibration] Orientation done: ${orientation}, completed: [${this._state.orientationsCompleted}]`)
+        this._state.currentOrientation = null
+        this._state.status = CalibrationStatus.WaitingForOrientation
+        this._state.progress = this._state.orientationsCompleted.length / 6
+      }
+    }
+
+    // PX4: "[cal] side already completed" — orientation already done
+    if (lower.includes('already completed')) {
+      this._state.status = CalibrationStatus.WaitingForOrientation
+    }
+
+    // ArduPilot: "Place vehicle..." / "Hold vehicle..." — orientation instructions
+    if (lower.includes('place vehicle') || lower.includes('hold vehicle')) {
+      const orientation = parseOrientation(text)
+      if (orientation) {
         if (
           this._state.currentOrientation &&
           !this._state.orientationsCompleted.includes(this._state.currentOrientation)
@@ -212,7 +266,7 @@ export class CalibrationManager extends EventEmitter {
     }
 
     // Collecting data indication
-    if (text.toLowerCase().includes('calibrating') || text.toLowerCase().includes('sampling')) {
+    if (lower.includes('calibrating') || lower.includes('sampling')) {
       this._state.status = CalibrationStatus.Collecting
     }
 

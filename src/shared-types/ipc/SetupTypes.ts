@@ -6,6 +6,7 @@ export enum CalibrationSensor {
   AccelSimple = 'accelSimple',
   LevelHorizon = 'levelHorizon',
   Pressure = 'pressure',
+  Airspeed = 'airspeed',
   CompassMot = 'compassMot',
   Esc = 'esc'
 }
@@ -36,6 +37,7 @@ export interface CalibrationState {
   sensor: CalibrationSensor
   status: CalibrationStatus
   message: string
+  messages: string[] // all STATUSTEXT messages received during calibration
   progress: number // 0..1
   orientationsCompleted: CalibrationOrientation[]
   currentOrientation: CalibrationOrientation | null

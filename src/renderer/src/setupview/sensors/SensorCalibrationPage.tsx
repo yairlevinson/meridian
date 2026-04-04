@@ -2,12 +2,15 @@ import { useState, useCallback, useMemo } from 'react'
 import { useCalibration } from '../../hooks/useCalibration'
 import { useSetupStore } from '../../store/setupStore'
 import { useParameterStore } from '../../store/parameterStore'
+import { useVehicleStore } from '../../store/vehicleStore'
 import {
   CalibrationSensor,
   CalibrationStatus
 } from '../../../../shared-types/ipc/SetupTypes'
 import { CalibrationWizard } from './CalibrationWizard'
 import styles from './SensorCalibrationPage.module.css'
+
+const MAV_AUTOPILOT_PX4 = 12
 
 /** ArduPilot AHRS_ORIENTATION values (MAV_SENSOR_ROTATION subset) */
 const BOARD_ORIENTATIONS: Array<{ value: number; label: string }> = [
@@ -55,22 +58,54 @@ const BOARD_ORIENTATIONS: Array<{ value: number; label: string }> = [
   { value: 42, label: 'Pitch 7' }
 ]
 
-/** Parameters that indicate a sensor has been calibrated */
+/** Parameters that indicate a sensor has been calibrated (ArduPilot + PX4) */
 const CAL_STATUS_PARAMS: Array<{
   sensor: CalibrationSensor
-  param: string
+  params: string[]
   label: string
 }> = [
-  { sensor: CalibrationSensor.Accel, param: 'INS_ACCOFFS_X', label: 'Accelerometer' },
-  { sensor: CalibrationSensor.Compass, param: 'COMPASS_OFS_X', label: 'Compass' },
-  { sensor: CalibrationSensor.Gyro, param: 'INS_GYROFFS_X', label: 'Gyroscope' }
+  { sensor: CalibrationSensor.Accel, params: ['INS_ACCOFFS_X', 'CAL_ACC0_XOFF'], label: 'Accelerometer' },
+  { sensor: CalibrationSensor.Compass, params: ['COMPASS_OFS_X', 'CAL_MAG0_XOFF'], label: 'Compass' },
+  { sensor: CalibrationSensor.Gyro, params: ['INS_GYROFFS_X', 'CAL_GYRO0_XOFF'], label: 'Gyroscope' }
 ]
 
-const CALIBRATION_BUTTONS: Array<{
+interface CalButton {
   sensor: CalibrationSensor
   label: string
   description: string
-}> = [
+}
+
+/** PX4 calibration buttons (matching QGroundControl) */
+const PX4_BUTTONS: CalButton[] = [
+  {
+    sensor: CalibrationSensor.Compass,
+    label: 'Compass',
+    description: 'Rotate vehicle in all directions'
+  },
+  {
+    sensor: CalibrationSensor.Gyro,
+    label: 'Gyroscope',
+    description: 'Keep vehicle still on a flat surface'
+  },
+  {
+    sensor: CalibrationSensor.Accel,
+    label: 'Accelerometer',
+    description: '6-side calibration — position vehicle on each side'
+  },
+  {
+    sensor: CalibrationSensor.LevelHorizon,
+    label: 'Level Horizon',
+    description: 'Hold vehicle in level flight position'
+  },
+  {
+    sensor: CalibrationSensor.Airspeed,
+    label: 'Airspeed',
+    description: 'Keep airspeed sensor out of wind, then blow across it'
+  }
+]
+
+/** ArduPilot calibration buttons */
+const ARDUPILOT_BUTTONS: CalButton[] = [
   {
     sensor: CalibrationSensor.Accel,
     label: 'Accelerometer',
@@ -113,6 +148,12 @@ export function SensorCalibrationPage(): React.JSX.Element {
   const setCalibrationState = useSetupStore((s) => s.setCalibrationState)
   const parameters = useParameterStore((s) => s.parameters)
   const loadState = useParameterStore((s) => s.loadState)
+  const activeVehicleId = useVehicleStore((s) => s.activeVehicleId)
+  const vehicles = useVehicleStore((s) => s.vehicles)
+  const autopilot = activeVehicleId ? vehicles[activeVehicleId]?.core?.autopilot : undefined
+  const isPX4 = autopilot === MAV_AUTOPILOT_PX4
+
+  const calibrationButtons = isPX4 ? PX4_BUTTONS : ARDUPILOT_BUTTONS
 
   const isCalibrating =
     calibrationState !== null &&
@@ -124,8 +165,9 @@ export function SensorCalibrationPage(): React.JSX.Element {
   // Show wizard when calibrating or when showing results
   const showWizard = calibrationState !== null && calibrationState.status !== CalibrationStatus.Idle
 
-  // Board orientation from AHRS_ORIENTATION parameter
-  const savedOrientation = parameters.get('AHRS_ORIENTATION')?.value ?? 0
+  // Board orientation parameter: PX4 uses SENS_BOARD_ROT, ArduPilot uses AHRS_ORIENTATION
+  const orientationParam = isPX4 ? 'SENS_BOARD_ROT' : 'AHRS_ORIENTATION'
+  const savedOrientation = parameters.get(orientationParam)?.value ?? 0
   const [orientation, setOrientation] = useState(savedOrientation)
   const [orientationDirty, setOrientationDirty] = useState(false)
 
@@ -133,10 +175,13 @@ export function SensorCalibrationPage(): React.JSX.Element {
   const calStatuses = useMemo(() => {
     if (!loadState.parametersReady) return new Map<CalibrationSensor, boolean>()
     const map = new Map<CalibrationSensor, boolean>()
-    for (const { sensor, param } of CAL_STATUS_PARAMS) {
-      const p = parameters.get(param)
-      // A non-zero offset value means the sensor has been calibrated
-      map.set(sensor, p !== undefined && p.value !== 0)
+    for (const { sensor, params } of CAL_STATUS_PARAMS) {
+      // Check both ArduPilot and PX4 param names — a non-zero offset means calibrated
+      const calibrated = params.some((name) => {
+        const p = parameters.get(name)
+        return p !== undefined && p.value !== 0
+      })
+      map.set(sensor, calibrated)
     }
     return map
   }, [parameters, loadState.parametersReady])
@@ -144,9 +189,9 @@ export function SensorCalibrationPage(): React.JSX.Element {
   const handleOrientationSave = useCallback(async () => {
     const bridge = window.bridge
     if (!bridge) return
-    await bridge.setParameter(1, 'AHRS_ORIENTATION', orientation)
+    await bridge.setParameter(1, orientationParam, orientation)
     setOrientationDirty(false)
-  }, [orientation])
+  }, [orientation, orientationParam])
 
   if (showWizard) {
     return (
@@ -186,11 +231,11 @@ export function SensorCalibrationPage(): React.JSX.Element {
             Save
           </button>
         )}
-        <span className={styles.orientationParamName}>AHRS_ORIENTATION</span>
+        <span className={styles.orientationParamName}>{orientationParam}</span>
       </div>
 
       <div className={styles.grid}>
-        {CALIBRATION_BUTTONS.map((btn) => {
+        {calibrationButtons.map((btn) => {
           const calibrated = calStatuses.get(btn.sensor)
           return (
             <button

@@ -32,6 +32,7 @@ const AUTOPILOT_VENDOR_IDS = new Set([
 const SERIAL_POLL_MS = 1000
 /** After a failed auto-connect, wait this many cycles before retrying */
 const AUTO_CONNECT_RETRY_CYCLES = 5
+const AUTO_CONNECT_BUSY_CYCLES = 60 // ~60s backoff when port is held by another app
 
 export class LinkManager extends EventEmitter {
   private links = new Map<string, LinkInterface>()
@@ -199,8 +200,16 @@ export class LinkManager extends EventEmitter {
           })
           this.autoConnectedPorts.set(port.path, link.id)
         } catch (err) {
-          console.warn(`[LinkManager] Auto-connect failed for ${port.path}:`, err)
-          this.failedPorts.set(port.path, AUTO_CONNECT_RETRY_CYCLES)
+          const msg = String(err)
+          const busy = msg.includes('Resource busy') || msg.includes('EBUSY')
+          if (busy) {
+            console.warn(`[LinkManager] Port ${port.path} is in use by another application`)
+          } else {
+            console.warn(`[LinkManager] Auto-connect failed for ${port.path}:`, err)
+          }
+          // Busy ports get a long backoff (60s) — likely held by another app.
+          // Other failures use a short backoff (5s) for transient issues.
+          this.failedPorts.set(port.path, busy ? AUTO_CONNECT_BUSY_CYCLES : AUTO_CONNECT_RETRY_CYCLES)
         }
       }
 

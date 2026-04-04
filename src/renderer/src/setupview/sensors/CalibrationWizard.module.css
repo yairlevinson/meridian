@@ -1,0 +1,249 @@
+.root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.sensorLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--accent-blue);
+  letter-spacing: 1.5px;
+  font-weight: 600;
+}
+
+.statusLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.statusSuccess {
+  color: #00e676;
+}
+
+.statusError {
+  color: #ff5252;
+}
+
+/* ── Progress bar ─────────────────────────── */
+
+.progressBar {
+  width: 100%;
+  max-width: 500px;
+  height: 4px;
+  background: var(--bg-elevated);
+  border-radius: 2px;
+  overflow: hidden;
+  align-self: center;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--accent-blue);
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+.progressSuccess {
+  background: #00e676;
+}
+
+.progressError {
+  background: #ff5252;
+}
+
+/* ── Orientation grid ─────────────────────── */
+
+.orientationGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  max-width: 540px;
+  align-self: center;
+  width: 100%;
+}
+
+.orientationCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: 8px;
+  border: 2px solid var(--border-default);
+  background: var(--bg-elevated);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.cardIcon {
+  color: var(--text-dimmed);
+  transition: color 0.2s;
+  line-height: 0;
+}
+
+.cardLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.cardStatus {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dimmed);
+  text-align: center;
+}
+
+/* Pending — not yet done, not current */
+.cardPending {
+  border-color: rgba(255, 82, 82, 0.4);
+}
+
+.cardPending .cardIcon {
+  color: var(--text-dimmed);
+}
+
+/* Active — currently collecting */
+.cardActive {
+  border-color: var(--accent-yellow);
+  background: rgba(255, 215, 0, 0.06);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.cardActive .cardIcon {
+  color: var(--accent-yellow);
+}
+
+.cardActive .cardStatus {
+  color: var(--accent-yellow);
+  font-weight: 600;
+}
+
+@keyframes pulse {
+  0%, 100% { border-color: var(--accent-yellow); }
+  50% { border-color: rgba(255, 215, 0, 0.3); }
+}
+
+/* Done — completed */
+.cardDone {
+  border-color: #00e676;
+  background: rgba(0, 230, 118, 0.06);
+}
+
+.cardDone .cardIcon {
+  color: #00e676;
+}
+
+.cardDone .cardStatus {
+  color: #00e676;
+  font-weight: 600;
+}
+
+/* ── Compass progress ─────────────────────── */
+
+.magGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 400px;
+  align-self: center;
+  width: 100%;
+}
+
+.magItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.magLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.magPct {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Message log ──────────────────────────── */
+
+.messageLog {
+  flex: 1;
+  min-height: 60px;
+  max-height: 150px;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dimmed);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 8px 10px;
+  max-width: 540px;
+  align-self: center;
+  width: 100%;
+}
+
+.messageLine {
+  padding: 1px 0;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+/* ── Buttons ──────────────────────────────── */
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.cancelBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 8px 24px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.cancelBtn:hover {
+  background: var(--bg-hover);
+}
+
+.doneBtn {
+  background: var(--accent-blue);
+  border: 1px solid var(--accent-blue);
+  border-radius: 4px;
+  padding: 8px 24px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.doneBtn:hover {
+  opacity: 0.9;
+}
