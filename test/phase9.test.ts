@@ -130,4 +130,3 @@ describe('JoystickManager', () => {
     expect(jm.isConnected).toBe(true)
   })
 })
-

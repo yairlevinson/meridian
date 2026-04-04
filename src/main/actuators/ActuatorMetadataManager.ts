@@ -113,13 +113,15 @@ export class ActuatorMetadataManager extends EventEmitter {
     try {
       // Request AUTOPILOT_VERSION first — PX4 requires this before serving component metadata
       mavLog.info(TAG, 'requesting AUTOPILOT_VERSION (148)')
-      await this._commandQueue.sendCommand(
-        MAV_CMD_REQUEST_MESSAGE,
-        this._sysid,
-        1,
-        { p1: MSG_AUTOPILOT_VERSION },
-        { timeoutMs: 3000, maxRetries: 1 }
-      ).catch(() => {}) // ignore failure, not critical
+      await this._commandQueue
+        .sendCommand(
+          MAV_CMD_REQUEST_MESSAGE,
+          this._sysid,
+          1,
+          { p1: MSG_AUTOPILOT_VERSION },
+          { timeoutMs: 3000, maxRetries: 1 }
+        )
+        .catch(() => {}) // ignore failure, not critical
 
       // Try COMPONENT_METADATA (397) — newer PX4 firmware uses this
       mavLog.info(TAG, 'requesting COMPONENT_METADATA (397)')
@@ -264,7 +266,15 @@ export class ActuatorMetadataManager extends EventEmitter {
         data = gunzipSync(buf)
       }
       // Check for XZ magic bytes (0xFD 0x37 0x7A 0x58 0x5A 0x00)
-      else if (buf.length >= 6 && buf[0] === 0xfd && buf[1] === 0x37 && buf[2] === 0x7a && buf[3] === 0x58 && buf[4] === 0x5a && buf[5] === 0x00) {
+      else if (
+        buf.length >= 6 &&
+        buf[0] === 0xfd &&
+        buf[1] === 0x37 &&
+        buf[2] === 0x7a &&
+        buf[3] === 0x58 &&
+        buf[4] === 0x5a &&
+        buf[5] === 0x00
+      ) {
         data = Buffer.from(xz.decompressSync(buf))
       }
       const text = data.toString('utf8')
@@ -276,10 +286,7 @@ export class ActuatorMetadataManager extends EventEmitter {
   }
 
   /** Find a metadata type URI in the general metadata JSON */
-  private _findTypeUri(
-    generalJson: Record<string, unknown>,
-    metadataType: number
-  ): string | null {
+  private _findTypeUri(generalJson: Record<string, unknown>, metadataType: number): string | null {
     // General metadata format: { version: 1, metadataTypes: [{ type, uri, fileCrc }, ...] }
     // The key could be "metadataTypes" or "metadata" depending on version
     const types =
@@ -299,9 +306,11 @@ export class ActuatorMetadataManager extends EventEmitter {
   private _parseActuatorTypes(json: Record<string, unknown>): void {
     // The mixer section contains actuator-types
     // Look in mixer first, then at top level
-    const mixer = (json['mixer_v1'] as Record<string, unknown>) ?? (json['mixer'] as Record<string, unknown>) ?? json
-    const actuatorTypes =
-      (mixer['actuator-types'] as Record<string, Record<string, unknown>>) ?? {}
+    const mixer =
+      (json['mixer_v1'] as Record<string, unknown>) ??
+      (json['mixer'] as Record<string, unknown>) ??
+      json
+    const actuatorTypes = (mixer['actuator-types'] as Record<string, Record<string, unknown>>) ?? {}
 
     for (const [typeName, typeData] of Object.entries(actuatorTypes)) {
       const functionMin = typeData['function-min'] as number | undefined

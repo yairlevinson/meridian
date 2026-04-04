@@ -64,12 +64,18 @@ function parseOrientation(text: string): CalibrationOrientation | null {
   const px4Match = lower.match(/\[cal\]\s+(down|up|front|back|left|right)\s+(orientation|side)/)
   if (px4Match) {
     switch (px4Match[1]) {
-      case 'down': return CalibrationOrientation.Level
-      case 'up': return CalibrationOrientation.UpsideDown
-      case 'front': return CalibrationOrientation.NoseDown
-      case 'back': return CalibrationOrientation.NoseUp
-      case 'left': return CalibrationOrientation.LeftSide
-      case 'right': return CalibrationOrientation.RightSide
+      case 'down':
+        return CalibrationOrientation.Level
+      case 'up':
+        return CalibrationOrientation.UpsideDown
+      case 'front':
+        return CalibrationOrientation.NoseDown
+      case 'back':
+        return CalibrationOrientation.NoseUp
+      case 'left':
+        return CalibrationOrientation.LeftSide
+      case 'right':
+        return CalibrationOrientation.RightSide
     }
   }
 
@@ -210,9 +216,10 @@ export class CalibrationManager extends EventEmitter {
       // Derive per-side progress from cumulative total
       const done = this._state.orientationsCompleted.length
       const perSide = 1 / 6
-      this._state.currentOrientationProgress = Math.max(0, Math.min(1,
-        (totalPct - done * perSide) / perSide
-      ))
+      this._state.currentOrientationProgress = Math.max(
+        0,
+        Math.min(1, (totalPct - done * perSide) / perSide)
+      )
       this._emitState()
       return
     }
@@ -262,7 +269,9 @@ export class CalibrationManager extends EventEmitter {
       const orientation = parseOrientation(text)
       if (orientation && !this._state.orientationsCompleted.includes(orientation)) {
         this._state.orientationsCompleted.push(orientation)
-        console.log(`[Calibration] Orientation done: ${orientation}, completed: [${this._state.orientationsCompleted}]`)
+        console.log(
+          `[Calibration] Orientation done: ${orientation}, completed: [${this._state.orientationsCompleted}]`
+        )
         this._state.currentOrientation = null
         this._state.currentOrientationProgress = 0
         this._state.status = CalibrationStatus.WaitingForOrientation

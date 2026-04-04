@@ -15,7 +15,11 @@ export function Compass({ size = 150 }: { size?: number }): React.JSX.Element {
   const heading = vfrHud?.heading ?? null
 
   if (heading === null) {
-    return <div className={styles.noData} style={{ width: size, height: size }}>No data</div>
+    return (
+      <div className={styles.noData} style={{ width: size, height: size }}>
+        No data
+      </div>
+    )
   }
 
   const r = 96 // compass dial radius

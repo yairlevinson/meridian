@@ -1,5 +1,9 @@
 import { EventEmitter } from 'events'
-import { RcCalStep, type RcCalibrationState, type RcCalibrationChannelData } from '@shared/ipc/SetupTypes'
+import {
+  RcCalStep,
+  type RcCalibrationState,
+  type RcCalibrationChannelData
+} from '@shared/ipc/SetupTypes'
 import type { ParameterManager } from '../parameters/ParameterManager'
 
 const MAX_CHANNELS = 16
@@ -151,7 +155,9 @@ export class RcCalibrationManager extends EventEmitter {
         const trim = ch.trim
         const range = ch.max - ch.min
         if (range > STICK_DETECT_THRESHOLD * 2) {
-          const stickForChannel = Object.entries(this._stickMapping).find(([, chIdx]) => chIdx === i)
+          const stickForChannel = Object.entries(this._stickMapping).find(
+            ([, chIdx]) => chIdx === i
+          )
           if (stickForChannel) {
             const stick = stickForChannel[0]
             const maxAbove = ch.max - trim

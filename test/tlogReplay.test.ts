@@ -43,14 +43,19 @@ function buildSyntheticTlog(scenario: 'arm-takeoff-land' | 'mode-changes'): Buff
     hb.type = minimal.MavType.QUADROTOR
     hb.autopilot = minimal.MavAutopilot.PX4
     hb.baseMode = armed
-      ? (minimal.MavModeFlag.SAFETY_ARMED | minimal.MavModeFlag.CUSTOM_MODE_ENABLED)
+      ? minimal.MavModeFlag.SAFETY_ARMED | minimal.MavModeFlag.CUSTOM_MODE_ENABLED
       : minimal.MavModeFlag.CUSTOM_MODE_ENABLED
     hb.customMode = customMode
     hb.systemStatus = minimal.MavState.ACTIVE
     return hb
   }
 
-  function makePosition(lat: number, lon: number, altMsl: number, relAlt: number): common.GlobalPositionInt {
+  function makePosition(
+    lat: number,
+    lon: number,
+    altMsl: number,
+    relAlt: number
+  ): common.GlobalPositionInt {
     const pos = new common.GlobalPositionInt()
     pos.timeBootMs = 0
     pos.lat = Math.round(lat * 1e7)

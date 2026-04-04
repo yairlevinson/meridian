@@ -52,9 +52,7 @@ const TUNING_GROUPS: Array<{
   {
     label: 'Position XY',
     description: 'PSC_POSXY — Horizontal position controller',
-    params: [
-      { name: 'PSC_POSXY_P', label: 'P' }
-    ]
+    params: [{ name: 'PSC_POSXY_P', label: 'P' }]
   },
   {
     label: 'Velocity XY',
@@ -72,16 +70,12 @@ const TUNING_GROUPS: Array<{
   {
     label: 'Position Z',
     description: 'PSC_POSZ — Vertical position controller',
-    params: [
-      { name: 'PSC_POSZ_P', label: 'P' }
-    ]
+    params: [{ name: 'PSC_POSZ_P', label: 'P' }]
   },
   {
     label: 'Velocity Z',
     description: 'PSC_VELZ — Vertical velocity controller',
-    params: [
-      { name: 'PSC_VELZ_P', label: 'P' }
-    ]
+    params: [{ name: 'PSC_VELZ_P', label: 'P' }]
   },
   {
     label: 'Accel Z',
@@ -145,7 +139,10 @@ export function TuningPage(): React.JSX.Element {
     return (
       <div className={styles.root}>
         <div className={styles.title}>PID Tuning</div>
-        <div className={styles.loading}>No tuning parameters found — vehicle may not support PID tuning or parameters are still loading.</div>
+        <div className={styles.loading}>
+          No tuning parameters found — vehicle may not support PID tuning or parameters are still
+          loading.
+        </div>
       </div>
     )
   }
@@ -176,7 +173,9 @@ export function TuningPage(): React.JSX.Element {
                     const isModified = p.name in edits
                     return (
                       <div key={p.name} className={styles.paramRow}>
-                        <span className={`${styles.paramLabel} ${isModified ? styles.paramModified : ''}`}>
+                        <span
+                          className={`${styles.paramLabel} ${isModified ? styles.paramModified : ''}`}
+                        >
                           {p.label}
                         </span>
                         <input

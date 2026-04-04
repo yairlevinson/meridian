@@ -358,7 +358,13 @@ app.whenReady().then(async () => {
     forwarder.attachLinkManager(linkManager)
     forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
 
-    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager, forwarder, settingsManager)
+    const cleanupIpcBridge = startIpcBridge(
+      vehicleManager,
+      videoManager,
+      linkManager,
+      forwarder,
+      settingsManager
+    )
 
     // Connect to each TCP target
     for (const target of tcpTargets) {
@@ -466,7 +472,13 @@ app.whenReady().then(async () => {
     forwarder.attachLinkManager(linkManager)
     forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
 
-    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager, forwarder, settingsManager)
+    const cleanupIpcBridge = startIpcBridge(
+      vehicleManager,
+      videoManager,
+      linkManager,
+      forwarder,
+      settingsManager
+    )
 
     // Auto-detect USB autopilot boards and connect via serial
     linkManager.startAutoConnect()

@@ -30,7 +30,9 @@
   cursor: pointer;
   font-family: var(--font-mono);
   color: var(--text-secondary);
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
   position: relative;
 }
 
@@ -144,4 +146,3 @@
   font-size: var(--fs-xs);
   color: var(--text-dimmed);
 }
-

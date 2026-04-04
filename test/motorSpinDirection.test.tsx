@@ -205,9 +205,7 @@ describe('MotorSpinDirection — highlightMotor prop', () => {
     const { container } = render(<MotorSpinDirection highlightMotor={1} />)
     const svg = container.querySelector('svg')!
     const circles = svg.querySelectorAll('circle')
-    const orangeCircles = Array.from(circles).filter(
-      (c) => c.getAttribute('fill') === '#ffab40'
-    )
+    const orangeCircles = Array.from(circles).filter((c) => c.getAttribute('fill') === '#ffab40')
     expect(orangeCircles.length).toBe(1)
   })
 
@@ -224,9 +222,7 @@ describe('MotorSpinDirection — highlightMotor prop', () => {
     const svg = container.querySelector('svg')!
     const circles = Array.from(svg.querySelectorAll('circle'))
     const motorCircles = circles.filter(
-      (c) =>
-        c.getAttribute('fill') !== 'var(--bg-elevated)' &&
-        c.getAttribute('fill') !== '#ffab40'
+      (c) => c.getAttribute('fill') !== 'var(--bg-elevated)' && c.getAttribute('fill') !== '#ffab40'
     )
     for (const mc of motorCircles) {
       const fill = mc.getAttribute('fill')

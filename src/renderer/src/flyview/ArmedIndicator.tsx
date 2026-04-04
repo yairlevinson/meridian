@@ -21,10 +21,7 @@ export function ArmedIndicator(): React.JSX.Element {
   }
 
   return (
-    <button
-      onClick={() => disarm()}
-      className={`${styles.btn} ${styles.armed}`}
-    >
+    <button onClick={() => disarm()} className={`${styles.btn} ${styles.armed}`}>
       ARMED
     </button>
   )

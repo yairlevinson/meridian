@@ -1,8 +1,5 @@
 import { useCallback, useState, useEffect } from 'react'
-import type {
-  ForwardingState,
-  ForwardingTargetState
-} from '@shared/ipc/ForwardingTypes'
+import type { ForwardingState, ForwardingTargetState } from '@shared/ipc/ForwardingTypes'
 import styles from './ForwardingSettingsPage.module.css'
 
 function formatBytes(bytes: number): string {

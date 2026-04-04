@@ -64,21 +64,27 @@ src/
 ## Key Concepts
 
 ### Delta-Encoded IPC
+
 Vehicle state is split into 15 groups (core, attitude, GPS, battery, RC, etc.), each with a `seq` counter. The main process pushes only groups whose `seq` changed to the renderer at 30Hz, reducing IPC bandwidth by ~80-90%.
 
 ### MAVLink Channel Pool
+
 Pool of 16 channels (matching C++ QGroundControl). Each link allocates one channel. Per-sysid/compid sequence tracking enables packet loss detection.
 
 ### Multi-Vehicle
+
 VehicleManager auto-discovers vehicles on HEARTBEAT (autopilot compid=1). Each vehicle independently manages state, commands, and missions. Popout windows for map/video support multi-vehicle viewing.
 
 ### Command Queue
+
 MavCommandQueue sends COMMAND_LONG, waits for COMMAND_ACK with timeout-based retry (1.5s default, 3 retries). Handles IN_PROGRESS responses gracefully.
 
 ### CORS Bypass for Map Tiles
+
 Custom `tile://` protocol in main process. Renderer requests `tile://tiles/{provider}/{z}/{x}/{y}`, main resolves the real HTTPS URL, fetches, and caches (500-tile LRU).
 
 ### Video Streaming
+
 ffmpeg subprocess remuxes input to fMP4 → WebSocket server broadcasts to renderer(s). Auto-restart on transient failures (max 5 retries).
 
 ## Commands
@@ -144,12 +150,12 @@ Requires a pre-built PX4: `cd $PX4_HOME && make px4_sitl gz_x500`
 
 ### Key SITL Parameters (written to parameters.bson)
 
-| Parameter | Value | Why |
-|-----------|-------|-----|
-| `EKF2_MAG_TYPE` | 6 (Init) | Use mag for initial heading only; avoids continuous innovation checks that fail in SITL |
-| `EKF2_HEAD_NOISE` | 10.0 | Increases heading noise variance so innovation ratio stays below 0.5 |
-| `MAV_0_BROADCAST` | 1 | PX4 proactively broadcasts to GCS port |
-| `SYS_AUTOCONFIG` | 0 | Prevents rcS from resetting params on boot |
+| Parameter         | Value    | Why                                                                                     |
+| ----------------- | -------- | --------------------------------------------------------------------------------------- |
+| `EKF2_MAG_TYPE`   | 6 (Init) | Use mag for initial heading only; avoids continuous innovation checks that fail in SITL |
+| `EKF2_HEAD_NOISE` | 10.0     | Increases heading noise variance so innovation ratio stays below 0.5                    |
+| `MAV_0_BROADCAST` | 1        | PX4 proactively broadcasts to GCS port                                                  |
+| `SYS_AUTOCONFIG`  | 0        | Prevents rcS from resetting params on boot                                              |
 
 ### Known Issues
 

@@ -141,7 +141,11 @@ export class FTPManager extends EventEmitter {
 
         receivedData.set(offset, Buffer.from(readResp.data))
         offset += readResp.data.length
-        this.emit('progress', { path, bytesReceived: this._totalReceived(receivedData), totalBytes: fileSize })
+        this.emit('progress', {
+          path,
+          bytesReceived: this._totalReceived(receivedData),
+          totalBytes: fileSize
+        })
       }
     }
 

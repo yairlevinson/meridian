@@ -27,8 +27,7 @@ export function InstrumentPanel(): React.JSX.Element {
   const gps = useTelemetry('gps')
   const home = useHomePosition()
 
-  const distToHome =
-    gps && home ? distanceM(gps.lat, gps.lon, home.lat, home.lon) : null
+  const distToHome = gps && home ? distanceM(gps.lat, gps.lon, home.lat, home.lon) : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>

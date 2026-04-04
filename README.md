@@ -5,12 +5,14 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 ## Features
 
 ### Live Telemetry
+
 - Real-time attitude (roll, pitch, yaw), GPS position, altitude, and velocity display
 - Distance-to-home instrument with automatic m/km unit switching
 - Delta-encoded IPC for efficient main→renderer telemetry streaming
 - Support for multiple simultaneous vehicles with independent telemetry streams
 
 ### Interactive Map (Fly View)
+
 - MapLibre GL-powered map with live vehicle position tracking
 - Home position marker ("H") displayed when the vehicle reports a valid home location
 - Multiple tile providers: Google Satellite, Google Hybrid, Bing Aerial, Esri World Imagery, OpenStreetMap, Statkart Topo, and Mapbox Satellite
@@ -18,6 +20,7 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 - Prominent vehicle indicators with color-coded active/inactive states
 
 ### Mission Planning (Plan View)
+
 - Interactive waypoint editing with drag-and-drop on the map
 - Home position displayed as waypoint 0 in the mission sidebar
 - Full MAVLink mission protocol: upload, download, and clear missions
@@ -25,18 +28,21 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 - Visual mission path overlay with numbered waypoint markers
 
 ### Vehicle Management
+
 - Automatic vehicle discovery from MAVLink heartbeats
 - Multi-vehicle support with independent state tracking
 - Arm/disarm commands via MAVLink COMMAND_LONG
 - ADS-B traffic vehicle tracking and display
 
 ### Connectivity
+
 - **UDP mode**: Listen on a configurable port (default 14550) for MAVLink packets
 - **TCP mode**: Connect to multiple SITL instances simultaneously via `GC_TCP_LINKS`
 - Automatic data stream requests for both ArduPilot and PX4 autopilots
 - GCS heartbeat broadcasting for PX4 compatibility
 
 ### Camera Control
+
 - MAVLink Camera Protocol v2 (CAMERA_INFORMATION, CAMERA_SETTINGS, CAMERA_CAPTURE_STATUS)
 - Photo capture (single shot and interval/timelapse)
 - Video recording start/stop with recording time tracking
@@ -46,6 +52,7 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 - Adaptive capture status polling (QGC-compatible intervals)
 
 ### Additional Systems
+
 - Gimbal control with quaternion-to-Euler conversion
 - GeoFence and Rally Point management
 - MAVLink FTP for file transfer to/from the vehicle
@@ -152,9 +159,9 @@ npm run dev
 
 ### Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GC_UDP_PORT` | `14550` | UDP port to listen for MAVLink |
+| Variable       | Default   | Description                                                |
+| -------------- | --------- | ---------------------------------------------------------- |
+| `GC_UDP_PORT`  | `14550`   | UDP port to listen for MAVLink                             |
 | `GC_TCP_LINKS` | _(empty)_ | Comma-separated `host:port` pairs for TCP SITL connections |
 
 ## Testing
@@ -173,6 +180,7 @@ npm test -- test/gimbalController.test.ts
 ```
 
 Unit tests cover:
+
 - Vehicle state management and telemetry parsing
 - Mission protocol (upload/download/error handling/retries)
 - MAVLink FTP (chunked transfers, retries, path validation)
@@ -232,6 +240,7 @@ npm run test:e2e:sitl:external
 ```
 
 E2E tests verify:
+
 - Connection state transitions (WAITING → CONNECTED)
 - Attitude and GPS telemetry display
 - Arm/disarm state rendering
@@ -293,18 +302,18 @@ PX4_HOME=/path/to/PX4-Autopilot npm run test:e2e:gazebo
 
 #### Test Files
 
-| File | Tests | What it validates |
-|------|-------|-------------------|
-| `sitl-01-connection` | 4 | Heartbeat, autopilot ID, mode decode, map marker |
-| `sitl-02-telemetry` | 10 | Attitude, GPS, heading, battery, sensors, home position, FPS, IPC latency |
-| `sitl-03-arm-disarm` | 6 | Arm via UI hold-button, arm via IPC, disarm via RTL |
-| `sitl-04-guided-flight` | 5 | Takeoff, goto, pause, RTL, land (serial chain) |
-| `sitl-05-flight-modes` | 5 | Mode display, PX4 custom_mode decoding (mode switching skipped — no RC in SITL) |
-| `sitl-06-mission` | 6 | Upload, download round-trip, arm + Auto:Mission, waypoints, RTL + land |
-| `sitl-07-parameters` | 4 | Auto-download, known params, set/read-back, param count |
-| `sitl-08-preflight` | 5 | GPS check, battery, sensors, comms, checklist count |
-| `sitl-09-camera` | 3 | Camera discovery, capabilities, photo capture (skipped if no camera) |
-| `sitl-10-video` | 5 | Video start/stop, stream state, `gz-video-stream.py` integration (skipped if no script) |
+| File                    | Tests | What it validates                                                                       |
+| ----------------------- | ----- | --------------------------------------------------------------------------------------- |
+| `sitl-01-connection`    | 4     | Heartbeat, autopilot ID, mode decode, map marker                                        |
+| `sitl-02-telemetry`     | 10    | Attitude, GPS, heading, battery, sensors, home position, FPS, IPC latency               |
+| `sitl-03-arm-disarm`    | 6     | Arm via UI hold-button, arm via IPC, disarm via RTL                                     |
+| `sitl-04-guided-flight` | 5     | Takeoff, goto, pause, RTL, land (serial chain)                                          |
+| `sitl-05-flight-modes`  | 5     | Mode display, PX4 custom_mode decoding (mode switching skipped — no RC in SITL)         |
+| `sitl-06-mission`       | 6     | Upload, download round-trip, arm + Auto:Mission, waypoints, RTL + land                  |
+| `sitl-07-parameters`    | 4     | Auto-download, known params, set/read-back, param count                                 |
+| `sitl-08-preflight`     | 5     | GPS check, battery, sensors, comms, checklist count                                     |
+| `sitl-09-camera`        | 3     | Camera discovery, capabilities, photo capture (skipped if no camera)                    |
+| `sitl-10-video`         | 5     | Video start/stop, stream state, `gz-video-stream.py` integration (skipped if no script) |
 
 #### Architecture
 
@@ -398,17 +407,17 @@ meridian/
 
 ## Technology Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Desktop shell | Electron |
-| UI framework | React 18 + TypeScript |
-| State management | Zustand |
-| Map rendering | MapLibre GL JS |
-| MAVLink parsing | node-mavlink + mavlink-mappings |
-| Build tooling | electron-vite (Vite-based) |
-| Unit testing | Vitest |
-| E2E testing | Playwright |
-| Packaging | electron-builder |
+| Layer            | Technology                      |
+| ---------------- | ------------------------------- |
+| Desktop shell    | Electron                        |
+| UI framework     | React 18 + TypeScript           |
+| State management | Zustand                         |
+| Map rendering    | MapLibre GL JS                  |
+| MAVLink parsing  | node-mavlink + mavlink-mappings |
+| Build tooling    | electron-vite (Vite-based)      |
+| Unit testing     | Vitest                          |
+| E2E testing      | Playwright                      |
+| Packaging        | electron-builder                |
 
 ## Feature Parity with QGroundControl
 
@@ -416,149 +425,149 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 
 ### Communication & Links
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| UDP Link | ✅ | Configurable port, auto-discovery |
-| TCP Link | ✅ | Multi-SITL support |
-| Serial Link | ✅ | Full serialport with baud rate, flow control, DTR |
-| MAVLink Signing | ✅ | Key management, per-channel signing |
-| Log Replay Link | ✅ | `.mavlink` binary replay with speed control |
-| Multi-Link Failover | ✅ | Heartbeat-based automatic failover |
-| Bluetooth Link | ❌ | |
-| ADS-B TCP Receiver Link | ❌ | |
+| Feature                 | Status | Notes                                             |
+| ----------------------- | ------ | ------------------------------------------------- |
+| UDP Link                | ✅     | Configurable port, auto-discovery                 |
+| TCP Link                | ✅     | Multi-SITL support                                |
+| Serial Link             | ✅     | Full serialport with baud rate, flow control, DTR |
+| MAVLink Signing         | ✅     | Key management, per-channel signing               |
+| Log Replay Link         | ✅     | `.mavlink` binary replay with speed control       |
+| Multi-Link Failover     | ✅     | Heartbeat-based automatic failover                |
+| Bluetooth Link          | ❌     |                                                   |
+| ADS-B TCP Receiver Link | ❌     |                                                   |
 
 ### Vehicle Setup & Configuration
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Setup View | ✅ | 11-page setup with sidebar navigation |
-| Airframe Selection | ✅ | 11 frame classes, 18+ frame types |
-| Sensor Calibration | ✅ | Accel, compass, gyro, level horizon, baro, ESC (8 types) |
-| Radio/RC Calibration | ✅ | 16-channel stick detection, min/max/trim, reversal |
-| Flight Mode Assignment | ✅ | All 4 ArduPilot vehicle types |
-| Power/Battery Config | ✅ | Monitor type, capacity, pins, multipliers |
-| Safety/Failsafe Config | ✅ | Throttle, battery, GCS failsafe, geofence, arming checks |
-| PID Tuning | ✅ | 8 groups, 40+ params (rate, position, velocity) |
-| Firmware Upgrade | ✅ | MAVLink FTP upload, reboot, board info |
-| Parameter Editor | ✅ | Search, edit, refresh, progress tracking |
-| Motor/Servo Testing | ✅ | Motor test sliders, servo test, motor identification wizard |
-| Motor Spin Direction | ✅ | Visual CW/CCW diagram for Quad/Hexa/Octa/Y6/Tri frames |
-| Output Configuration | ✅ | SERVOx function assignment, PWM min/max/trim, reversed |
-| Gimbal/Mount Setup UI | ❌ | |
+| Feature                | Status | Notes                                                       |
+| ---------------------- | ------ | ----------------------------------------------------------- |
+| Setup View             | ✅     | 11-page setup with sidebar navigation                       |
+| Airframe Selection     | ✅     | 11 frame classes, 18+ frame types                           |
+| Sensor Calibration     | ✅     | Accel, compass, gyro, level horizon, baro, ESC (8 types)    |
+| Radio/RC Calibration   | ✅     | 16-channel stick detection, min/max/trim, reversal          |
+| Flight Mode Assignment | ✅     | All 4 ArduPilot vehicle types                               |
+| Power/Battery Config   | ✅     | Monitor type, capacity, pins, multipliers                   |
+| Safety/Failsafe Config | ✅     | Throttle, battery, GCS failsafe, geofence, arming checks    |
+| PID Tuning             | ✅     | 8 groups, 40+ params (rate, position, velocity)             |
+| Firmware Upgrade       | ✅     | MAVLink FTP upload, reboot, board info                      |
+| Parameter Editor       | ✅     | Search, edit, refresh, progress tracking                    |
+| Motor/Servo Testing    | ✅     | Motor test sliders, servo test, motor identification wizard |
+| Motor Spin Direction   | ✅     | Visual CW/CCW diagram for Quad/Hexa/Octa/Y6/Tri frames      |
+| Output Configuration   | ✅     | SERVOx function assignment, PWM min/max/trim, reversed      |
+| Gimbal/Mount Setup UI  | ❌     |                                                             |
 
 ### Mission Planning
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Waypoints | ✅ | NAV_WAYPOINT, Takeoff, Land, RTL, Loiter variants |
-| GeoFence | ✅ | Polygon and circle inclusion/exclusion |
-| Rally Points | ✅ | Load, write, clear |
-| Plan File I/O | ✅ | `.plan` format (QGC-compatible) |
-| Mission Stats | ✅ | Distance, ETA, waypoint count |
-| Survey/Grid Scan | ❌ | Automated camera survey patterns |
-| Structure Scan | ❌ | Vertical structure scanning |
-| Corridor Scan | ❌ | Linear corridor inspection |
-| Spline Waypoints | ❌ | Curved flight paths |
-| Landing Patterns | ❌ | Fixed-wing/VTOL approach patterns |
-| Camera Trigger Commands | ❌ | In-mission photo/video control |
-| ROI Commands | ❌ | Region of interest in missions |
-| DO_JUMP / Flow Control | ❌ | Mission loops and conditionals |
-| Speed/Delay Commands | ❌ | In-mission speed changes, waits |
-| Servo/Relay Commands | ❌ | Hardware actuator control |
-| KML/KMZ Export | ❌ | |
+| Feature                 | Status | Notes                                             |
+| ----------------------- | ------ | ------------------------------------------------- |
+| Waypoints               | ✅     | NAV_WAYPOINT, Takeoff, Land, RTL, Loiter variants |
+| GeoFence                | ✅     | Polygon and circle inclusion/exclusion            |
+| Rally Points            | ✅     | Load, write, clear                                |
+| Plan File I/O           | ✅     | `.plan` format (QGC-compatible)                   |
+| Mission Stats           | ✅     | Distance, ETA, waypoint count                     |
+| Survey/Grid Scan        | ❌     | Automated camera survey patterns                  |
+| Structure Scan          | ❌     | Vertical structure scanning                       |
+| Corridor Scan           | ❌     | Linear corridor inspection                        |
+| Spline Waypoints        | ❌     | Curved flight paths                               |
+| Landing Patterns        | ❌     | Fixed-wing/VTOL approach patterns                 |
+| Camera Trigger Commands | ❌     | In-mission photo/video control                    |
+| ROI Commands            | ❌     | Region of interest in missions                    |
+| DO_JUMP / Flow Control  | ❌     | Mission loops and conditionals                    |
+| Speed/Delay Commands    | ❌     | In-mission speed changes, waits                   |
+| Servo/Relay Commands    | ❌     | Hardware actuator control                         |
+| KML/KMZ Export          | ❌     |                                                   |
 
 ### Flight Control
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Arm / Disarm | ✅ | |
-| Takeoff | ✅ | Configurable altitude |
-| Land | ✅ | |
-| RTL | ✅ | |
-| Go-To Location | ✅ | Click-on-map reposition |
-| Pause / Resume | ✅ | |
-| Emergency Stop | ✅ | Hold-to-confirm safety UX |
-| Pre-Flight Checklist | ✅ | 6 automated + 4 manual checks |
-| Change Altitude | ❌ | In-flight altitude adjustment |
-| Change Heading | ❌ | |
-| Change Speed | ❌ | |
-| Orbit | ❌ | Circle around point |
-| Follow Me | ❌ | GPS-based follow mode |
-| Landing Gear Control | ❌ | |
+| Feature              | Status | Notes                         |
+| -------------------- | ------ | ----------------------------- |
+| Arm / Disarm         | ✅     |                               |
+| Takeoff              | ✅     | Configurable altitude         |
+| Land                 | ✅     |                               |
+| RTL                  | ✅     |                               |
+| Go-To Location       | ✅     | Click-on-map reposition       |
+| Pause / Resume       | ✅     |                               |
+| Emergency Stop       | ✅     | Hold-to-confirm safety UX     |
+| Pre-Flight Checklist | ✅     | 6 automated + 4 manual checks |
+| Change Altitude      | ❌     | In-flight altitude adjustment |
+| Change Heading       | ❌     |                               |
+| Change Speed         | ❌     |                               |
+| Orbit                | ❌     | Circle around point           |
+| Follow Me            | ❌     | GPS-based follow mode         |
+| Landing Gear Control | ❌     |                               |
 
 ### Joystick & RC
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Gamepad/Joystick Input | ✅ | Deadband, expo curves, 30 Hz output |
-| Axis Mapping | ✅ | Roll, pitch, yaw, throttle |
-| RC Channel Monitor | ✅ | Live channel bars during calibration |
-| Virtual On-Screen Joystick | ❌ | |
-| Button-to-Action Mapping | ❌ | |
+| Feature                    | Status | Notes                                |
+| -------------------------- | ------ | ------------------------------------ |
+| Gamepad/Joystick Input     | ✅     | Deadband, expo curves, 30 Hz output  |
+| Axis Mapping               | ✅     | Roll, pitch, yaw, throttle           |
+| RC Channel Monitor         | ✅     | Live channel bars during calibration |
+| Virtual On-Screen Joystick | ❌     |                                      |
+| Button-to-Action Mapping   | ❌     |                                      |
 
 ### Video & Camera
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Video Streaming | ✅ | UDP H.264/H.265, RTSP, TCP MPEG-TS via ffmpeg; settings in Setup > Video |
-| Video Recording | ✅ | MKV, MOV, MP4 formats; compact Record overlay on fly view |
-| MAVLink Camera Protocol | ✅ | Discovery, photo/video capture, mode switching, storage info |
-| Multiple Simultaneous Streams | ❌ | |
+| Feature                       | Status | Notes                                                                    |
+| ----------------------------- | ------ | ------------------------------------------------------------------------ |
+| Video Streaming               | ✅     | UDP H.264/H.265, RTSP, TCP MPEG-TS via ffmpeg; settings in Setup > Video |
+| Video Recording               | ✅     | MKV, MOV, MP4 formats; compact Record overlay on fly view                |
+| MAVLink Camera Protocol       | ✅     | Discovery, photo/video capture, mode switching, storage info             |
+| Multiple Simultaneous Streams | ❌     |                                                                          |
 
 ### Analysis & Logging
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| MAVLink Log Recording | ✅ | ULog format with sequence tracking |
-| Log Replay | ✅ | Binary `.mavlink` replay |
-| MAVLink Inspector | ❌ | Real-time message viewer |
-| MAVLink Console | ❌ | Serial console over MAVLink |
-| Log Download Browser | ❌ | |
-| GeoTagging | ❌ | Image geotagging from logs |
-| Vibration Analysis | ❌ | |
+| Feature               | Status | Notes                              |
+| --------------------- | ------ | ---------------------------------- |
+| MAVLink Log Recording | ✅     | ULog format with sequence tracking |
+| Log Replay            | ✅     | Binary `.mavlink` replay           |
+| MAVLink Inspector     | ❌     | Real-time message viewer           |
+| MAVLink Console       | ❌     | Serial console over MAVLink        |
+| Log Download Browser  | ❌     |                                    |
+| GeoTagging            | ❌     | Image geotagging from logs         |
+| Vibration Analysis    | ❌     |                                    |
 
 ### GPS & Positioning
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Primary GPS | ✅ | Fix type, satellites, HDOP/VDOP |
-| RTK GPS | ❌ | Differential GPS support |
-| NTRIP Client | ❌ | |
+| Feature      | Status | Notes                           |
+| ------------ | ------ | ------------------------------- |
+| Primary GPS  | ✅     | Fix type, satellites, HDOP/VDOP |
+| RTK GPS      | ❌     | Differential GPS support        |
+| NTRIP Client | ❌     |                                 |
 
 ### Map & Terrain
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Multiple Map Providers | ✅ | 7 providers (Google, Bing, Esri, Mapbox, OSM, Statkart) |
-| CORS-Bypass Tile Proxy | ✅ | Custom `tile://` protocol with LRU cache |
-| Terrain Elevation Queries | ✅ | TERRAIN_REPORT handling |
-| Offline Map Bulk Download | ❌ | Only 500-tile LRU cache |
-| 3D Visualization | ❌ | |
-| Terrain Profile Along Path | ❌ | |
+| Feature                    | Status | Notes                                                   |
+| -------------------------- | ------ | ------------------------------------------------------- |
+| Multiple Map Providers     | ✅     | 7 providers (Google, Bing, Esri, Mapbox, OSM, Statkart) |
+| CORS-Bypass Tile Proxy     | ✅     | Custom `tile://` protocol with LRU cache                |
+| Terrain Elevation Queries  | ✅     | TERRAIN_REPORT handling                                 |
+| Offline Map Bulk Download  | ❌     | Only 500-tile LRU cache                                 |
+| 3D Visualization           | ❌     |                                                         |
+| Terrain Profile Along Path | ❌     |                                                         |
 
 ### Safety & Compliance
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Pre-Flight Checklist | ✅ | GPS, battery, sensors, comms, RC + manual checks |
-| Failsafe Configuration | ✅ | Throttle, battery, GCS, geofence |
-| Arming Check Config | ✅ | ARMING_CHECK parameter |
-| Remote ID / UTM | ❌ | |
-| Object Avoidance Display | ❌ | Proximity sensor visualization |
+| Feature                  | Status | Notes                                            |
+| ------------------------ | ------ | ------------------------------------------------ |
+| Pre-Flight Checklist     | ✅     | GPS, battery, sensors, comms, RC + manual checks |
+| Failsafe Configuration   | ✅     | Throttle, battery, GCS, geofence                 |
+| Arming Check Config      | ✅     | ARMING_CHECK parameter                           |
+| Remote ID / UTM          | ❌     |                                                  |
+| Object Avoidance Display | ❌     | Proximity sensor visualization                   |
 
 ### Other
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Multi-Vehicle Support | ✅ | Auto-discovery, independent state |
-| ADS-B Traffic Display | ✅ | ICAO, callsign, position, altitude |
-| Gimbal Control | ✅ | Pitch/yaw commands, attitude feedback |
-| MAVLink FTP | ✅ | Upload, download, directory listing |
-| Popout Windows | ✅ | Multi-monitor video/map |
-| Multi-Language / i18n | ❌ | English only |
-| Android / iOS | ❌ | Desktop only (macOS, Windows, Linux) |
-| Plugin / Branding System | ❌ | |
-| Audio Alerts | ❌ | |
+| Feature                  | Status | Notes                                 |
+| ------------------------ | ------ | ------------------------------------- |
+| Multi-Vehicle Support    | ✅     | Auto-discovery, independent state     |
+| ADS-B Traffic Display    | ✅     | ICAO, callsign, position, altitude    |
+| Gimbal Control           | ✅     | Pitch/yaw commands, attitude feedback |
+| MAVLink FTP              | ✅     | Upload, download, directory listing   |
+| Popout Windows           | ✅     | Multi-monitor video/map               |
+| Multi-Language / i18n    | ❌     | English only                          |
+| Android / iOS            | ❌     | Desktop only (macOS, Windows, Linux)  |
+| Plugin / Branding System | ❌     |                                       |
+| Audio Alerts             | ❌     |                                       |
 
 ### Key Functional Gaps (vs QGroundControl)
 

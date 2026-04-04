@@ -11,7 +11,12 @@ const SENSOR_GPS = 1 << 5
 const SENSOR_AHRS = 1 << 21
 
 const CHECKED_SENSORS =
-  SENSOR_3D_GYRO | SENSOR_3D_ACCEL | SENSOR_3D_MAG | SENSOR_ABSOLUTE_PRESSURE | SENSOR_GPS | SENSOR_AHRS
+  SENSOR_3D_GYRO |
+  SENSOR_3D_ACCEL |
+  SENSOR_3D_MAG |
+  SENSOR_ABSOLUTE_PRESSURE |
+  SENSOR_GPS |
+  SENSOR_AHRS
 
 // ── Thresholds ──
 const MIN_GPS_FIX = 3 // 3D fix
@@ -67,11 +72,12 @@ function useTelemetryChecks(): CheckItem[] {
       id: 'battery',
       label: 'Battery',
       status: bat != null ? (batOk ? 'passed' : 'failed') : 'pending',
-      message: bat != null
-        ? batOk
-          ? `${bat.remaining}% (${bat.voltage.toFixed(1)}V)`
-          : `${bat.remaining}% — below ${MIN_BATTERY_PERCENT}%`
-        : 'Waiting for battery data',
+      message:
+        bat != null
+          ? batOk
+            ? `${bat.remaining}% (${bat.voltage.toFixed(1)}V)`
+            : `${bat.remaining}% — below ${MIN_BATTERY_PERCENT}%`
+          : 'Waiting for battery data',
       manual: false
     })
 
@@ -106,11 +112,7 @@ function useTelemetryChecks(): CheckItem[] {
       id: 'comms',
       label: 'Communication',
       status: core ? (commOk ? 'passed' : 'failed') : 'pending',
-      message: core
-        ? commOk
-          ? 'Link active'
-          : 'Communication lost'
-        : 'Waiting for heartbeat',
+      message: core ? (commOk ? 'Link active' : 'Communication lost') : 'Waiting for heartbeat',
       manual: false
     })
 
@@ -206,10 +208,7 @@ export function PreFlightChecklist({
 
         return (
           <div key={group.id} className={styles.group}>
-            <button
-              className={styles.groupHeader}
-              onClick={() => toggleCollapse(group.id)}
-            >
+            <button className={styles.groupHeader} onClick={() => toggleCollapse(group.id)}>
               <span className={styles.collapseIcon}>{isCollapsed ? '\u25B6' : '\u25BC'}</span>
               <span className={styles.groupTitle}>{group.title}</span>
               <span
@@ -239,9 +238,7 @@ export function PreFlightChecklist({
                     </span>
                     <div className={styles.itemContent}>
                       <span className={styles.itemLabel}>{item.label}</span>
-                      {item.message && (
-                        <span className={styles.itemMessage}>{item.message}</span>
-                      )}
+                      {item.message && <span className={styles.itemMessage}>{item.message}</span>}
                     </div>
                   </div>
                 ))}

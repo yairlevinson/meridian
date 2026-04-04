@@ -1,6 +1,9 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { Parameter } from '../../../../shared-types/ipc/ParameterTypes'
-import { getParameterMetadata, validateParameterValue } from '../../../../shared-types/ipc/parameterMetadata'
+import {
+  getParameterMetadata,
+  validateParameterValue
+} from '../../../../shared-types/ipc/parameterMetadata'
 import styles from './ParameterEditorPage.module.css'
 
 interface Props {
@@ -16,7 +19,10 @@ export function ParameterRow({ param, pendingValue, onValueChange }: Props): Rea
 
   const meta = useMemo(() => getParameterMetadata(param.name), [param.name])
   const validation = useMemo(
-    () => (isModified && pendingValue !== undefined ? validateParameterValue(param.name, pendingValue) : null),
+    () =>
+      isModified && pendingValue !== undefined
+        ? validateParameterValue(param.name, pendingValue)
+        : null,
     [param.name, pendingValue, isModified]
   )
 
@@ -55,7 +61,12 @@ export function ParameterRow({ param, pendingValue, onValueChange }: Props): Rea
     <tr>
       <td className={styles.paramName}>
         {param.name}
-        {meta && <span className={styles.paramDesc} title={meta.shortDescription}> {meta.shortDescription}</span>}
+        {meta && (
+          <span className={styles.paramDesc} title={meta.shortDescription}>
+            {' '}
+            {meta.shortDescription}
+          </span>
+        )}
       </td>
       <td>
         <input
@@ -70,9 +81,7 @@ export function ParameterRow({ param, pendingValue, onValueChange }: Props): Rea
         />
         {validation && <span className={styles.paramValidation}>{validation}</span>}
       </td>
-      <td>
-        {rangeHint || param.type}
-      </td>
+      <td>{rangeHint || param.type}</td>
     </tr>
   )
 }

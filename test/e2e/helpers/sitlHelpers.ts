@@ -40,7 +40,6 @@ export const SITL_TIMEOUTS = {
   disarm: 60_000
 }
 
-
 // ── Connection & telemetry waits ────────────────────────────────────
 
 /** Wait for the telemetry bar to show CONNECTED. */

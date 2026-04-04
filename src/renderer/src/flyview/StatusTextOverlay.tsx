@@ -20,9 +20,14 @@ const SEVERITY_COLORS: Record<number, string> = {
 }
 
 const SEVERITY_TTL_MS: Record<number, number> = {
-  0: 30000, 1: 30000, 2: 30000, 3: 30000, // EMERGENCY..ERROR
-  4: 15000, 5: 15000,                       // WARNING, NOTICE
-  6: 5000, 7: 5000                           // INFO, DEBUG
+  0: 30000,
+  1: 30000,
+  2: 30000,
+  3: 30000, // EMERGENCY..ERROR
+  4: 15000,
+  5: 15000, // WARNING, NOTICE
+  6: 5000,
+  7: 5000 // INFO, DEBUG
 }
 
 let nextId = 0
@@ -35,7 +40,10 @@ export function StatusTextOverlay(): React.JSX.Element {
   useEffect(() => {
     if (typeof window === 'undefined' || !window.bridge) return
     const unsubscribe = window.bridge.onStatusText(({ severity, text }) => {
-      setMessages((prev) => [...prev.slice(-19), { id: nextId++, severity, text, timestamp: Date.now() }])
+      setMessages((prev) => [
+        ...prev.slice(-19),
+        { id: nextId++, severity, text, timestamp: Date.now() }
+      ])
     })
     return unsubscribe
   }, [])

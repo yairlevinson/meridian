@@ -23,9 +23,7 @@ export function MavConsoleView(): React.JSX.Element {
       setOutput((prev) => {
         const next = prev + payload.text
         // Trim if output gets too large
-        return next.length > MAX_OUTPUT_LENGTH
-          ? next.slice(next.length - MAX_OUTPUT_LENGTH)
-          : next
+        return next.length > MAX_OUTPUT_LENGTH ? next.slice(next.length - MAX_OUTPUT_LENGTH) : next
       })
     })
 
@@ -89,9 +87,7 @@ export function MavConsoleView(): React.JSX.Element {
       <div className={styles.root}>
         <div className={styles.emptyState}>
           <div className={styles.emptyTitle}>No vehicle connected</div>
-          <div className={styles.emptyMsg}>
-            Connect to a vehicle to use the MAVLink console
-          </div>
+          <div className={styles.emptyMsg}>Connect to a vehicle to use the MAVLink console</div>
         </div>
       </div>
     )
@@ -102,10 +98,7 @@ export function MavConsoleView(): React.JSX.Element {
       <div className={styles.toolbar}>
         <span className={styles.title}>MAVLink Console</span>
         <div className={styles.spacer} />
-        <button
-          className={styles.clearBtn}
-          onClick={() => setOutput('')}
-        >
+        <button className={styles.clearBtn} onClick={() => setOutput('')}>
           Clear
         </button>
       </div>

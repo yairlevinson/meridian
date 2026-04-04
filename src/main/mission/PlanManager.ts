@@ -196,8 +196,13 @@ export class PlanManager extends EventEmitter {
     mi.z = item.z
     mi.missionType = item.missionType as number as typeof mi.missionType
     mavLog.tx(73, this.targetSystem, this.targetComponent, {
-      seq: mi.seq, cmd: mi.command, frame: mi.frame,
-      x: mi.x, y: mi.y, z: mi.z, mtype: mi.missionType
+      seq: mi.seq,
+      cmd: mi.command,
+      frame: mi.frame,
+      x: mi.x,
+      y: mi.y,
+      z: mi.z,
+      mtype: mi.missionType
     })
     this.link.writeBytes(this.protocol.serialize(mi, this.seq++ & 0xff))
   }

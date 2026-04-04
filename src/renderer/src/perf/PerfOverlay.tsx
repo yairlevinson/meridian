@@ -56,14 +56,18 @@ export function PerfOverlay(): React.JSX.Element {
 
   return (
     <div className={styles.root}>
-      <span className={connected ? styles.connected : styles.disconnected} data-testid="conn-status">
+      <span
+        className={connected ? styles.connected : styles.disconnected}
+        data-testid="conn-status"
+      >
         {connected ? 'CONNECTED' : 'WAITING'}
       </span>
       <span className={styles.sep}>FPS {fps}</span>
       <span className={styles.sep}>IPC {ipcLatency}ms</span>
       {attitude && (
         <span className={styles.sep}>
-          Roll: {(attitude.roll * RAD_TO_DEG).toFixed(1)} Pitch: {(attitude.pitch * RAD_TO_DEG).toFixed(1)} Yaw: {(attitude.yaw * RAD_TO_DEG).toFixed(1)}
+          Roll: {(attitude.roll * RAD_TO_DEG).toFixed(1)} Pitch:{' '}
+          {(attitude.pitch * RAD_TO_DEG).toFixed(1)} Yaw: {(attitude.yaw * RAD_TO_DEG).toFixed(1)}
         </span>
       )}
       {gps && (

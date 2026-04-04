@@ -51,8 +51,7 @@ export function CameraPanel(): React.JSX.Element | null {
 
   const isPhoto = camera.mode === CameraMode.Photo
   const isVideo = camera.mode === CameraMode.Video
-  const cameraName =
-    camera.info?.modelName || camera.info?.vendorName || 'Camera'
+  const cameraName = camera.info?.modelName || camera.info?.vendorName || 'Camera'
 
   return (
     <div className={styles.panel}>

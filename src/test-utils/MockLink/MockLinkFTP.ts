@@ -222,7 +222,8 @@ export class MockLinkFTP {
     while (offset < file.length && chunksSent < maxChunksPerBurst) {
       const chunkSize = Math.min(MAX_DATA_LENGTH, file.length - offset)
       const chunk = file.subarray(offset, offset + chunkSize)
-      const isLastInBurst = chunksSent === maxChunksPerBurst - 1 || offset + chunkSize >= file.length
+      const isLastInBurst =
+        chunksSent === maxChunksPerBurst - 1 || offset + chunkSize >= file.length
 
       const response: FTPPayload = {
         seqNumber: seqNum++,

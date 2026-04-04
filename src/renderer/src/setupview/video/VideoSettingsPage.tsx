@@ -104,9 +104,7 @@ export function VideoSettingsPage(): React.JSX.Element {
       <div className={styles.statusBar}>
         <span className={streaming ? styles.statusDotOn : styles.statusDotOff} />
         <span className={streaming ? styles.statusTextOn : styles.statusTextOff}>
-          {streaming
-            ? `Streaming ${streamState?.sourceType ?? ''}`
-            : 'Not streaming'}
+          {streaming ? `Streaming ${streamState?.sourceType ?? ''}` : 'Not streaming'}
         </span>
         {recording && <span className={styles.recordingBadge}>REC</span>}
       </div>
@@ -147,11 +145,7 @@ export function VideoSettingsPage(): React.JSX.Element {
 
       {/* Actions */}
       <div className={styles.actions}>
-        <button
-          className={styles.applyBtn}
-          onClick={handleApply}
-          disabled={!dirty && streaming}
-        >
+        <button className={styles.applyBtn} onClick={handleApply} disabled={!dirty && streaming}>
           {streaming && !dirty ? 'Streaming' : isDisabled ? 'Stop' : 'Start Streaming'}
         </button>
         {streaming && (

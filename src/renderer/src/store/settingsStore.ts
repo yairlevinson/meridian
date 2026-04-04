@@ -23,10 +23,9 @@ setTimeout(() => {
       useSettingsStore.getState().setAll(all)
     })
     window.bridge.onSettingsChanged(({ key, value }) => {
-      useSettingsStore.getState().setSetting(
-        key as keyof AppSettings,
-        value as AppSettings[keyof AppSettings]
-      )
+      useSettingsStore
+        .getState()
+        .setSetting(key as keyof AppSettings, value as AppSettings[keyof AppSettings])
     })
   }
 }, 0)

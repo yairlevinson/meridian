@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { getParameterMetadata, validateParameterValue } from '../src/shared-types/ipc/parameterMetadata'
+import {
+  getParameterMetadata,
+  validateParameterValue
+} from '../src/shared-types/ipc/parameterMetadata'
 
 describe('getParameterMetadata', () => {
   it('returns metadata for known parameters', () => {

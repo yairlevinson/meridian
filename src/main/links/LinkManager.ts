@@ -184,7 +184,9 @@ export class LinkManager extends EventEmitter {
         // Wait one cycle before connecting (bootloader may still be running)
         if (!this.waitList.has(port.path)) {
           this.waitList.add(port.path)
-          console.log(`[LinkManager] Detected autopilot on ${port.path} (${port.manufacturer ?? 'unknown'}), waiting...`)
+          console.log(
+            `[LinkManager] Detected autopilot on ${port.path} (${port.manufacturer ?? 'unknown'}), waiting...`
+          )
           continue
         }
         this.waitList.delete(port.path)
@@ -209,7 +211,10 @@ export class LinkManager extends EventEmitter {
           }
           // Busy ports get a long backoff (60s) — likely held by another app.
           // Other failures use a short backoff (5s) for transient issues.
-          this.failedPorts.set(port.path, busy ? AUTO_CONNECT_BUSY_CYCLES : AUTO_CONNECT_RETRY_CYCLES)
+          this.failedPorts.set(
+            port.path,
+            busy ? AUTO_CONNECT_BUSY_CYCLES : AUTO_CONNECT_RETRY_CYCLES
+          )
         }
       }
 

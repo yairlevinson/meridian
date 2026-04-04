@@ -7,7 +7,11 @@ export function AttitudeIndicator({ size = 150 }: { size?: number }): React.JSX.
   const attitude = useTelemetry('attitude')
 
   if (!attitude) {
-    return <div className={styles.noData} style={{ width: size, height: size }}>No data</div>
+    return (
+      <div className={styles.noData} style={{ width: size, height: size }}>
+        No data
+      </div>
+    )
   }
 
   const rollDeg = attitude.roll * RAD_TO_DEG

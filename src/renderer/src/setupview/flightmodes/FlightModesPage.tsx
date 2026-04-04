@@ -60,8 +60,7 @@ function px4ActiveSlot(
   const slotMax = 1.0 + 0.05
 
   let slot = Math.floor(
-    ((cal - slotMin) * numSlots + slotWidthHalf) / (slotMax - slotMin) +
-      1.0 / numSlots
+    ((cal - slotMin) * numSlots + slotWidthHalf) / (slotMax - slotMin) + 1.0 / numSlots
   )
   if (slot >= numSlots) slot = numSlots - 1
   return slot + 1 // 1-based
@@ -132,7 +131,11 @@ function ChannelSelect({
 
 /* ── Channel Monitor ─────────────────────── */
 
-function ChannelMonitor({ rc }: { rc: { channels: number[]; channelCount: number } | undefined }): React.JSX.Element {
+function ChannelMonitor({
+  rc
+}: {
+  rc: { channels: number[]; channelCount: number } | undefined
+}): React.JSX.Element {
   const count = rc?.channelCount ?? 0
   const channels = rc?.channels ?? []
   return (
@@ -169,9 +172,7 @@ function PX4FlightModesPage(): React.JSX.Element {
     return vid !== null ? s.vehicles[vid]?.rc : undefined
   })
 
-  const vehicleType = activeVehicleId
-    ? (vehicles[activeVehicleId]?.core?.vehicleType ?? 0)
-    : 0
+  const vehicleType = activeVehicleId ? (vehicles[activeVehicleId]?.core?.vehicleType ?? 0) : 0
   // MAV_TYPE: 1=fixed-wing, 19-25=VTOL
   const isVtol = vehicleType >= 19 && vehicleType <= 25
   const isFixedWing = vehicleType === 1 || isVtol
@@ -187,12 +188,13 @@ function PX4FlightModesPage(): React.JSX.Element {
   }, [parameters])
 
   // Switch settings — read saved values
-  const visibleSwitches = useMemo(() =>
-    PX4_SWITCHES.filter((sw) => {
-      if (sw.condition === 'vtol') return isVtol
-      if (sw.condition === 'fixedWing') return isFixedWing
-      return true
-    }),
+  const visibleSwitches = useMemo(
+    () =>
+      PX4_SWITCHES.filter((sw) => {
+        if (sw.condition === 'vtol') return isVtol
+        if (sw.condition === 'fixedWing') return isFixedWing
+        return true
+      }),
     [isVtol, isFixedWing]
   )
 
@@ -331,8 +333,13 @@ function PX4FlightModesPage(): React.JSX.Element {
             {visibleSwitches.map((sw) => {
               const chVal = switchValues.get(sw.param) ?? 0
               return (
-                <div key={sw.param} className={`${styles.switchRow} ${chVal > 0 ? styles.switchRowAssigned : ''}`}>
-                  <span className={`${styles.switchDot} ${chVal > 0 ? styles.switchDotActive : ''}`} />
+                <div
+                  key={sw.param}
+                  className={`${styles.switchRow} ${chVal > 0 ? styles.switchRowAssigned : ''}`}
+                >
+                  <span
+                    className={`${styles.switchDot} ${chVal > 0 ? styles.switchDotActive : ''}`}
+                  />
                   <span className={styles.switchLabel}>{sw.label}</span>
                   <ChannelSelect
                     value={chVal}
@@ -439,12 +446,14 @@ function ArduPilotFlightModesPage(): React.JSX.Element {
   }, [])
 
   const handleSimpleToggle = useCallback((slot: number, checked: boolean) => {
-    setSimpleBitmask((prev) => checked ? prev | (1 << (slot - 1)) : prev & ~(1 << (slot - 1)))
+    setSimpleBitmask((prev) => (checked ? prev | (1 << (slot - 1)) : prev & ~(1 << (slot - 1))))
     setHasChanges(true)
   }, [])
 
   const handleSuperSimpleToggle = useCallback((slot: number, checked: boolean) => {
-    setSuperSimpleBitmask((prev) => checked ? prev | (1 << (slot - 1)) : prev & ~(1 << (slot - 1)))
+    setSuperSimpleBitmask((prev) =>
+      checked ? prev | (1 << (slot - 1)) : prev & ~(1 << (slot - 1))
+    )
     setHasChanges(true)
   }, [])
 
@@ -460,7 +469,16 @@ function ArduPilotFlightModesPage(): React.JSX.Element {
       await bridge.setParameter(vehicleId, 'SUPER_SIMPLE', superSimpleBitmask)
     }
     setHasChanges(false)
-  }, [vehicleId, chParam, modeParamPrefix, modeChannel, modes, showSimple, simpleBitmask, superSimpleBitmask])
+  }, [
+    vehicleId,
+    chParam,
+    modeParamPrefix,
+    modeChannel,
+    modes,
+    showSimple,
+    simpleBitmask,
+    superSimpleBitmask
+  ])
 
   const handleDiscard = useCallback(() => {
     setModeChannel(savedModeChannel)
@@ -507,10 +525,7 @@ function ArduPilotFlightModesPage(): React.JSX.Element {
           const range = ARDU_PWM_RANGES[i]!
           const isActive = activeSlot === slot
           return (
-            <div
-              key={slot}
-              className={`${styles.modeRow} ${isActive ? styles.modeRowActive : ''}`}
-            >
+            <div key={slot} className={`${styles.modeRow} ${isActive ? styles.modeRowActive : ''}`}>
               <span className={styles.slotBadge}>{slot}</span>
               <select
                 className={styles.modeSelect}

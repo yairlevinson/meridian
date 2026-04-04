@@ -22,7 +22,10 @@ export function ParameterEditorPage(): React.JSX.Element {
   // Filter and group parameters
   const { groups, filteredCount } = useMemo(() => {
     const searchLower = search.toLowerCase()
-    const grouped = new Map<string, Array<[string, (typeof parameters extends Map<string, infer V> ? V : never)]>>()
+    const grouped = new Map<
+      string,
+      Array<[string, typeof parameters extends Map<string, infer V> ? V : never]>
+    >()
     let count = 0
 
     for (const [name, param] of parameters) {
@@ -141,7 +144,9 @@ function GroupRows({
   onValueChange
 }: {
   group: string
-  params: Array<[string, { name: string; value: number; type: number; index: number; componentId: number }]>
+  params: Array<
+    [string, { name: string; value: number; type: number; index: number; componentId: number }]
+  >
   pendingChanges: Map<string, number>
   onValueChange: (name: string, value: number) => void
 }): React.JSX.Element {

@@ -396,8 +396,7 @@ export class GazeboLauncher {
       let mavlinkReady = false
       let homeSet = false
 
-      const stripAnsi = (s: string): string =>
-        s.replace(/\x1b\[[0-9;]*[a-zA-Z]|\[\d+[a-zA-Z]/g, '')
+      const stripAnsi = (s: string): string => s.replace(/\x1b\[[0-9;]*[a-zA-Z]|\[\d+[a-zA-Z]/g, '')
 
       // Strip pxh> prompt noise that floods stdout and drowns real messages
       const stripPrompt = (s: string): string => s.replace(/pxh>\s*/g, '')

@@ -7,13 +7,5 @@ interface PopoutViewProps {
 }
 
 export function PopoutView({ view }: PopoutViewProps): React.JSX.Element {
-  return (
-    <div className={styles.root}>
-      {view === 'video' ? (
-        <VideoView />
-      ) : (
-        <MapView />
-      )}
-    </div>
-  )
+  return <div className={styles.root}>{view === 'video' ? <VideoView /> : <MapView />}</div>
 }

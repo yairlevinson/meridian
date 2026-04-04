@@ -56,13 +56,26 @@ function OrientationIcon({
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <g transform={`rotate(${r} ${cx} ${cy})`}>
         {/* Arms */}
-        <line x1={cx - arm} y1={cy - arm} x2={cx + arm} y2={cy + arm}
-          stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" />
-        <line x1={cx + arm} y1={cy - arm} x2={cx - arm} y2={cy + arm}
-          stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" />
+        <line
+          x1={cx - arm}
+          y1={cy - arm}
+          x2={cx + arm}
+          y2={cy + arm}
+          stroke="currentColor"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+        />
+        <line
+          x1={cx + arm}
+          y1={cy - arm}
+          x2={cx - arm}
+          y2={cy + arm}
+          stroke="currentColor"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+        />
         {/* Body */}
-        <ellipse cx={cx} cy={cy} rx={bodyRx} ry={bodyRy}
-          fill="currentColor" opacity={0.85} />
+        <ellipse cx={cx} cy={cy} rx={bodyRx} ry={bodyRy} fill="currentColor" opacity={0.85} />
         {/* Motors */}
         <circle cx={cx - arm} cy={cy - arm} r={motor} fill="currentColor" opacity={0.6} />
         <circle cx={cx + arm} cy={cy - arm} r={motor} fill="currentColor" opacity={0.6} />
@@ -71,12 +84,21 @@ function OrientationIcon({
         {/* Front indicator (triangle) */}
         <polygon
           points={`${cx},${cy - bodyRy + 1} ${cx - 4},${cy - bodyRy + 8} ${cx + 4},${cy - bodyRy + 8}`}
-          fill="currentColor" />
+          fill="currentColor"
+        />
       </g>
       {/* Ground line for orientations that show tilt */}
       {orientation !== CalibrationOrientation.Level && (
-        <line x1={size * 0.15} y1={size - 6} x2={size * 0.85} y2={size - 6}
-          stroke="currentColor" strokeWidth={1} opacity={0.25} strokeDasharray="3 3" />
+        <line
+          x1={size * 0.15}
+          y1={size - 6}
+          x2={size * 0.85}
+          y2={size - 6}
+          stroke="currentColor"
+          strokeWidth={1}
+          opacity={0.25}
+          strokeDasharray="3 3"
+        />
       )}
     </svg>
   )
@@ -97,8 +119,7 @@ export function CalibrationWizard({ state, onCancel, onDone }: Props): React.JSX
     state.status === CalibrationStatus.Cancelled
 
   const showOrientationGrid =
-    state.sensor === CalibrationSensor.Accel ||
-    state.sensor === CalibrationSensor.AccelSimple
+    state.sensor === CalibrationSensor.Accel || state.sensor === CalibrationSensor.AccelSimple
 
   const statusLabel =
     state.status === CalibrationStatus.Complete
@@ -164,11 +185,7 @@ export function CalibrationWizard({ state, onCancel, onDone }: Props): React.JSX
               <div
                 key={id}
                 className={`${styles.orientationCard} ${
-                  isDone
-                    ? styles.cardDone
-                    : isCurrent
-                      ? styles.cardActive
-                      : styles.cardPending
+                  isDone ? styles.cardDone : isCurrent ? styles.cardActive : styles.cardPending
                 }`}
               >
                 <div className={styles.cardIcon}>

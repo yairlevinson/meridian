@@ -36,9 +36,9 @@ export class MavlinkChannel {
   /** CRC extra bytes for messages not in mavlink-mappings (e.g. development dialect) */
   private static readonly EXTRA_CRC_MAGIC: Record<number, number> = {
     148: 178, // AUTOPILOT_VERSION
-    168: 1,   // WIND (ArduPilot)
-    191: 92,  // MAG_CAL_PROGRESS
-    397: 182, // COMPONENT_METADATA
+    168: 1, // WIND (ArduPilot)
+    191: 92, // MAG_CAL_PROGRESS
+    397: 182 // COMPONENT_METADATA
   }
 
   /** Per-sysid+compid sequence tracking for loss detection */

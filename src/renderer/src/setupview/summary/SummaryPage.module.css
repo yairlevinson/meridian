@@ -121,7 +121,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .cardClickable {

@@ -40,9 +40,17 @@ test.describe.serial('PX4 SITL Parameters', () => {
 
     // Find a well-known PX4 parameter — try several common ones
     const knownNames = [
-      'SYS_AUTOSTART', 'MAV_SYS_ID', 'COM_ARM_EKF_AB', 'MPC_XY_VEL_MAX',
-      'BAT1_CAPACITY', 'ATT_EN', 'ASPD_SCALE_1', 'NAV_ACC_RAD',
-      'COM_RC_LOSS_T', 'COM_DL_LOSS_T', 'MPC_Z_VEL_MAX_UP'
+      'SYS_AUTOSTART',
+      'MAV_SYS_ID',
+      'COM_ARM_EKF_AB',
+      'MPC_XY_VEL_MAX',
+      'BAT1_CAPACITY',
+      'ATT_EN',
+      'ASPD_SCALE_1',
+      'NAV_ACC_RAD',
+      'COM_RC_LOSS_T',
+      'COM_DL_LOSS_T',
+      'MPC_Z_VEL_MAX_UP'
     ]
     const knownParam = params.find((p: any) => knownNames.includes(p.name))
     expect(knownParam).toBeTruthy()
@@ -67,10 +75,10 @@ test.describe.serial('PX4 SITL Parameters', () => {
     const testValue = originalValue === 12 ? 10 : 12
 
     // Set new value
-    await page.evaluate(
-      ({ name, val }) => window.bridge.setParameter(1, name, val),
-      { name: 'MPC_XY_VEL_MAX', val: testValue }
-    )
+    await page.evaluate(({ name, val }) => window.bridge.setParameter(1, name, val), {
+      name: 'MPC_XY_VEL_MAX',
+      val: testValue
+    })
 
     // Wait for the parameter to be acknowledged
     await page.waitForTimeout(2000)
@@ -82,10 +90,10 @@ test.describe.serial('PX4 SITL Parameters', () => {
     expect(updated.value).toBeCloseTo(testValue, 0)
 
     // Restore original value
-    await page.evaluate(
-      ({ name, val }) => window.bridge.setParameter(1, name, val),
-      { name: 'MPC_XY_VEL_MAX', val: originalValue }
-    )
+    await page.evaluate(({ name, val }) => window.bridge.setParameter(1, name, val), {
+      name: 'MPC_XY_VEL_MAX',
+      val: originalValue
+    })
   })
 
   test('parameter count is in expected range for PX4', async ({ page }) => {

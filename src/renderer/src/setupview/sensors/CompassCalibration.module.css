@@ -123,8 +123,15 @@
 }
 
 @keyframes cardPulse {
-  0%, 100% { border-color: #ffd700; box-shadow: 0 0 20px rgba(255, 215, 0, 0.15); }
-  50% { border-color: rgba(255, 215, 0, 0.4); box-shadow: 0 0 10px rgba(255, 215, 0, 0.05); }
+  0%,
+  100% {
+    border-color: #ffd700;
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.15);
+  }
+  50% {
+    border-color: rgba(255, 215, 0, 0.4);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.05);
+  }
 }
 
 /* ── Vehicle scene ───────────────────────── */
@@ -159,8 +166,12 @@
 }
 
 @keyframes rotateArrowSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .rotateArc {

@@ -2,7 +2,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { CalibrationManager } from '../src/main/calibration/CalibrationManager'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
-import { CalibrationSensor, CalibrationStatus, CalibrationOrientation } from '../src/shared-types/ipc/SetupTypes'
+import {
+  CalibrationSensor,
+  CalibrationStatus,
+  CalibrationOrientation
+} from '../src/shared-types/ipc/SetupTypes'
 
 describe('CalibrationManager', () => {
   let mgr: CalibrationManager

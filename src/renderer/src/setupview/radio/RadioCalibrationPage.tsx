@@ -125,7 +125,11 @@ export function RadioCalibrationPage(): React.JSX.Element {
 
         <div className={styles.statusActions}>
           {isIdle && (
-            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleStart} disabled={!hasRcInput}>
+            <button
+              className={`${styles.btn} ${styles.btnPrimary}`}
+              onClick={handleStart}
+              disabled={!hasRcInput}
+            >
               Start
             </button>
           )}
@@ -153,7 +157,9 @@ export function RadioCalibrationPage(): React.JSX.Element {
       </div>
 
       {/* Stick mapping during detect phase */}
-      {(step === RcCalStep.DetectSticks || step === RcCalStep.MinMax || step === RcCalStep.Complete) && (
+      {(step === RcCalStep.DetectSticks ||
+        step === RcCalStep.MinMax ||
+        step === RcCalStep.Complete) && (
         <div className={styles.stickMapping}>
           {STICK_NAMES.map((name) => {
             const ch = rcCalState?.stickMapping[name]

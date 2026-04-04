@@ -17,9 +17,7 @@ export function FieldTable(): React.JSX.Element {
     )
   }
 
-  const msg = messages.find(
-    (m) => `${m.sysid}:${m.compid}:${m.msgid}` === selectedKey
-  )
+  const msg = messages.find((m) => `${m.sysid}:${m.compid}:${m.msgid}` === selectedKey)
 
   return (
     <div className={styles.fieldPanel}>
@@ -27,8 +25,8 @@ export function FieldTable(): React.JSX.Element {
         <div className={styles.fieldHeader}>
           <span className={styles.fieldMsgName}>{msg.name}</span>
           <span className={styles.fieldMsgMeta}>
-            ID {msg.msgid} &middot; Sys {msg.sysid} &middot; Comp {msg.compid} &middot;{' '}
-            {msg.rateHz} Hz &middot; {msg.count} total
+            ID {msg.msgid} &middot; Sys {msg.sysid} &middot; Comp {msg.compid} &middot; {msg.rateHz}{' '}
+            Hz &middot; {msg.count} total
           </span>
         </div>
       )}

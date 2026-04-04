@@ -2,13 +2,13 @@ import { EventEmitter } from 'events'
 import { common } from 'mavlink-mappings'
 import type { LinkInterface } from '../links/LinkInterface'
 import { createGcsProtocol } from '../mavlink/constants'
-import type {
-  CameraInfo,
-  CameraState,
-  CaptureStatus,
-  StorageInfo
+import type { CameraInfo, CameraState, CaptureStatus, StorageInfo } from '@shared/ipc/CameraTypes'
+import {
+  CameraMode,
+  CameraCapFlags,
+  CameraCaptureStatus,
+  StorageStatus
 } from '@shared/ipc/CameraTypes'
-import { CameraMode, CameraCapFlags, CameraCaptureStatus, StorageStatus } from '@shared/ipc/CameraTypes'
 
 // MAV_CMD constants for camera protocol
 const MAV_CMD_REQUEST_MESSAGE = 512
@@ -189,7 +189,7 @@ export class CameraManager extends EventEmitter {
     this._sendCommand(MAV_CMD_IMAGE_START_CAPTURE, {
       p1: 0, // all cameras
       p2: 0, // single shot (no interval)
-      p3: 1  // count = 1
+      p3: 1 // count = 1
     })
     this._isCapturingImage = true
     this.emit('stateChanged', this.state)
@@ -220,7 +220,7 @@ export class CameraManager extends EventEmitter {
     this._sendCommand(MAV_CMD_VIDEO_START_CAPTURE, {
       p1: 0, // all streams
       p2: 0, // status frequency
-      p3: 0  // all cameras
+      p3: 0 // all cameras
     })
     this._isRecordingVideo = true
     this.emit('stateChanged', this.state)
@@ -230,7 +230,7 @@ export class CameraManager extends EventEmitter {
   stopRecording(): void {
     this._sendCommand(MAV_CMD_VIDEO_STOP_CAPTURE, {
       p1: 0, // all streams
-      p2: 0  // all cameras
+      p2: 0 // all cameras
     })
     this._isRecordingVideo = false
     this.emit('stateChanged', this.state)
@@ -239,8 +239,8 @@ export class CameraManager extends EventEmitter {
   /** Switch camera mode (photo / video) */
   setMode(mode: CameraMode): void {
     this._sendCommand(MAV_CMD_SET_CAMERA_MODE, {
-      p1: 0,        // reserved
-      p2: mode       // 0=photo, 1=video
+      p1: 0, // reserved
+      p2: mode // 0=photo, 1=video
     })
     this._mode = mode
     this.emit('stateChanged', this.state)
@@ -305,10 +305,7 @@ export class CameraManager extends EventEmitter {
     }
     this._useRequestMessage = !this._useRequestMessage
 
-    this._infoTimer = setTimeout(
-      () => this._requestCameraInformation(),
-      INFO_REQUEST_INTERVAL_MS
-    )
+    this._infoTimer = setTimeout(() => this._requestCameraInformation(), INFO_REQUEST_INTERVAL_MS)
   }
 
   private _requestCameraSettings(): void {
@@ -370,17 +367,22 @@ export class CameraManager extends EventEmitter {
       interval = CAPTURE_STATUS_VIDEO_POLL_MS
     }
 
-    this._captureStatusTimer = setInterval(
-      () => this._requestCaptureStatus(),
-      interval
-    )
+    this._captureStatusTimer = setInterval(() => this._requestCaptureStatus(), interval)
   }
 
   // ── Helpers ───────────────────────────────────────────────────
 
   private _sendCommand(
     command: number,
-    params: { p1?: number; p2?: number; p3?: number; p4?: number; p5?: number; p6?: number; p7?: number } = {}
+    params: {
+      p1?: number
+      p2?: number
+      p3?: number
+      p4?: number
+      p5?: number
+      p6?: number
+      p7?: number
+    } = {}
   ): void {
     if (!this.link) return
 

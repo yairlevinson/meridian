@@ -48,7 +48,9 @@ export function FirmwarePage(): React.JSX.Element {
         // Use webkitRelativePath or name — the main process will receive the path via IPC
         setSelectedFile(file.name)
         // Store the file path for upload. In Electron, file inputs provide the real path.
-        ;(input as unknown as { _filePath: string })._filePath = (file as unknown as { path: string }).path
+        ;(input as unknown as { _filePath: string })._filePath = (
+          file as unknown as { path: string }
+        ).path
         setSelectedFile((file as unknown as { path: string }).path || file.name)
       }
     }

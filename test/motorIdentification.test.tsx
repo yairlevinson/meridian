@@ -93,9 +93,7 @@ describe('MotorIdentification — running wizard', () => {
     fireEvent.click(screen.getByText('Next'))
     // stopAllMotors calls motorTest(vid, i, 0, 0) for each motor
     // then spinCurrent calls motorTest(vid, 2, 15, 3)
-    const spinCall = mockMotorTest.mock.calls.find(
-      (c: number[]) => c[1] === 2 && c[2] === 15
-    )
+    const spinCall = mockMotorTest.mock.calls.find((c: number[]) => c[1] === 2 && c[2] === 15)
     expect(spinCall).toBeTruthy()
   })
 
@@ -121,9 +119,7 @@ describe('MotorIdentification — running wizard', () => {
 
     fireEvent.click(screen.getByText('Spin Again'))
     // Should call motorTest for motor 1 again
-    const spinCall = mockMotorTest.mock.calls.find(
-      (c: number[]) => c[1] === 1 && c[2] === 15
-    )
+    const spinCall = mockMotorTest.mock.calls.find((c: number[]) => c[1] === 1 && c[2] === 15)
     expect(spinCall).toBeTruthy()
     expect(screen.getByText('SPINNING')).toBeTruthy()
   })

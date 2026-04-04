@@ -675,7 +675,10 @@ export function startIpcBridge(
       channel: IpcChannels.SettingsSet,
       handler: (req: { key: string; value: unknown }) => {
         if (settingsManager) {
-          settingsManager.set(req.key as keyof import('@shared/ipc/AppSettings').AppSettings, req.value as never)
+          settingsManager.set(
+            req.key as keyof import('@shared/ipc/AppSettings').AppSettings,
+            req.value as never
+          )
         }
       }
     }

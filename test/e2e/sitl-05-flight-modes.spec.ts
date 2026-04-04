@@ -10,12 +10,7 @@
  */
 
 import { test, expect, useSitl } from './fixtures/vehicleFixture'
-import {
-  waitConnected,
-  waitGpsFix,
-  ensureDisarmed,
-  SITL_TIMEOUTS
-} from './helpers/sitlHelpers'
+import { waitConnected, waitGpsFix, ensureDisarmed, SITL_TIMEOUTS } from './helpers/sitlHelpers'
 
 test.skip(!useSitl, 'SITL-only tests')
 

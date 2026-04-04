@@ -27,7 +27,12 @@ const SENSOR_GPS = 1 << 5
 const SENSOR_AHRS = 1 << 21
 
 const ALL_CHECKED =
-  SENSOR_3D_GYRO | SENSOR_3D_ACCEL | SENSOR_3D_MAG | SENSOR_ABSOLUTE_PRESSURE | SENSOR_GPS | SENSOR_AHRS
+  SENSOR_3D_GYRO |
+  SENSOR_3D_ACCEL |
+  SENSOR_3D_MAG |
+  SENSOR_ABSOLUTE_PRESSURE |
+  SENSOR_GPS |
+  SENSOR_AHRS
 
 function makeCore(overrides: Partial<CoreGroup> = {}): CoreGroup {
   return {
@@ -125,7 +130,9 @@ describe('Pre-Flight Checklist — GPS check', () => {
   })
 
   it('fails with too few satellites', () => {
-    useVehicleStore.getState().mergeDelta(1, { gpsRaw: makeGpsRaw({ satelliteCount: 5 }) }, Date.now())
+    useVehicleStore
+      .getState()
+      .mergeDelta(1, { gpsRaw: makeGpsRaw({ satelliteCount: 5 }) }, Date.now())
     const gpsRaw = useVehicleStore.getState().vehicles[1]?.gpsRaw
     expect(gpsRaw!.satelliteCount).toBeLessThan(9)
   })

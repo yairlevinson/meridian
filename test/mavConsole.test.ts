@@ -102,9 +102,7 @@ describe('MAVLink Console', () => {
       vehicle.on('consoleData', handler)
 
       // "hi" is 2 bytes, but data array is padded to 70
-      const dataArr = Array.from({ length: 70 }, (_, i) =>
-        i < 2 ? [104, 105][i]! : 0
-      )
+      const dataArr = Array.from({ length: 70 }, (_, i) => (i < 2 ? [104, 105][i]! : 0))
       vehicle.handleMessage(
         {
           msgid: 126,

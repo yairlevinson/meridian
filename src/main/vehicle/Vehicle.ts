@@ -197,13 +197,46 @@ export class Vehicle extends EventEmitter {
 
     // RC_CHANNELS (65)
     65: (v, msg) => {
-      const rc = msg.data as { chancount: number; chan1Raw: number; chan2Raw: number; chan3Raw: number; chan4Raw: number; chan5Raw: number; chan6Raw: number; chan7Raw: number; chan8Raw: number; chan9Raw: number; chan10Raw: number; chan11Raw: number; chan12Raw: number; chan13Raw: number; chan14Raw: number; chan15Raw: number; chan16Raw: number; chan17Raw: number; chan18Raw: number }
+      const rc = msg.data as {
+        chancount: number
+        chan1Raw: number
+        chan2Raw: number
+        chan3Raw: number
+        chan4Raw: number
+        chan5Raw: number
+        chan6Raw: number
+        chan7Raw: number
+        chan8Raw: number
+        chan9Raw: number
+        chan10Raw: number
+        chan11Raw: number
+        chan12Raw: number
+        chan13Raw: number
+        chan14Raw: number
+        chan15Raw: number
+        chan16Raw: number
+        chan17Raw: number
+        chan18Raw: number
+      }
       const channels: number[] = [
-        rc.chan1Raw, rc.chan2Raw, rc.chan3Raw, rc.chan4Raw,
-        rc.chan5Raw, rc.chan6Raw, rc.chan7Raw, rc.chan8Raw,
-        rc.chan9Raw, rc.chan10Raw, rc.chan11Raw, rc.chan12Raw,
-        rc.chan13Raw, rc.chan14Raw, rc.chan15Raw, rc.chan16Raw,
-        rc.chan17Raw, rc.chan18Raw
+        rc.chan1Raw,
+        rc.chan2Raw,
+        rc.chan3Raw,
+        rc.chan4Raw,
+        rc.chan5Raw,
+        rc.chan6Raw,
+        rc.chan7Raw,
+        rc.chan8Raw,
+        rc.chan9Raw,
+        rc.chan10Raw,
+        rc.chan11Raw,
+        rc.chan12Raw,
+        rc.chan13Raw,
+        rc.chan14Raw,
+        rc.chan15Raw,
+        rc.chan16Raw,
+        rc.chan17Raw,
+        rc.chan18Raw
       ]
       v.rcCalibrationManager.updateChannels(channels, rc.chancount)
     },
@@ -225,7 +258,12 @@ export class Vehicle extends EventEmitter {
 
     // FILE_TRANSFER_PROTOCOL (110)
     110: (v, msg) => {
-      const ftpMsg = msg.data as { targetNetwork: number; targetSystem: number; targetComponent: number; payload: number[] }
+      const ftpMsg = msg.data as {
+        targetNetwork: number
+        targetSystem: number
+        targetComponent: number
+        payload: number[]
+      }
       const buf = Buffer.from(ftpMsg.payload)
       if (buf.length >= 12) {
         const size = buf[4] ?? 0
@@ -273,9 +311,15 @@ export class Vehicle extends EventEmitter {
     191: (v, msg) => {
       v.calibrationManager.handleMagCalProgress(
         msg.data as {
-          compassId: number; calMask: number; calStatus: number; attempt: number
-          completionPct: number; completionMask: number[]
-          directionX: number; directionY: number; directionZ: number
+          compassId: number
+          calMask: number
+          calStatus: number
+          attempt: number
+          completionPct: number
+          completionMask: number[]
+          directionX: number
+          directionY: number
+          directionZ: number
         }
       )
     },
@@ -284,8 +328,14 @@ export class Vehicle extends EventEmitter {
     192: (v, msg) => {
       v.calibrationManager.handleMagCalReport(
         msg.data as {
-          compassId: number; calMask: number; calStatus: number; autosaved: number
-          fitness: number; ofsX: number; ofsY: number; ofsZ: number
+          compassId: number
+          calMask: number
+          calStatus: number
+          autosaved: number
+          fitness: number
+          ofsX: number
+          ofsY: number
+          ofsZ: number
         }
       )
     },
@@ -329,15 +379,34 @@ export class Vehicle extends EventEmitter {
   /** Convert raw mission item data to MissionItem */
   private static _handleMissionItem(v: Vehicle, msg: DecodedMessage): void {
     const d = msg.data as {
-      seq: number; frame: number; command: number; current: number; autocontinue: number
-      param1: number; param2: number; param3: number; param4: number
-      x: number; y: number; z: number; missionType: number
+      seq: number
+      frame: number
+      command: number
+      current: number
+      autocontinue: number
+      param1: number
+      param2: number
+      param3: number
+      param4: number
+      x: number
+      y: number
+      z: number
+      missionType: number
     }
     const item: MissionItem = {
-      seq: d.seq, frame: d.frame, command: d.command,
-      current: d.current !== 0, autocontinue: d.autocontinue !== 0,
-      param1: d.param1, param2: d.param2, param3: d.param3, param4: d.param4,
-      x: d.x, y: d.y, z: d.z, missionType: d.missionType as MissionType
+      seq: d.seq,
+      frame: d.frame,
+      command: d.command,
+      current: d.current !== 0,
+      autocontinue: d.autocontinue !== 0,
+      param1: d.param1,
+      param2: d.param2,
+      param3: d.param3,
+      param4: d.param4,
+      x: d.x,
+      y: d.y,
+      z: d.z,
+      missionType: d.missionType as MissionType
     }
     v.missionManager.handleMissionItemInt(item)
   }

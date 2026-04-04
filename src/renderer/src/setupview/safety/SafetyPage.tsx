@@ -9,7 +9,7 @@ const MAV_AUTOPILOT_PX4 = 12
 /* ── Shared helpers ─────────────────────────── */
 
 /** Read a parameter value, preferring local edit */
-function useParamVal(
+function getParamVal(
   parameters: Map<string, { value: number }>,
   edits: Record<string, number>,
   name: string
@@ -20,9 +20,18 @@ function useParamVal(
 }
 
 function ParamInput({
-  label, param, unit, parameters, edits, onEdit, disabled, scale
+  label,
+  param,
+  unit,
+  parameters,
+  edits,
+  onEdit,
+  disabled,
+  scale
 }: {
-  label: string; param: string; unit?: string
+  label: string
+  param: string
+  unit?: string
   parameters: Map<string, { value: number }>
   edits: Record<string, number>
   onEdit: (param: string, value: number) => void
@@ -38,19 +47,35 @@ function ParamInput({
   const modified = param in edits
   return (
     <div className={styles.paramRow}>
-      <span className={`${styles.paramLabel} ${modified ? styles.paramModified : ''}`}>{label}</span>
-      <input className={styles.paramInput} type="number" step="any"
-        value={display} disabled={disabled}
-        onChange={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) onEdit(param, n / s) }} />
+      <span className={`${styles.paramLabel} ${modified ? styles.paramModified : ''}`}>
+        {label}
+      </span>
+      <input
+        className={styles.paramInput}
+        type="number"
+        step="any"
+        value={display}
+        disabled={disabled}
+        onChange={(e) => {
+          const n = parseFloat(e.target.value)
+          if (!isNaN(n)) onEdit(param, n / s)
+        }}
+      />
       <span className={styles.paramUnit}>{unit ?? ''}</span>
     </div>
   )
 }
 
 function ParamSelect({
-  label, param, options, parameters, edits, onEdit
+  label,
+  param,
+  options,
+  parameters,
+  edits,
+  onEdit
 }: {
-  label: string; param: string
+  label: string
+  param: string
   options: Array<{ value: number; label: string }>
   parameters: Map<string, { value: number }>
   edits: Record<string, number>
@@ -62,10 +87,19 @@ function ParamSelect({
   const modified = param in edits
   return (
     <div className={styles.paramRow}>
-      <span className={`${styles.paramLabel} ${modified ? styles.paramModified : ''}`}>{label}</span>
-      <select className={styles.paramSelect} value={value}
-        onChange={(e) => onEdit(param, Number(e.target.value))}>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      <span className={`${styles.paramLabel} ${modified ? styles.paramModified : ''}`}>
+        {label}
+      </span>
+      <select
+        className={styles.paramSelect}
+        value={value}
+        onChange={(e) => onEdit(param, Number(e.target.value))}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </select>
     </div>
   )
@@ -74,7 +108,16 @@ function ParamSelect({
 /* ── Card icons ─────────────────────────────── */
 
 const S = 18 // icon size
-const iconProps = { width: S, height: S, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+const iconProps = {
+  width: S,
+  height: S,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.5,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const
+}
 
 function IconBattery(): React.JSX.Element {
   return (
@@ -175,7 +218,9 @@ function PX4SafetyPage(): React.JSX.Element {
   const [edits, setEdits] = useState<Record<string, number>>({})
   const hasChanges = Object.keys(edits).length > 0
 
-  useEffect(() => { setEdits({}) }, [loadState.parametersReady])
+  useEffect(() => {
+    setEdits({})
+  }, [loadState.parametersReady])
 
   const onEdit = useCallback((param: string, value: number) => {
     setEdits((prev) => ({ ...prev, [param]: value }))
@@ -191,50 +236,117 @@ function PX4SafetyPage(): React.JSX.Element {
   }, [vehicleId, edits])
 
   if (!loadState.parametersReady) {
-    return <div className={styles.root}><div className={styles.title}>Safety</div><ParameterLoading /></div>
+    return (
+      <div className={styles.root}>
+        <div className={styles.title}>Safety</div>
+        <ParameterLoading />
+      </div>
+    )
   }
 
   // RTL land delay logic
-  const rtlLandDelay = useParamVal(parameters, edits, 'RTL_LAND_DELAY')
+  const rtlLandDelay = getParamVal(parameters, edits, 'RTL_LAND_DELAY')
   const rtlMode = rtlLandDelay === 0 ? 'land' : rtlLandDelay === -1 ? 'loiter' : 'loiterLand'
 
   return (
     <div className={styles.root}>
       <div className={styles.title}>Safety</div>
       <div className={styles.cardGrid}>
-
         {/* Low Battery Failsafe */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconBattery /></CardIcon>Low Battery Failsafe</div>
-          <ParamSelect label="Failsafe action" param="COM_LOW_BAT_ACT" parameters={parameters} edits={edits} onEdit={onEdit}
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconBattery />
+            </CardIcon>
+            Low Battery Failsafe
+          </div>
+          <ParamSelect
+            label="Failsafe action"
+            param="COM_LOW_BAT_ACT"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
             options={[
               { value: 0, label: 'Warning' },
               { value: 2, label: 'Land' },
               { value: 3, label: 'Return / Land' }
-            ]} />
-          <ParamInput label="Warn level" param="BAT_LOW_THR" unit="%" scale={100} parameters={parameters} edits={edits} onEdit={onEdit} />
-          <ParamInput label="Critical level" param="BAT_CRIT_THR" unit="%" scale={100} parameters={parameters} edits={edits} onEdit={onEdit} />
-          <ParamInput label="Emergency level" param="BAT_EMERGEN_THR" unit="%" scale={100} parameters={parameters} edits={edits} onEdit={onEdit} />
+            ]}
+          />
+          <ParamInput
+            label="Warn level"
+            param="BAT_LOW_THR"
+            unit="%"
+            scale={100}
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
+          <ParamInput
+            label="Critical level"
+            param="BAT_CRIT_THR"
+            unit="%"
+            scale={100}
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
+          <ParamInput
+            label="Emergency level"
+            param="BAT_EMERGEN_THR"
+            unit="%"
+            scale={100}
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
         </div>
 
         {/* RC Loss */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconRadio /></CardIcon>RC Loss Failsafe</div>
-          <ParamSelect label="Failsafe action" param="NAV_RCL_ACT" parameters={parameters} edits={edits} onEdit={onEdit}
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconRadio />
+            </CardIcon>
+            RC Loss Failsafe
+          </div>
+          <ParamSelect
+            label="Failsafe action"
+            param="NAV_RCL_ACT"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
             options={[
               { value: 1, label: 'Hold' },
               { value: 2, label: 'Return' },
               { value: 3, label: 'Land' },
               { value: 5, label: 'Terminate' },
               { value: 6, label: 'Disarm' }
-            ]} />
-          <ParamInput label="Timeout" param="COM_RC_LOSS_T" unit="s" parameters={parameters} edits={edits} onEdit={onEdit} />
+            ]}
+          />
+          <ParamInput
+            label="Timeout"
+            param="COM_RC_LOSS_T"
+            unit="s"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
         </div>
 
         {/* Data Link Loss */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconLink /></CardIcon>Data Link Loss Failsafe</div>
-          <ParamSelect label="Failsafe action" param="NAV_DLL_ACT" parameters={parameters} edits={edits} onEdit={onEdit}
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconLink />
+            </CardIcon>
+            Data Link Loss Failsafe
+          </div>
+          <ParamSelect
+            label="Failsafe action"
+            param="NAV_DLL_ACT"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
             options={[
               { value: 0, label: 'Disabled' },
               { value: 1, label: 'Hold' },
@@ -242,14 +354,32 @@ function PX4SafetyPage(): React.JSX.Element {
               { value: 3, label: 'Land' },
               { value: 5, label: 'Terminate' },
               { value: 6, label: 'Disarm' }
-            ]} />
-          <ParamInput label="Timeout" param="COM_DL_LOSS_T" unit="s" parameters={parameters} edits={edits} onEdit={onEdit} />
+            ]}
+          />
+          <ParamInput
+            label="Timeout"
+            param="COM_DL_LOSS_T"
+            unit="s"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
         </div>
 
         {/* Geofence */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconFence /></CardIcon>Geofence</div>
-          <ParamSelect label="Breach action" param="GF_ACTION" parameters={parameters} edits={edits} onEdit={onEdit}
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconFence />
+            </CardIcon>
+            Geofence
+          </div>
+          <ParamSelect
+            label="Breach action"
+            param="GF_ACTION"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
             options={[
               { value: 0, label: 'None' },
               { value: 1, label: 'Warning' },
@@ -257,50 +387,116 @@ function PX4SafetyPage(): React.JSX.Element {
               { value: 3, label: 'Return' },
               { value: 4, label: 'Terminate' },
               { value: 5, label: 'Land' }
-            ]} />
-          <ParamInput label="Max radius" param="GF_MAX_HOR_DIST" unit="m" parameters={parameters} edits={edits} onEdit={onEdit} />
-          <ParamInput label="Max altitude" param="GF_MAX_VER_DIST" unit="m" parameters={parameters} edits={edits} onEdit={onEdit} />
+            ]}
+          />
+          <ParamInput
+            label="Max radius"
+            param="GF_MAX_HOR_DIST"
+            unit="m"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
+          <ParamInput
+            label="Max altitude"
+            param="GF_MAX_VER_DIST"
+            unit="m"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
         </div>
 
         {/* Return to Launch */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconHome /></CardIcon>Return to Launch</div>
-          <ParamInput label="Climb to altitude" param="RTL_RETURN_ALT" unit="m" parameters={parameters} edits={edits} onEdit={onEdit} />
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconHome />
+            </CardIcon>
+            Return to Launch
+          </div>
+          <ParamInput
+            label="Climb to altitude"
+            param="RTL_RETURN_ALT"
+            unit="m"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
           <div className={styles.paramRow}>
             <span className={styles.paramLabel}>After return</span>
-            <select className={styles.paramSelect} value={rtlMode}
+            <select
+              className={styles.paramSelect}
+              value={rtlMode}
               onChange={(e) => {
                 const m = e.target.value
                 if (m === 'land') onEdit('RTL_LAND_DELAY', 0)
                 else if (m === 'loiter') onEdit('RTL_LAND_DELAY', -1)
                 else onEdit('RTL_LAND_DELAY', 60)
-              }}>
+              }}
+            >
               <option value="land">Land immediately</option>
               <option value="loiter">Loiter, do not land</option>
               <option value="loiterLand">Loiter, then land</option>
             </select>
           </div>
           {rtlMode === 'loiterLand' && (
-            <ParamInput label="Loiter time" param="RTL_LAND_DELAY" unit="s" parameters={parameters} edits={edits} onEdit={onEdit} />
+            <ParamInput
+              label="Loiter time"
+              param="RTL_LAND_DELAY"
+              unit="s"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
           )}
           {rtlMode !== 'land' && (
-            <ParamInput label="Loiter altitude" param="RTL_DESCEND_ALT" unit="m" parameters={parameters} edits={edits} onEdit={onEdit} />
+            <ParamInput
+              label="Loiter altitude"
+              param="RTL_DESCEND_ALT"
+              unit="m"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
           )}
         </div>
 
         {/* Land Mode */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconLand /></CardIcon>Land Mode</div>
-          <ParamInput label="Descent rate" param="MPC_LAND_SPEED" unit="m/s" parameters={parameters} edits={edits} onEdit={onEdit} />
-          <ParamInput label="Disarm after" param="COM_DISARM_LAND" unit="s" parameters={parameters} edits={edits} onEdit={onEdit} />
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconLand />
+            </CardIcon>
+            Land Mode
+          </div>
+          <ParamInput
+            label="Descent rate"
+            param="MPC_LAND_SPEED"
+            unit="m/s"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
+          <ParamInput
+            label="Disarm after"
+            param="COM_DISARM_LAND"
+            unit="s"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
         </div>
-
       </div>
 
       {hasChanges && (
         <div className={styles.toolbar}>
-          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleSave}>Save</button>
-          <button className={styles.btn} onClick={() => setEdits({})}>Discard</button>
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleSave}>
+            Save
+          </button>
+          <button className={styles.btn} onClick={() => setEdits({})}>
+            Discard
+          </button>
         </div>
       )}
     </div>
@@ -317,7 +513,9 @@ function ArduPilotSafetyPage(): React.JSX.Element {
   const [edits, setEdits] = useState<Record<string, number>>({})
   const hasChanges = Object.keys(edits).length > 0
 
-  useEffect(() => { setEdits({}) }, [loadState.parametersReady])
+  useEffect(() => {
+    setEdits({})
+  }, [loadState.parametersReady])
 
   const onEdit = useCallback((param: string, value: number) => {
     setEdits((prev) => ({ ...prev, [param]: value }))
@@ -333,29 +531,45 @@ function ArduPilotSafetyPage(): React.JSX.Element {
   }, [vehicleId, edits])
 
   if (!loadState.parametersReady) {
-    return <div className={styles.root}><div className={styles.title}>Safety</div><ParameterLoading /></div>
+    return (
+      <div className={styles.root}>
+        <div className={styles.title}>Safety</div>
+        <ParameterLoading />
+      </div>
+    )
   }
 
-  const hasBatt1 = parameters.get('BATT_MONITOR') && (parameters.get('BATT_MONITOR')?.value ?? 0) > 0
-  const hasBatt2 = parameters.get('BATT2_MONITOR') && (parameters.get('BATT2_MONITOR')?.value ?? 0) > 0
+  const hasBatt1 =
+    parameters.get('BATT_MONITOR') && (parameters.get('BATT_MONITOR')?.value ?? 0) > 0
+  const hasBatt2 =
+    parameters.get('BATT2_MONITOR') && (parameters.get('BATT2_MONITOR')?.value ?? 0) > 0
 
   // Fence type bitmask
-  const fenceEnabled = (useParamVal(parameters, edits, 'FENCE_ENABLE') ?? 0) > 0
+  const fenceEnabled = (getParamVal(parameters, edits, 'FENCE_ENABLE') ?? 0) > 0
 
   // RTL altitude
-  const rtlAlt = useParamVal(parameters, edits, 'RTL_ALT')
+  const rtlAlt = getParamVal(parameters, edits, 'RTL_ALT')
   const rtlUseCurrent = rtlAlt === 0
 
   return (
     <div className={styles.root}>
       <div className={styles.title}>Safety</div>
       <div className={styles.cardGrid}>
-
         {/* Battery 1 Failsafe */}
         {hasBatt1 && (
           <div className={styles.card}>
-            <div className={styles.cardTitle}><CardIcon><IconBattery /></CardIcon>Battery 1 Failsafe</div>
-            <ParamSelect label="Low action" param="BATT_FS_LOW_ACT" parameters={parameters} edits={edits} onEdit={onEdit}
+            <div className={styles.cardTitle}>
+              <CardIcon>
+                <IconBattery />
+              </CardIcon>
+              Battery 1 Failsafe
+            </div>
+            <ParamSelect
+              label="Low action"
+              param="BATT_FS_LOW_ACT"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
               options={[
                 { value: 0, label: 'Disabled' },
                 { value: 1, label: 'Land' },
@@ -363,8 +577,14 @@ function ArduPilotSafetyPage(): React.JSX.Element {
                 { value: 3, label: 'SmartRTL or RTL' },
                 { value: 4, label: 'SmartRTL or Land' },
                 { value: 5, label: 'Terminate' }
-              ]} />
-            <ParamSelect label="Critical action" param="BATT_FS_CRT_ACT" parameters={parameters} edits={edits} onEdit={onEdit}
+              ]}
+            />
+            <ParamSelect
+              label="Critical action"
+              param="BATT_FS_CRT_ACT"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
               options={[
                 { value: 0, label: 'Disabled' },
                 { value: 1, label: 'Land' },
@@ -372,19 +592,58 @@ function ArduPilotSafetyPage(): React.JSX.Element {
                 { value: 3, label: 'SmartRTL or RTL' },
                 { value: 4, label: 'SmartRTL or Land' },
                 { value: 5, label: 'Terminate' }
-              ]} />
-            <ParamInput label="Low voltage" param="BATT_LOW_VOLT" unit="V" parameters={parameters} edits={edits} onEdit={onEdit} />
-            <ParamInput label="Critical voltage" param="BATT_CRT_VOLT" unit="V" parameters={parameters} edits={edits} onEdit={onEdit} />
-            <ParamInput label="Low mAh" param="BATT_LOW_MAH" unit="mAh" parameters={parameters} edits={edits} onEdit={onEdit} />
-            <ParamInput label="Critical mAh" param="BATT_CRT_MAH" unit="mAh" parameters={parameters} edits={edits} onEdit={onEdit} />
+              ]}
+            />
+            <ParamInput
+              label="Low voltage"
+              param="BATT_LOW_VOLT"
+              unit="V"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
+            <ParamInput
+              label="Critical voltage"
+              param="BATT_CRT_VOLT"
+              unit="V"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
+            <ParamInput
+              label="Low mAh"
+              param="BATT_LOW_MAH"
+              unit="mAh"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
+            <ParamInput
+              label="Critical mAh"
+              param="BATT_CRT_MAH"
+              unit="mAh"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
           </div>
         )}
 
         {/* Battery 2 Failsafe */}
         {hasBatt2 && (
           <div className={styles.card}>
-            <div className={styles.cardTitle}><CardIcon><IconBattery /></CardIcon>Battery 2 Failsafe</div>
-            <ParamSelect label="Low action" param="BATT2_FS_LOW_ACT" parameters={parameters} edits={edits} onEdit={onEdit}
+            <div className={styles.cardTitle}>
+              <CardIcon>
+                <IconBattery />
+              </CardIcon>
+              Battery 2 Failsafe
+            </div>
+            <ParamSelect
+              label="Low action"
+              param="BATT2_FS_LOW_ACT"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
               options={[
                 { value: 0, label: 'Disabled' },
                 { value: 1, label: 'Land' },
@@ -392,8 +651,14 @@ function ArduPilotSafetyPage(): React.JSX.Element {
                 { value: 3, label: 'SmartRTL or RTL' },
                 { value: 4, label: 'SmartRTL or Land' },
                 { value: 5, label: 'Terminate' }
-              ]} />
-            <ParamSelect label="Critical action" param="BATT2_FS_CRT_ACT" parameters={parameters} edits={edits} onEdit={onEdit}
+              ]}
+            />
+            <ParamSelect
+              label="Critical action"
+              param="BATT2_FS_CRT_ACT"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
               options={[
                 { value: 0, label: 'Disabled' },
                 { value: 1, label: 'Land' },
@@ -401,60 +666,147 @@ function ArduPilotSafetyPage(): React.JSX.Element {
                 { value: 3, label: 'SmartRTL or RTL' },
                 { value: 4, label: 'SmartRTL or Land' },
                 { value: 5, label: 'Terminate' }
-              ]} />
-            <ParamInput label="Low voltage" param="BATT2_LOW_VOLT" unit="V" parameters={parameters} edits={edits} onEdit={onEdit} />
-            <ParamInput label="Critical voltage" param="BATT2_CRT_VOLT" unit="V" parameters={parameters} edits={edits} onEdit={onEdit} />
-            <ParamInput label="Low mAh" param="BATT2_LOW_MAH" unit="mAh" parameters={parameters} edits={edits} onEdit={onEdit} />
-            <ParamInput label="Critical mAh" param="BATT2_CRT_MAH" unit="mAh" parameters={parameters} edits={edits} onEdit={onEdit} />
+              ]}
+            />
+            <ParamInput
+              label="Low voltage"
+              param="BATT2_LOW_VOLT"
+              unit="V"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
+            <ParamInput
+              label="Critical voltage"
+              param="BATT2_CRT_VOLT"
+              unit="V"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
+            <ParamInput
+              label="Low mAh"
+              param="BATT2_LOW_MAH"
+              unit="mAh"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
+            <ParamInput
+              label="Critical mAh"
+              param="BATT2_CRT_MAH"
+              unit="mAh"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
           </div>
         )}
 
         {/* General Failsafe */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconWarning /></CardIcon>General Failsafe</div>
-          <ParamSelect label="GCS failsafe" param="FS_GCS_ENABLE" parameters={parameters} edits={edits} onEdit={onEdit}
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconWarning />
+            </CardIcon>
+            General Failsafe
+          </div>
+          <ParamSelect
+            label="GCS failsafe"
+            param="FS_GCS_ENABLE"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
             options={[
               { value: 0, label: 'Disabled' },
               { value: 1, label: 'RTL' },
               { value: 2, label: 'Continue in Auto' }
-            ]} />
-          <ParamSelect label="Throttle failsafe" param="FS_THR_ENABLE" parameters={parameters} edits={edits} onEdit={onEdit}
+            ]}
+          />
+          <ParamSelect
+            label="Throttle failsafe"
+            param="FS_THR_ENABLE"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
             options={[
               { value: 0, label: 'Disabled' },
               { value: 1, label: 'Always RTL' },
               { value: 2, label: 'Continue in Auto' },
               { value: 3, label: 'Always Land' }
-            ]} />
-          <ParamInput label="Throttle PWM" param="FS_THR_VALUE" unit="PWM" parameters={parameters} edits={edits} onEdit={onEdit} />
-          <ParamSelect label="EKF failsafe" param="FS_EKF_ACTION" parameters={parameters} edits={edits} onEdit={onEdit}
+            ]}
+          />
+          <ParamInput
+            label="Throttle PWM"
+            param="FS_THR_VALUE"
+            unit="PWM"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
+          <ParamSelect
+            label="EKF failsafe"
+            param="FS_EKF_ACTION"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
             options={[
               { value: 0, label: 'Disabled' },
               { value: 1, label: 'Land' },
               { value: 2, label: 'AltHold' },
               { value: 3, label: 'Land (even in Stabilize)' }
-            ]} />
-          <ParamInput label="EKF threshold" param="FS_EKF_THRESH" parameters={parameters} edits={edits} onEdit={onEdit} />
+            ]}
+          />
+          <ParamInput
+            label="EKF threshold"
+            param="FS_EKF_THRESH"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
         </div>
 
         {/* Geofence */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconFence /></CardIcon>Geofence</div>
-          <ParamSelect label="Enable" param="FENCE_ENABLE" parameters={parameters} edits={edits} onEdit={onEdit}
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconFence />
+            </CardIcon>
+            Geofence
+          </div>
+          <ParamSelect
+            label="Enable"
+            param="FENCE_ENABLE"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
             options={[
               { value: 0, label: 'Disabled' },
               { value: 1, label: 'Enabled' }
-            ]} />
+            ]}
+          />
           {fenceEnabled && (
             <>
-              <ParamSelect label="Breach action" param="FENCE_ACTION" parameters={parameters} edits={edits} onEdit={onEdit}
+              <ParamSelect
+                label="Breach action"
+                param="FENCE_ACTION"
+                parameters={parameters}
+                edits={edits}
+                onEdit={onEdit}
                 options={[
                   { value: 0, label: 'Report only' },
                   { value: 1, label: 'RTL or Land' },
                   { value: 2, label: 'Always Land' },
                   { value: 3, label: 'SmartRTL or RTL' },
                   { value: 4, label: 'Brake or Land' }
-                ]} />
-              <ParamSelect label="Fence type" param="FENCE_TYPE" parameters={parameters} edits={edits} onEdit={onEdit}
+                ]}
+              />
+              <ParamSelect
+                label="Fence type"
+                param="FENCE_TYPE"
+                parameters={parameters}
+                edits={edits}
+                onEdit={onEdit}
                 options={[
                   { value: 1, label: 'Altitude only' },
                   { value: 2, label: 'Circle only' },
@@ -463,48 +815,113 @@ function ArduPilotSafetyPage(): React.JSX.Element {
                   { value: 5, label: 'Altitude + Polygon' },
                   { value: 6, label: 'Circle + Polygon' },
                   { value: 7, label: 'All' }
-                ]} />
-              <ParamInput label="Max altitude" param="FENCE_ALT_MAX" unit="m" parameters={parameters} edits={edits} onEdit={onEdit} />
-              <ParamInput label="Circle radius" param="FENCE_RADIUS" unit="m" parameters={parameters} edits={edits} onEdit={onEdit} />
-              <ParamInput label="Fence margin" param="FENCE_MARGIN" unit="m" parameters={parameters} edits={edits} onEdit={onEdit} />
+                ]}
+              />
+              <ParamInput
+                label="Max altitude"
+                param="FENCE_ALT_MAX"
+                unit="m"
+                parameters={parameters}
+                edits={edits}
+                onEdit={onEdit}
+              />
+              <ParamInput
+                label="Circle radius"
+                param="FENCE_RADIUS"
+                unit="m"
+                parameters={parameters}
+                edits={edits}
+                onEdit={onEdit}
+              />
+              <ParamInput
+                label="Fence margin"
+                param="FENCE_MARGIN"
+                unit="m"
+                parameters={parameters}
+                edits={edits}
+                onEdit={onEdit}
+              />
             </>
           )}
         </div>
 
         {/* Return to Launch */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconHome /></CardIcon>Return to Launch</div>
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconHome />
+            </CardIcon>
+            Return to Launch
+          </div>
           <div className={styles.paramRow}>
             <span className={styles.paramLabel}>Return altitude</span>
-            <select className={styles.paramSelect} value={rtlUseCurrent ? 'current' : 'specified'}
+            <select
+              className={styles.paramSelect}
+              value={rtlUseCurrent ? 'current' : 'specified'}
               onChange={(e) => {
                 if (e.target.value === 'current') onEdit('RTL_ALT', 0)
                 else onEdit('RTL_ALT', 1500) // 15m in cm
-              }}>
+              }}
+            >
               <option value="current">Current altitude</option>
               <option value="specified">Specified altitude</option>
             </select>
           </div>
           {!rtlUseCurrent && (
-            <ParamInput label="RTL altitude" param="RTL_ALT" unit="cm" parameters={parameters} edits={edits} onEdit={onEdit} />
+            <ParamInput
+              label="RTL altitude"
+              param="RTL_ALT"
+              unit="cm"
+              parameters={parameters}
+              edits={edits}
+              onEdit={onEdit}
+            />
           )}
-          <ParamInput label="Loiter time" param="RTL_LOIT_TIME" unit="ms" parameters={parameters} edits={edits} onEdit={onEdit} />
-          <ParamInput label="Final descent speed" param="LAND_SPEED" unit="cm/s" parameters={parameters} edits={edits} onEdit={onEdit} />
+          <ParamInput
+            label="Loiter time"
+            param="RTL_LOIT_TIME"
+            unit="ms"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
+          <ParamInput
+            label="Final descent speed"
+            param="LAND_SPEED"
+            unit="cm/s"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
         </div>
 
         {/* Arming Checks */}
         <div className={styles.card}>
-          <div className={styles.cardTitle}><CardIcon><IconCheck /></CardIcon>Arming Checks</div>
-          <ParamInput label="Arming check bitmask" param="ARMING_CHECK" parameters={parameters} edits={edits} onEdit={onEdit} />
+          <div className={styles.cardTitle}>
+            <CardIcon>
+              <IconCheck />
+            </CardIcon>
+            Arming Checks
+          </div>
+          <ParamInput
+            label="Arming check bitmask"
+            param="ARMING_CHECK"
+            parameters={parameters}
+            edits={edits}
+            onEdit={onEdit}
+          />
           <div className={styles.paramHint}>1 = all checks enabled, 0 = all disabled</div>
         </div>
-
       </div>
 
       {hasChanges && (
         <div className={styles.toolbar}>
-          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleSave}>Save</button>
-          <button className={styles.btn} onClick={() => setEdits({})}>Discard</button>
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={handleSave}>
+            Save
+          </button>
+          <button className={styles.btn} onClick={() => setEdits({})}>
+            Discard
+          </button>
         </div>
       )}
     </div>

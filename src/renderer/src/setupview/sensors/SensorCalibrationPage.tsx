@@ -3,10 +3,7 @@ import { useCalibration } from '../../hooks/useCalibration'
 import { useSetupStore } from '../../store/setupStore'
 import { useParameterStore } from '../../store/parameterStore'
 import { useVehicleStore } from '../../store/vehicleStore'
-import {
-  CalibrationSensor,
-  CalibrationStatus
-} from '../../../../shared-types/ipc/SetupTypes'
+import { CalibrationSensor, CalibrationStatus } from '../../../../shared-types/ipc/SetupTypes'
 import { CalibrationWizard } from './CalibrationWizard'
 import styles from './SensorCalibrationPage.module.css'
 
@@ -64,7 +61,11 @@ const CAL_STATUS_PARAMS: Array<{
   params: string[]
   label: string
 }> = [
-  { sensor: CalibrationSensor.Accel, params: ['INS_ACCOFFS_X', 'CAL_ACC0_ID'], label: 'Accelerometer' },
+  {
+    sensor: CalibrationSensor.Accel,
+    params: ['INS_ACCOFFS_X', 'CAL_ACC0_ID'],
+    label: 'Accelerometer'
+  },
   { sensor: CalibrationSensor.Compass, params: ['COMPASS_OFS_X', 'CAL_MAG0_ID'], label: 'Compass' },
   { sensor: CalibrationSensor.Gyro, params: ['INS_GYROFFS_X', 'CAL_GYRO0_ID'], label: 'Gyroscope' }
 ]
@@ -156,7 +157,8 @@ export function SensorCalibrationPage(): React.JSX.Element {
   const vehicleType = core?.vehicleType ?? 0
 
   // Airspeed only relevant for fixed-wing (1), airship (7), VTOL (19-25) — matching QGC
-  const hasAirspeed = vehicleType === 1 || vehicleType === 7 || (vehicleType >= 19 && vehicleType <= 25)
+  const hasAirspeed =
+    vehicleType === 1 || vehicleType === 7 || (vehicleType >= 19 && vehicleType <= 25)
 
   const calibrationButtons = useMemo(() => {
     const buttons = isPX4 ? PX4_BUTTONS : ARDUPILOT_BUTTONS

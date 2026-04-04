@@ -50,10 +50,10 @@ const test = base.extend<VideoFixtures>({
     })
 
     const appEnv: Record<string, string> = {
-        ...(process.env as Record<string, string>),
-        NODE_ENV: 'production',
-        GC_UDP_PORT: '14599' // unused port, no vehicle needed
-      }
+      ...(process.env as Record<string, string>),
+      NODE_ENV: 'production',
+      GC_UDP_PORT: '14599' // unused port, no vehicle needed
+    }
     delete appEnv.ELECTRON_RUN_AS_NODE
 
     const app = await electron.launch({
@@ -427,10 +427,10 @@ const tcpTest = base.extend<TcpFixtures>({
     })
 
     const tcpAppEnv: Record<string, string> = {
-        ...(process.env as Record<string, string>),
-        NODE_ENV: 'production',
-        GC_UDP_PORT: '14599'
-      }
+      ...(process.env as Record<string, string>),
+      NODE_ENV: 'production',
+      GC_UDP_PORT: '14599'
+    }
     delete tcpAppEnv.ELECTRON_RUN_AS_NODE
 
     const app = await electron.launch({
@@ -564,10 +564,10 @@ const rtspTest = base.extend<RtspFixtures>({
     })
 
     const tcpAppEnv: Record<string, string> = {
-        ...(process.env as Record<string, string>),
-        NODE_ENV: 'production',
-        GC_UDP_PORT: '14599'
-      }
+      ...(process.env as Record<string, string>),
+      NODE_ENV: 'production',
+      GC_UDP_PORT: '14599'
+    }
     delete tcpAppEnv.ELECTRON_RUN_AS_NODE
 
     const app = await electron.launch({

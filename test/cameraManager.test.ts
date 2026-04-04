@@ -74,9 +74,7 @@ describe('CameraManager — discovery', () => {
     expect(cm.state.info!.vendorName).toBe('Sony')
     expect(cm.state.info!.modelName).toBe('A7')
     expect(cm.state.info!.focalLength).toBe(35)
-    expect(cm.state.info!.flags).toBe(
-      CameraCapFlags.CaptureImage | CameraCapFlags.CaptureVideo
-    )
+    expect(cm.state.info!.flags).toBe(CameraCapFlags.CaptureImage | CameraCapFlags.CaptureVideo)
     expect(changed).toHaveBeenCalled()
   })
 
@@ -226,8 +224,8 @@ describe('CameraManager — image captured event', () => {
 
     cm.handleImageCaptured({
       lat: 474000000, // 47.4°
-      lon: 85000000,  // 8.5°
-      alt: 100000,    // 100m
+      lon: 85000000, // 8.5°
+      alt: 100000, // 100m
       imageIndex: 1,
       captureResult: 1
     })
@@ -376,8 +374,22 @@ describe('CameraManager — state getter', () => {
     cm.on('stateChanged', changed)
 
     cm.handleCameraSettings({ modeId: 1 })
-    cm.handleStorageInformation({ storageId: 1, storageCount: 1, status: 2, totalCapacity: 100, usedCapacity: 50, availableCapacity: 50 })
-    cm.handleCaptureStatus({ imageStatus: 0, videoStatus: 0, imageInterval: 0, imageCount: 0, recordingTimeMs: 0, availableCapacity: 0 })
+    cm.handleStorageInformation({
+      storageId: 1,
+      storageCount: 1,
+      status: 2,
+      totalCapacity: 100,
+      usedCapacity: 50,
+      availableCapacity: 50
+    })
+    cm.handleCaptureStatus({
+      imageStatus: 0,
+      videoStatus: 0,
+      imageInterval: 0,
+      imageCount: 0,
+      recordingTimeMs: 0,
+      availableCapacity: 0
+    })
 
     expect(changed).toHaveBeenCalledTimes(3)
   })

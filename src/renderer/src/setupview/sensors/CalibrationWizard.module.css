@@ -84,7 +84,9 @@
   border-radius: 8px;
   border: 2px solid var(--border-default);
   background: var(--bg-elevated);
-  transition: border-color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 }
 
 .cardIcon {
@@ -133,8 +135,13 @@
 }
 
 @keyframes pulse {
-  0%, 100% { border-color: var(--accent-yellow); }
-  50% { border-color: rgba(255, 215, 0, 0.3); }
+  0%,
+  100% {
+    border-color: var(--accent-yellow);
+  }
+  50% {
+    border-color: rgba(255, 215, 0, 0.3);
+  }
 }
 
 /* Done — completed */

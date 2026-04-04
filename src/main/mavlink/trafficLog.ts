@@ -29,7 +29,7 @@ const QUIET_MSG_IDS = new Set([
   141, // ALTITUDE
   147, // BATTERY_STATUS
   230, // ESTIMATOR_STATUS
-  241, // VIBRATION
+  241 // VIBRATION
 ])
 
 function msgName(msgid: number): string {

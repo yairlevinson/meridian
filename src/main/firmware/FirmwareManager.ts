@@ -3,10 +3,7 @@ import { readFile, stat } from 'fs/promises'
 import { basename } from 'path'
 import type { FTPManager } from '../ftp/FTPManager'
 import type { MavCommandQueue } from '../vehicle/MavCommandQueue'
-import {
-  FirmwareUpgradeStatus,
-  type FirmwareUpgradeState
-} from '@shared/ipc/SetupTypes'
+import { FirmwareUpgradeStatus, type FirmwareUpgradeState } from '@shared/ipc/SetupTypes'
 
 // Remote path on the vehicle's SD card for firmware files
 const FIRMWARE_REMOTE_PATH = '/fs/microsd/firmware.bin'

@@ -237,7 +237,7 @@ export enum VehicleType {
 export function mavTypeToVehicleType(mavType: number): VehicleType {
   // MAV_TYPE values from mavlink-mappings minimal.MavType
   switch (mavType) {
-    case 1:  // FIXED_WING
+    case 1: // FIXED_WING
       return VehicleType.Plane
     case 10: // GROUND_ROVER
     case 11: // SURFACE_BOAT

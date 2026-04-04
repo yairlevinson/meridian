@@ -50,7 +50,10 @@ export interface Bridge {
     cb: (payload: { vehicleId: number; current: number; total: number }) => void
   ) => () => void
   onMissionComplete: (
-    cb: (payload: { vehicleId: number; items: import('../shared-types/ipc/MissionTypes').MissionItem[] }) => void
+    cb: (payload: {
+      vehicleId: number
+      items: import('../shared-types/ipc/MissionTypes').MissionItem[]
+    }) => void
   ) => () => void
   onMissionCurrentChanged: (cb: (payload: { vehicleId: number; seq: number }) => void) => () => void
 
@@ -258,8 +261,16 @@ const bridge: Bridge = {
     }
   },
   onMissionComplete: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: { vehicleId: number; items: unknown[] }): void =>
-      cb(payload as { vehicleId: number; items: import('../shared-types/ipc/MissionTypes').MissionItem[] })
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number; items: unknown[] }
+    ): void =>
+      cb(
+        payload as {
+          vehicleId: number
+          items: import('../shared-types/ipc/MissionTypes').MissionItem[]
+        }
+      )
     ipcRenderer.on(IpcEvents.MissionComplete, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.MissionComplete, handler)

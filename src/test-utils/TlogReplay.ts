@@ -148,7 +148,10 @@ export class TlogReplay {
     intervalMs: number = 1000
   ): Promise<{ timestampUs: bigint; snapshot: ReturnType<typeof vehicle.state.getSnapshot> }[]> {
     const linkId = 'replay-link'
-    const snapshots: { timestampUs: bigint; snapshot: ReturnType<typeof vehicle.state.getSnapshot> }[] = []
+    const snapshots: {
+      timestampUs: bigint
+      snapshot: ReturnType<typeof vehicle.state.getSnapshot>
+    }[] = []
 
     channel.onMessage((msg) => {
       vehicle.handleMessage(msg, linkId)

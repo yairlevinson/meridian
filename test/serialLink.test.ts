@@ -243,10 +243,7 @@ describe('SerialLink', () => {
     link = new SerialLink('serial-1', createConfig())
     await link.connect()
 
-    expect(mockPort.set).toHaveBeenCalledWith(
-      { dtr: true },
-      expect.any(Function)
-    )
+    expect(mockPort.set).toHaveBeenCalledWith({ dtr: true }, expect.any(Function))
   })
 
   it('availability check disconnects on port removal', async () => {

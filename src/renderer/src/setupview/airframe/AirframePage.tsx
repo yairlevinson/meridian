@@ -16,7 +16,11 @@ const MAV_AUTOPILOT_PX4 = 12
 
 /* ── SVG imports ──────────────────────────── */
 
-const svgModules = import.meta.glob('./images/*.svg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>
+const svgModules = import.meta.glob('./images/*.svg', {
+  eager: true,
+  query: '?url',
+  import: 'default'
+}) as Record<string, string>
 
 function getSvgUrl(imageName: string): string | undefined {
   const key = `./images/${imageName}.svg`
@@ -202,7 +206,9 @@ function ArduPilotAirframePage({ vehicleId }: { vehicleId: number }): React.JSX.
         {/* Frame type + preview */}
         <div className={styles.typeSection}>
           <div className={styles.previewArea}>
-            {svgUrl && <img src={svgUrl} alt={currentClassDef?.name} className={styles.previewSvg} />}
+            {svgUrl && (
+              <img src={svgUrl} alt={currentClassDef?.name} className={styles.previewSvg} />
+            )}
           </div>
           <div className={styles.sectionLabel}>Frame Type</div>
           <div className={styles.typeGrid}>
@@ -221,7 +227,9 @@ function ArduPilotAirframePage({ vehicleId }: { vehicleId: number }): React.JSX.
 
       {hasChanges && (
         <div className={styles.toolbar}>
-          <button className={styles.saveBtn} onClick={handleSave}>Save</button>
+          <button className={styles.saveBtn} onClick={handleSave}>
+            Save
+          </button>
           <button
             className={styles.cancelBtn}
             onClick={() => {
@@ -255,7 +263,9 @@ export function AirframePage(): React.JSX.Element {
     )
   }
 
-  return isPX4
-    ? <PX4AirframePage vehicleId={vehicleId} />
-    : <ArduPilotAirframePage vehicleId={vehicleId} />
+  return isPX4 ? (
+    <PX4AirframePage vehicleId={vehicleId} />
+  ) : (
+    <ArduPilotAirframePage vehicleId={vehicleId} />
+  )
 }

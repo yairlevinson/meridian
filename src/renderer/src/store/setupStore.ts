@@ -79,23 +79,21 @@ setTimeout(() => {
   if (!bridge) return
 
   if (bridge.onCalibrationStateChanged) {
-    bridge.onCalibrationStateChanged(
-      (payload: { vehicleId: number; state: CalibrationState }) => {
-        useSetupStore.getState().setCalibrationState(payload.state)
-        // Clear mag progress when calibration ends
-        if (
-          payload.state.status === CalibrationStatus.Complete ||
-          payload.state.status === CalibrationStatus.Failed ||
-          payload.state.status === CalibrationStatus.Cancelled ||
-          payload.state.status === CalibrationStatus.Idle
-        ) {
-          useSetupStore.getState().setMagCalProgress([])
-          if (payload.state.status !== CalibrationStatus.Complete) {
-            useSetupStore.getState().setMagCalReports([])
-          }
+    bridge.onCalibrationStateChanged((payload: { vehicleId: number; state: CalibrationState }) => {
+      useSetupStore.getState().setCalibrationState(payload.state)
+      // Clear mag progress when calibration ends
+      if (
+        payload.state.status === CalibrationStatus.Complete ||
+        payload.state.status === CalibrationStatus.Failed ||
+        payload.state.status === CalibrationStatus.Cancelled ||
+        payload.state.status === CalibrationStatus.Idle
+      ) {
+        useSetupStore.getState().setMagCalProgress([])
+        if (payload.state.status !== CalibrationStatus.Complete) {
+          useSetupStore.getState().setMagCalReports([])
         }
       }
-    )
+    })
   }
 
   if (bridge.onCalibrationMagProgress) {

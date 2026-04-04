@@ -42,12 +42,25 @@ const ARDU_PRESETS: Array<{
   { name: 'Power Module 90A', voltPin: 2, currPin: 3, voltMult: 10.1, ampPerVolt: 17.0 },
   { name: 'Power Module HV', voltPin: 2, currPin: 3, voltMult: 12.02, ampPerVolt: 39.877 },
   { name: '3DR Iris', voltPin: 2, currPin: 3, voltMult: 12.02, ampPerVolt: 17.0 },
-  { name: 'Blue Robotics Power Sense', voltPin: 2, currPin: 3, voltMult: 11.0, ampPerVolt: 37.8788, ampOffset: 0.33 }
+  {
+    name: 'Blue Robotics Power Sense',
+    voltPin: 2,
+    currPin: 3,
+    voltMult: 11.0,
+    ampPerVolt: 37.8788,
+    ampOffset: 0.33
+  }
 ]
 
 /* ── Battery SVG (cell visualization) ────────── */
 
-function BatteryCellsSvg({ cells, className }: { cells: number; className?: string }): React.JSX.Element {
+function BatteryCellsSvg({
+  cells,
+  className
+}: {
+  cells: number
+  className?: string
+}): React.JSX.Element {
   const displayCells = Math.max(1, Math.min(cells, 12))
   const cellH = 12
   const gap = 2
@@ -58,13 +71,32 @@ function BatteryCellsSvg({ cells, className }: { cells: number; className?: stri
   const termH = 4
 
   return (
-    <svg width={w} height={h + termH + 2} viewBox={`0 0 ${w} ${h + termH + 2}`} className={className}>
+    <svg
+      width={w}
+      height={h + termH + 2}
+      viewBox={`0 0 ${w} ${h + termH + 2}`}
+      className={className}
+    >
       {/* Terminal */}
-      <rect x={(w - termW) / 2} y={0} width={termW} height={termH} rx={1}
-        fill="rgba(255,255,255,0.3)" />
+      <rect
+        x={(w - termW) / 2}
+        y={0}
+        width={termW}
+        height={termH}
+        rx={1}
+        fill="rgba(255,255,255,0.3)"
+      />
       {/* Body */}
-      <rect x={2} y={termH + 2} width={w - 4} height={h} rx={3}
-        fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={1.5} />
+      <rect
+        x={2}
+        y={termH + 2}
+        width={w - 4}
+        height={h}
+        rx={3}
+        fill="none"
+        stroke="rgba(255,255,255,0.25)"
+        strokeWidth={1.5}
+      />
       {/* Cells */}
       {Array.from({ length: displayCells }, (_, i) => (
         <rect
@@ -132,7 +164,9 @@ function CalcDialog({
           </div>
           <div className={styles.calcRow}>
             <span>Vehicle reading:</span>
-            <span className={styles.calcValue}>{vehicleValue.toFixed(2)} {vehicleUnit}</span>
+            <span className={styles.calcValue}>
+              {vehicleValue.toFixed(2)} {vehicleUnit}
+            </span>
           </div>
           <div className={styles.calcRow}>
             <span>Current factor:</span>
@@ -153,7 +187,9 @@ function CalcDialog({
           >
             Apply
           </button>
-          <button className={styles.calcCancel} onClick={onClose}>Cancel</button>
+          <button className={styles.calcCancel} onClick={onClose}>
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -236,7 +272,9 @@ function PX4BatteryCard({
   const vDiv = val('V_DIV') ?? 1
   const aPV = val('A_PER_V') ?? 1
 
-  useEffect(() => { setEdits({}) }, [parameters])
+  useEffect(() => {
+    setEdits({})
+  }, [parameters])
 
   const handleSave = useCallback(async () => {
     const bridge = window.bridge
@@ -255,7 +293,9 @@ function PX4BatteryCard({
           <div className={styles.liveTelemetry}>
             <span className={styles.liveValue}>{battery.voltage.toFixed(1)}V</span>
             <span className={styles.liveValue}>{battery.current.toFixed(1)}A</span>
-            {battery.remaining >= 0 && <span className={styles.liveValue}>{battery.remaining}%</span>}
+            {battery.remaining >= 0 && (
+              <span className={styles.liveValue}>{battery.remaining}%</span>
+            )}
           </div>
         )}
       </div>
@@ -271,7 +311,9 @@ function PX4BatteryCard({
               onChange={(e) => edit('SOURCE', Number(e.target.value))}
             >
               {PX4_SOURCES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
               ))}
             </select>
           </div>
@@ -279,47 +321,85 @@ function PX4BatteryCard({
           {isEnabled && (
             <>
               {paramGet('N_CELLS') && (
-                <ParamInput label="Cells (series)" value={cells}
+                <ParamInput
+                  label="Cells (series)"
+                  value={cells}
                   modified={'BAT' + batteryIndex + '_N_CELLS' in edits}
-                  onChange={(v) => edit('N_CELLS', v)} />
+                  onChange={(v) => edit('N_CELLS', v)}
+                />
               )}
               {paramGet('V_EMPTY') && (
-                <ParamInput label="Empty voltage" unit="V/cell" value={vEmpty}
+                <ParamInput
+                  label="Empty voltage"
+                  unit="V/cell"
+                  value={vEmpty}
                   modified={`${prefix}V_EMPTY` in edits}
-                  onChange={(v) => edit('V_EMPTY', v)} />
+                  onChange={(v) => edit('V_EMPTY', v)}
+                />
               )}
               {paramGet('V_CHARGED') && (
-                <ParamInput label="Full voltage" unit="V/cell" value={vCharged}
+                <ParamInput
+                  label="Full voltage"
+                  unit="V/cell"
+                  value={vCharged}
                   modified={`${prefix}V_CHARGED` in edits}
-                  onChange={(v) => edit('V_CHARGED', v)} />
+                  onChange={(v) => edit('V_CHARGED', v)}
+                />
               )}
               {paramGet('CAPACITY') && (
-                <ParamInput label="Capacity" unit="mAh"
+                <ParamInput
+                  label="Capacity"
+                  unit="mAh"
                   value={val('CAPACITY') === -1 ? undefined : val('CAPACITY')}
                   modified={`${prefix}CAPACITY` in edits}
-                  onChange={(v) => edit('CAPACITY', v)} />
+                  onChange={(v) => edit('CAPACITY', v)}
+                />
               )}
               {paramGet('V_DIV') && (
                 <div className={styles.paramRow}>
-                  <span className={`${styles.paramLabel} ${`${prefix}V_DIV` in edits ? styles.paramModified : ''}`}>
+                  <span
+                    className={`${styles.paramLabel} ${`${prefix}V_DIV` in edits ? styles.paramModified : ''}`}
+                  >
                     Voltage divider
                   </span>
                   <div className={styles.paramInputWrap}>
-                    <input className={styles.paramInput} type="number" step="any"
-                      value={vDiv} onChange={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) edit('V_DIV', n) }} />
-                    <button className={styles.calcBtn} onClick={() => setCalcMode('voltage')}>Calc</button>
+                    <input
+                      className={styles.paramInput}
+                      type="number"
+                      step="any"
+                      value={vDiv}
+                      onChange={(e) => {
+                        const n = parseFloat(e.target.value)
+                        if (!isNaN(n)) edit('V_DIV', n)
+                      }}
+                    />
+                    <button className={styles.calcBtn} onClick={() => setCalcMode('voltage')}>
+                      Calc
+                    </button>
                   </div>
                 </div>
               )}
               {paramGet('A_PER_V') && (
                 <div className={styles.paramRow}>
-                  <span className={`${styles.paramLabel} ${`${prefix}A_PER_V` in edits ? styles.paramModified : ''}`}>
+                  <span
+                    className={`${styles.paramLabel} ${`${prefix}A_PER_V` in edits ? styles.paramModified : ''}`}
+                  >
                     Amps per volt
                   </span>
                   <div className={styles.paramInputWrap}>
-                    <input className={styles.paramInput} type="number" step="any"
-                      value={aPV} onChange={(e) => { const n = parseFloat(e.target.value); if (!isNaN(n)) edit('A_PER_V', n) }} />
-                    <button className={styles.calcBtn} onClick={() => setCalcMode('current')}>Calc</button>
+                    <input
+                      className={styles.paramInput}
+                      type="number"
+                      step="any"
+                      value={aPV}
+                      onChange={(e) => {
+                        const n = parseFloat(e.target.value)
+                        if (!isNaN(n)) edit('A_PER_V', n)
+                      }}
+                    />
+                    <button className={styles.calcBtn} onClick={() => setCalcMode('current')}>
+                      Calc
+                    </button>
                   </div>
                 </div>
               )}
@@ -351,8 +431,12 @@ function PX4BatteryCard({
 
       {hasChanges && (
         <div className={styles.cardToolbar}>
-          <button className={styles.saveBtn} onClick={handleSave}>Save</button>
-          <button className={styles.cancelBtn} onClick={() => setEdits({})}>Discard</button>
+          <button className={styles.saveBtn} onClick={handleSave}>
+            Save
+          </button>
+          <button className={styles.cancelBtn} onClick={() => setEdits({})}>
+            Discard
+          </button>
         </div>
       )}
 
@@ -364,7 +448,10 @@ function PX4BatteryCard({
           vehicleValue={battery?.voltage ?? 0}
           vehicleUnit="V"
           currentFactor={vDiv}
-          onApply={(v) => { edit('V_DIV', v); setCalcMode(null) }}
+          onApply={(v) => {
+            edit('V_DIV', v)
+            setCalcMode(null)
+          }}
           onClose={() => setCalcMode(null)}
         />
       )}
@@ -376,7 +463,10 @@ function PX4BatteryCard({
           vehicleValue={battery?.current ?? 0}
           vehicleUnit="A"
           currentFactor={aPV}
-          onApply={(v) => { edit('A_PER_V', v); setCalcMode(null) }}
+          onApply={(v) => {
+            edit('A_PER_V', v)
+            setCalcMode(null)
+          }}
           onClose={() => setCalcMode(null)}
         />
       )}
@@ -414,20 +504,25 @@ function ArduBatteryCard({
   const monitor = val('MONITOR') ?? 0
   const isEnabled = monitor !== 0
 
-  useEffect(() => { setEdits({}) }, [parameters])
+  useEffect(() => {
+    setEdits({})
+  }, [parameters])
 
-  const handlePreset = useCallback((idx: number) => {
-    const p = ARDU_PRESETS[idx]
-    if (!p) return
-    setEdits((prev) => ({
-      ...prev,
-      [`${prefix}VOLT_PIN`]: p.voltPin,
-      [`${prefix}CURR_PIN`]: p.currPin,
-      [`${prefix}VOLT_MULT`]: p.voltMult,
-      [`${prefix}AMP_PERVLT`]: p.ampPerVolt,
-      ...(p.ampOffset !== undefined ? { [`${prefix}AMP_OFFSET`]: p.ampOffset } : {})
-    }))
-  }, [prefix])
+  const handlePreset = useCallback(
+    (idx: number) => {
+      const p = ARDU_PRESETS[idx]
+      if (!p) return
+      setEdits((prev) => ({
+        ...prev,
+        [`${prefix}VOLT_PIN`]: p.voltPin,
+        [`${prefix}CURR_PIN`]: p.currPin,
+        [`${prefix}VOLT_MULT`]: p.voltMult,
+        [`${prefix}AMP_PERVLT`]: p.ampPerVolt,
+        ...(p.ampOffset !== undefined ? { [`${prefix}AMP_OFFSET`]: p.ampOffset } : {})
+      }))
+    },
+    [prefix]
+  )
 
   const handleSave = useCallback(async () => {
     const bridge = window.bridge
@@ -446,7 +541,9 @@ function ArduBatteryCard({
           <div className={styles.liveTelemetry}>
             <span className={styles.liveValue}>{battery.voltage.toFixed(1)}V</span>
             <span className={styles.liveValue}>{battery.current.toFixed(1)}A</span>
-            {battery.remaining >= 0 && <span className={styles.liveValue}>{battery.remaining}%</span>}
+            {battery.remaining >= 0 && (
+              <span className={styles.liveValue}>{battery.remaining}%</span>
+            )}
           </div>
         )}
       </div>
@@ -454,11 +551,15 @@ function ArduBatteryCard({
       <div className={styles.batteryParams}>
         <div className={styles.paramRow}>
           <span className={styles.paramLabel}>Monitor</span>
-          <select className={styles.selectInput} value={monitor}
+          <select
+            className={styles.selectInput}
+            value={monitor}
             onChange={(e) => edit('MONITOR', Number(e.target.value))}
           >
             {ARDU_MONITORS.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
             ))}
           </select>
         </div>
@@ -466,51 +567,92 @@ function ArduBatteryCard({
         {isEnabled && (
           <>
             {paramGet('CAPACITY') && (
-              <ParamInput label="Capacity" unit="mAh"
+              <ParamInput
+                label="Capacity"
+                unit="mAh"
                 value={val('CAPACITY') === -1 ? undefined : val('CAPACITY')}
-                modified={`${prefix}CAPACITY` in edits} onChange={(v) => edit('CAPACITY', v)} />
+                modified={`${prefix}CAPACITY` in edits}
+                onChange={(v) => edit('CAPACITY', v)}
+              />
             )}
             {paramGet('ARM_VOLT') && (
-              <ParamInput label="Min arming voltage" unit="V" value={val('ARM_VOLT')}
-                modified={`${prefix}ARM_VOLT` in edits} onChange={(v) => edit('ARM_VOLT', v)} />
+              <ParamInput
+                label="Min arming voltage"
+                unit="V"
+                value={val('ARM_VOLT')}
+                modified={`${prefix}ARM_VOLT` in edits}
+                onChange={(v) => edit('ARM_VOLT', v)}
+              />
             )}
             {paramGet('ARM_MAH') && (
-              <ParamInput label="Min arming mAh" unit="mAh" value={val('ARM_MAH')}
-                modified={`${prefix}ARM_MAH` in edits} onChange={(v) => edit('ARM_MAH', v)} />
+              <ParamInput
+                label="Min arming mAh"
+                unit="mAh"
+                value={val('ARM_MAH')}
+                modified={`${prefix}ARM_MAH` in edits}
+                onChange={(v) => edit('ARM_MAH', v)}
+              />
             )}
 
             {/* Sensor config */}
             <div className={styles.sensorSection}>
               <div className={styles.sensorHeader}>
                 <span className={styles.sensorTitle}>Sensor</span>
-                <select className={styles.presetSelect} defaultValue=""
+                <select
+                  className={styles.presetSelect}
+                  defaultValue=""
                   onChange={(e) => handlePreset(Number(e.target.value))}
                 >
-                  <option value="" disabled>Preset...</option>
+                  <option value="" disabled>
+                    Preset...
+                  </option>
                   {ARDU_PRESETS.map((p, i) => (
-                    <option key={p.name} value={i}>{p.name}</option>
+                    <option key={p.name} value={i}>
+                      {p.name}
+                    </option>
                   ))}
                 </select>
               </div>
               {paramGet('VOLT_PIN') && (
-                <ParamInput label="Voltage pin" value={val('VOLT_PIN')}
-                  modified={`${prefix}VOLT_PIN` in edits} onChange={(v) => edit('VOLT_PIN', v)} />
+                <ParamInput
+                  label="Voltage pin"
+                  value={val('VOLT_PIN')}
+                  modified={`${prefix}VOLT_PIN` in edits}
+                  onChange={(v) => edit('VOLT_PIN', v)}
+                />
               )}
               {paramGet('CURR_PIN') && (
-                <ParamInput label="Current pin" value={val('CURR_PIN')}
-                  modified={`${prefix}CURR_PIN` in edits} onChange={(v) => edit('CURR_PIN', v)} />
+                <ParamInput
+                  label="Current pin"
+                  value={val('CURR_PIN')}
+                  modified={`${prefix}CURR_PIN` in edits}
+                  onChange={(v) => edit('CURR_PIN', v)}
+                />
               )}
               {paramGet('VOLT_MULT') && (
-                <ParamInput label="Voltage multiplier" value={val('VOLT_MULT')}
-                  modified={`${prefix}VOLT_MULT` in edits} onChange={(v) => edit('VOLT_MULT', v)} />
+                <ParamInput
+                  label="Voltage multiplier"
+                  value={val('VOLT_MULT')}
+                  modified={`${prefix}VOLT_MULT` in edits}
+                  onChange={(v) => edit('VOLT_MULT', v)}
+                />
               )}
               {paramGet('AMP_PERVLT') && (
-                <ParamInput label="Amps per volt" value={val('AMP_PERVLT')}
-                  modified={`${prefix}AMP_PERVLT` in edits} onChange={(v) => edit('AMP_PERVLT', v)} />
+                <ParamInput
+                  label="Amps per volt"
+                  value={val('AMP_PERVLT')}
+                  modified={`${prefix}AMP_PERVLT` in edits}
+                  onChange={(v) => edit('AMP_PERVLT', v)}
+                />
               )}
               {paramGet('AMP_OFFSET') && (
-                <ParamInput label="Amps offset" unit="A" value={val('AMP_OFFSET')}
-                  modified={`${prefix}AMP_OFFSET` in edits} onChange={(v) => edit('AMP_OFFSET', v)} />
+                <ParamInput
+                  label="Amps offset"
+                  unit="A"
+                  value={val('AMP_OFFSET')}
+                  modified={`${prefix}AMP_OFFSET` in edits}
+                  onChange={(v) => edit('AMP_OFFSET', v)}
+                />
               )}
             </div>
           </>
@@ -519,8 +661,12 @@ function ArduBatteryCard({
 
       {hasChanges && (
         <div className={styles.cardToolbar}>
-          <button className={styles.saveBtn} onClick={handleSave}>Save</button>
-          <button className={styles.cancelBtn} onClick={() => setEdits({})}>Discard</button>
+          <button className={styles.saveBtn} onClick={handleSave}>
+            Save
+          </button>
+          <button className={styles.cancelBtn} onClick={() => setEdits({})}>
+            Discard
+          </button>
         </div>
       )}
     </div>
@@ -574,8 +720,13 @@ function ArduPilotPowerPage({ vehicleId }: { vehicleId: number }): React.JSX.Ele
       <div className={styles.title}>Power</div>
       <div className={styles.cardGrid}>
         {batteries.map((b) => (
-          <ArduBatteryCard key={b.prefix} prefix={b.prefix} label={b.label}
-            batteryIdx={b.idx} vehicleId={vehicleId} />
+          <ArduBatteryCard
+            key={b.prefix}
+            prefix={b.prefix}
+            label={b.label}
+            batteryIdx={b.idx}
+            vehicleId={vehicleId}
+          />
         ))}
       </div>
     </div>
@@ -600,7 +751,9 @@ export function PowerPage(): React.JSX.Element {
     )
   }
 
-  return isPX4
-    ? <PX4PowerPage vehicleId={vehicleId} />
-    : <ArduPilotPowerPage vehicleId={vehicleId} />
+  return isPX4 ? (
+    <PX4PowerPage vehicleId={vehicleId} />
+  ) : (
+    <ArduPilotPowerPage vehicleId={vehicleId} />
+  )
 }
