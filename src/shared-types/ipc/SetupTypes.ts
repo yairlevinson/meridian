@@ -39,6 +39,7 @@ export interface CalibrationState {
   message: string
   messages: string[] // all STATUSTEXT messages received during calibration
   progress: number // 0..1
+  currentOrientationProgress: number // 0..1 progress within the current orientation (PX4)
   orientationsCompleted: CalibrationOrientation[]
   currentOrientation: CalibrationOrientation | null
 }

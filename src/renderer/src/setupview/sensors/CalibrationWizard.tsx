@@ -5,7 +5,7 @@ import {
   CalibrationSensor,
   type CalibrationState
 } from '../../../../shared-types/ipc/SetupTypes'
-import { useSetupStore } from '../../store/setupStore'
+import { CompassCalibration } from './CompassCalibration'
 import styles from './CalibrationWizard.module.css'
 
 const ORIENTATION_META: Array<{
@@ -89,7 +89,6 @@ interface Props {
 }
 
 export function CalibrationWizard({ state, onCancel, onDone }: Props): React.JSX.Element {
-  const magCalProgress = useSetupStore((s) => s.magCalProgress)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const isFinished =
@@ -100,9 +99,6 @@ export function CalibrationWizard({ state, onCancel, onDone }: Props): React.JSX
   const showOrientationGrid =
     state.sensor === CalibrationSensor.Accel ||
     state.sensor === CalibrationSensor.AccelSimple
-
-  const showMagProgress =
-    state.sensor === CalibrationSensor.Compass && magCalProgress.length > 0 && !isFinished
 
   const statusLabel =
     state.status === CalibrationStatus.Complete
@@ -121,6 +117,11 @@ export function CalibrationWizard({ state, onCancel, onDone }: Props): React.JSX
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [state.messages.length])
+
+  // Compass gets its own dedicated visual experience
+  if (state.sensor === CalibrationSensor.Compass) {
+    return <CompassCalibration state={state} onCancel={onCancel} onDone={onDone} />
+  }
 
   return (
     <div className={styles.root}>
@@ -180,24 +181,6 @@ export function CalibrationWizard({ state, onCancel, onDone }: Props): React.JSX
               </div>
             )
           })}
-        </div>
-      )}
-
-      {/* Compass per-sensor progress */}
-      {showMagProgress && (
-        <div className={styles.magGrid}>
-          {magCalProgress.map((mag) => (
-            <div key={mag.compassId} className={styles.magItem}>
-              <span className={styles.magLabel}>Compass {mag.compassId}</span>
-              <div className={styles.progressBar}>
-                <div
-                  className={styles.progressFill}
-                  style={{ width: `${mag.completionPct}%` }}
-                />
-              </div>
-              <span className={styles.magPct}>{mag.completionPct}%</span>
-            </div>
-          ))}
         </div>
       )}
 

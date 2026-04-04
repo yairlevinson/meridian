@@ -10,6 +10,7 @@ import type {
   CalibrationSensor,
   CalibrationState,
   MagCalProgress,
+  MagCalReport,
   RcCalibrationState,
   FlightModeConfig,
   FirmwareUpgradeState
@@ -85,6 +86,9 @@ export interface Bridge {
   ) => () => void
   onCalibrationMagProgress: (
     cb: (payload: { vehicleId: number } & MagCalProgress) => void
+  ) => () => void
+  onCalibrationMagReport: (
+    cb: (payload: { vehicleId: number } & MagCalReport) => void
   ) => () => void
 
   // RC Calibration
@@ -351,6 +355,16 @@ const bridge: Bridge = {
     ipcRenderer.on(IpcEvents.CalibrationMagProgress, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.CalibrationMagProgress, handler)
+    }
+  },
+  onCalibrationMagReport: (cb) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { vehicleId: number } & MagCalReport
+    ): void => cb(payload)
+    ipcRenderer.on(IpcEvents.CalibrationMagReport, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.CalibrationMagReport, handler)
     }
   },
 

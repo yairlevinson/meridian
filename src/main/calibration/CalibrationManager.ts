@@ -101,6 +101,7 @@ export class CalibrationManager extends EventEmitter {
     message: '',
     messages: [],
     progress: 0,
+    currentOrientationProgress: 0,
     orientationsCompleted: [],
     currentOrientation: null
   }
@@ -141,6 +142,7 @@ export class CalibrationManager extends EventEmitter {
       message: `Starting ${sensor} calibration...`,
       messages: [],
       progress: 0,
+      currentOrientationProgress: 0,
       orientationsCompleted: [],
       currentOrientation: null
     }
@@ -199,15 +201,32 @@ export class CalibrationManager extends EventEmitter {
     this._state.message = text
     this._state.messages.push(text)
 
-    // Check for completion
-    if (lower.includes('calibration successful') || lower.includes('calibration done')) {
-      this._state.status = CalibrationStatus.Complete
-      this._state.progress = 1
+    // PX4: "[cal] <side> side calibration: progress <N>" — cumulative 0-100 across all sides
+    const progressMatch = text.match(/progress\s*<\s*(\d+)\s*>/)
+    if (progressMatch) {
+      const totalPct = parseInt(progressMatch[1]!, 10) / 100 // 0..1 overall
+      this._state.progress = totalPct
+      this._state.status = CalibrationStatus.Collecting
+      // Derive per-side progress from cumulative total
+      const done = this._state.orientationsCompleted.length
+      const perSide = 1 / 6
+      this._state.currentOrientationProgress = Math.max(0, Math.min(1,
+        (totalPct - done * perSide) / perSide
+      ))
       this._emitState()
       return
     }
 
-    // Check for failure
+    // Check for completion — PX4: "calibration done:", ArduPilot: "calibration successful"
+    if (lower.includes('calibration successful') || lower.includes('calibration done')) {
+      this._state.status = CalibrationStatus.Complete
+      this._state.progress = 1
+      this._state.currentOrientationProgress = 0
+      this._emitState()
+      return
+    }
+
+    // Check for failure — PX4: "[cal] calibration failed: mag"
     if (lower.includes('calibration failed') || lower.includes('cal failed')) {
       this._state.status = CalibrationStatus.Failed
       this._emitState()
@@ -221,24 +240,31 @@ export class CalibrationManager extends EventEmitter {
       return
     }
 
+    // PX4: "[cal] calibration started: 2 mag" or "[cal] hold vehicle still on a pending side"
+    if (lower.includes('calibration started:') || lower.includes('hold vehicle still')) {
+      this._state.status = CalibrationStatus.WaitingForOrientation
+    }
+
     // PX4: "[cal] <side> orientation detected" — vehicle placed in new orientation
     if (lower.includes('orientation detected')) {
       const orientation = parseOrientation(text)
       if (orientation) {
         console.log(`[Calibration] Orientation detected: ${orientation}`)
         this._state.currentOrientation = orientation
+        this._state.currentOrientationProgress = 0
         this._state.status = CalibrationStatus.Collecting
         this._state.progress = this._state.orientationsCompleted.length / 6
       }
     }
 
-    // PX4: "[cal] <side> side done" — orientation completed
+    // PX4: "[cal] <side> side done, rotate to a different side" — orientation completed
     if (lower.includes('side done')) {
       const orientation = parseOrientation(text)
       if (orientation && !this._state.orientationsCompleted.includes(orientation)) {
         this._state.orientationsCompleted.push(orientation)
         console.log(`[Calibration] Orientation done: ${orientation}, completed: [${this._state.orientationsCompleted}]`)
         this._state.currentOrientation = null
+        this._state.currentOrientationProgress = 0
         this._state.status = CalibrationStatus.WaitingForOrientation
         this._state.progress = this._state.orientationsCompleted.length / 6
       }
@@ -247,6 +273,16 @@ export class CalibrationManager extends EventEmitter {
     // PX4: "[cal] side already completed" — orientation already done
     if (lower.includes('already completed')) {
       this._state.status = CalibrationStatus.WaitingForOrientation
+    }
+
+    // PX4: "[cal] detected rest position, hold still..." — detecting orientation
+    if (lower.includes('detected rest position')) {
+      this._state.status = CalibrationStatus.WaitingForOrientation
+    }
+
+    // PX4: "[cal] Rotate vehicle" — instruction to start rotating
+    if (lower.includes('rotate vehicle')) {
+      this._state.status = CalibrationStatus.Collecting
     }
 
     // ArduPilot: "Place vehicle..." / "Hold vehicle..." — orientation instructions
@@ -260,6 +296,7 @@ export class CalibrationManager extends EventEmitter {
           this._state.orientationsCompleted.push(this._state.currentOrientation)
         }
         this._state.currentOrientation = orientation
+        this._state.currentOrientationProgress = 0
         this._state.status = CalibrationStatus.WaitingForOrientation
         this._state.progress = this._state.orientationsCompleted.length / 6
       }

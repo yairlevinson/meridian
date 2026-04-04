@@ -3,6 +3,7 @@ import type {
   SetupPage,
   CalibrationState,
   MagCalProgress,
+  MagCalReport,
   RcCalibrationState,
   FirmwareUpgradeState
 } from '../../../shared-types/ipc/SetupTypes'
@@ -18,6 +19,10 @@ interface SetupStore {
   magCalProgress: MagCalProgress[]
   setMagCalProgress: (progress: MagCalProgress[]) => void
   updateMagCalProgress: (progress: MagCalProgress) => void
+
+  magCalReports: MagCalReport[]
+  setMagCalReports: (reports: MagCalReport[]) => void
+  addMagCalReport: (report: MagCalReport) => void
 
   rcCalibrationState: RcCalibrationState | null
   setRcCalibrationState: (state: RcCalibrationState | null) => void
@@ -47,6 +52,20 @@ export const useSetupStore = create<SetupStore>((set) => ({
       return { magCalProgress: next }
     }),
 
+  magCalReports: [],
+  setMagCalReports: (reports) => set({ magCalReports: reports }),
+  addMagCalReport: (report) =>
+    set((prev) => {
+      const idx = prev.magCalReports.findIndex((r) => r.compassId === report.compassId)
+      const next = [...prev.magCalReports]
+      if (idx >= 0) {
+        next[idx] = report
+      } else {
+        next.push(report)
+      }
+      return { magCalReports: next }
+    }),
+
   rcCalibrationState: null,
   setRcCalibrationState: (state) => set({ rcCalibrationState: state }),
 
@@ -71,6 +90,9 @@ setTimeout(() => {
           payload.state.status === CalibrationStatus.Idle
         ) {
           useSetupStore.getState().setMagCalProgress([])
+          if (payload.state.status !== CalibrationStatus.Complete) {
+            useSetupStore.getState().setMagCalReports([])
+          }
         }
       }
     )
@@ -79,6 +101,12 @@ setTimeout(() => {
   if (bridge.onCalibrationMagProgress) {
     bridge.onCalibrationMagProgress((payload: { vehicleId: number } & MagCalProgress) => {
       useSetupStore.getState().updateMagCalProgress(payload)
+    })
+  }
+
+  if (bridge.onCalibrationMagReport) {
+    bridge.onCalibrationMagReport((payload: { vehicleId: number } & MagCalReport) => {
+      useSetupStore.getState().addMagCalReport(payload)
     })
   }
 
