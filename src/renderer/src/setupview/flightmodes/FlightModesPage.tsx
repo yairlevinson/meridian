@@ -300,7 +300,7 @@ function PX4FlightModesPage(): React.JSX.Element {
                   key={slot}
                   className={`${styles.modeRow} ${isActive ? styles.modeRowActive : ''}`}
                 >
-                  <span className={styles.modeSlot}>Slot {slot}</span>
+                  <span className={styles.slotBadge}>{slot}</span>
                   <select
                     className={styles.modeSelect}
                     value={modeValue}
@@ -312,7 +312,6 @@ function PX4FlightModesPage(): React.JSX.Element {
                       </option>
                     ))}
                   </select>
-                  <span className={styles.modeParamName}>COM_FLTMODE{slot}</span>
                 </div>
               )
             })}
@@ -329,15 +328,19 @@ function PX4FlightModesPage(): React.JSX.Element {
         <div className={styles.px4Column}>
           <div className={styles.sectionTitle}>Switch Settings</div>
           <div className={styles.switchGrid}>
-            {visibleSwitches.map((sw) => (
-              <div key={sw.param} className={styles.switchRow}>
-                <span className={styles.switchLabel}>{sw.label}</span>
-                <ChannelSelect
-                  value={switchValues.get(sw.param) ?? 0}
-                  onChange={(ch) => handleSwitchChange(sw.param, ch)}
-                />
-              </div>
-            ))}
+            {visibleSwitches.map((sw) => {
+              const chVal = switchValues.get(sw.param) ?? 0
+              return (
+                <div key={sw.param} className={`${styles.switchRow} ${chVal > 0 ? styles.switchRowAssigned : ''}`}>
+                  <span className={`${styles.switchDot} ${chVal > 0 ? styles.switchDotActive : ''}`} />
+                  <span className={styles.switchLabel}>{sw.label}</span>
+                  <ChannelSelect
+                    value={chVal}
+                    onChange={(ch) => handleSwitchChange(sw.param, ch)}
+                  />
+                </div>
+              )
+            })}
           </div>
 
           <ChannelMonitor rc={rc} />
@@ -508,7 +511,7 @@ function ArduPilotFlightModesPage(): React.JSX.Element {
               key={slot}
               className={`${styles.modeRow} ${isActive ? styles.modeRowActive : ''}`}
             >
-              <span className={styles.modeSlot}>Mode {slot}</span>
+              <span className={styles.slotBadge}>{slot}</span>
               <select
                 className={styles.modeSelect}
                 value={modeNumber}

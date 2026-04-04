@@ -9,7 +9,7 @@
   font-family: var(--font-mono);
   font-size: var(--fs-lg);
   color: var(--text-primary);
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   flex-shrink: 0;
 }
 
@@ -17,7 +17,7 @@
 
 .px4Layout {
   display: flex;
-  gap: 24px;
+  gap: 28px;
   flex: 1;
   overflow: hidden;
 }
@@ -26,29 +26,33 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   overflow-y: auto;
   min-width: 0;
 }
 
 .sectionTitle {
   font-family: var(--font-mono);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: 0.5px;
+  color: var(--text-dimmed);
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
-/* ── Shared controls ───────────────────────── */
+/* ── Channel selector bar ─────────────────── */
 
 .channelSelector {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 10px;
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
   color: var(--text-secondary);
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  flex-wrap: wrap;
 }
 
 .channelSelect {
@@ -61,72 +65,150 @@
   font-size: var(--fs-sm);
 }
 
+.paramHint {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  margin-left: 2px;
+}
+
 /* ── Mode grid ─────────────────────────────── */
 
 .modeGrid {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .modeRow {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
+  gap: 10px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid transparent;
+  border-radius: 6px;
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
+  transition: all 0.2s ease;
 }
 
 .modeRowActive {
-  border-color: var(--accent-blue);
-  background: rgba(33, 150, 243, 0.08);
+  border-color: rgba(33, 150, 243, 0.5);
+  background: rgba(33, 150, 243, 0.06);
 }
 
-.modeSlot {
-  width: 55px;
+/* ── Slot badge ─────────────────────────────── */
+
+.slotBadge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--text-dimmed);
   flex-shrink: 0;
+  transition: all 0.2s ease;
 }
+
+.modeRowActive .slotBadge {
+  background: var(--accent-blue);
+  color: #fff;
+  box-shadow: 0 0 8px rgba(33, 150, 243, 0.4);
+}
+
+/* ── Mode select ────────────────────────────── */
 
 .modeSelect {
   flex: 1;
-  background: var(--bg-surface);
+  background: var(--bg-base);
   border: 1px solid var(--border-default);
-  border-radius: 3px;
-  padding: 4px 8px;
+  border-radius: 4px;
+  padding: 5px 8px;
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
 }
 
+.modeRowActive .modeSelect {
+  border-color: rgba(33, 150, 243, 0.3);
+}
+
+/* ── Mode label (for unassigned dimming) ───── */
+
+.modeLabel {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.modeLabelDim {
+  color: var(--text-faint);
+}
+
+/* ── PWM range (ArduPilot) ────────────────── */
+
 .modePwmRange {
-  width: 120px;
+  width: 100px;
   color: var(--text-faint);
   font-size: var(--fs-xs);
   text-align: right;
   flex-shrink: 0;
 }
 
-/* ── Switch settings (PX4) ─────────────────── */
+/* ── Active PWM readout ──────────────────── */
+
+.activePwm {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-dimmed);
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  display: inline-flex;
+  align-self: flex-start;
+}
+
+/* ── Switch settings ─────────────────────── */
 
 .switchGrid {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .switchRow {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 12px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
+  gap: 10px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+
+.switchRowAssigned {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.switchDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.switchDotActive {
+  background: #69f0ae;
+  box-shadow: 0 0 6px rgba(105, 240, 174, 0.4);
 }
 
 .switchLabel {
@@ -136,16 +218,17 @@
   color: var(--text-secondary);
 }
 
-/* ── Channel monitor ───────────────────────── */
+/* ── Channel monitor ──────────────────────── */
 
 .channelMonitor {
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .channelBars {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+  margin-top: 10px;
 }
 
 .channelBarRow {
@@ -157,25 +240,26 @@
 .channelBarLabel {
   width: 18px;
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-dimmed);
+  font-size: 10px;
+  color: var(--text-faint);
   text-align: right;
   flex-shrink: 0;
 }
 
 .channelBarTrack {
   flex: 1;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 4px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .channelBarFill {
   height: 100%;
   background: var(--accent-blue);
-  border-radius: 4px;
+  border-radius: 3px;
   transition: width 0.1s ease;
+  opacity: 0.7;
 }
 
 .channelBarValue {
@@ -192,31 +276,36 @@
 .toolbar {
   display: flex;
   gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-default);
-  margin-top: 12px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 14px;
   flex-shrink: 0;
 }
 
 .btn {
-  background: var(--bg-elevated);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--border-default);
   border-radius: 4px;
-  padding: 6px 14px;
+  padding: 6px 16px;
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .btn:hover {
-  background: var(--bg-hover);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .btnPrimary {
   background: var(--accent-blue);
   color: #fff;
   border-color: var(--accent-blue);
+}
+
+.btnPrimary:hover {
+  opacity: 0.9;
 }
 
 /* ── ArduPilot-specific ────────────────────── */
@@ -232,25 +321,10 @@
   cursor: pointer;
 }
 
-.paramHint {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-  margin-left: 4px;
+.modeSlot {
+  display: none; /* replaced by slotBadge */
 }
 
 .modeParamName {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-  width: 110px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.activePwm {
-  margin-top: 8px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  color: var(--text-dimmed);
+  display: none; /* removed clutter */
 }
