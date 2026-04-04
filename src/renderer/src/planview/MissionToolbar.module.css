@@ -17,3 +17,17 @@
   color: var(--accent-yellow);
   margin-left: 4px;
 }
+
+.toastSuccess {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: #00e676;
+  margin-left: 4px;
+}
+
+.toastError {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: #ff5252;
+  margin-left: 4px;
+}

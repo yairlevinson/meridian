@@ -211,6 +211,13 @@ if (typeof window !== 'undefined' && 'geolocation' in navigator) {
   )
 }
 
+// Auto-load mission items when the main process pushes a completed download
+if (typeof window !== 'undefined' && window.bridge?.onMissionComplete) {
+  window.bridge.onMissionComplete(({ items }) => {
+    useMissionStore.getState().loadFromItems(items)
+  })
+}
+
 // Expose for E2E testing
 if (typeof window !== 'undefined') {
   ;(window as unknown as Record<string, unknown>).__missionStore = useMissionStore

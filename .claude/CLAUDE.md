@@ -103,6 +103,10 @@ npm run dev:sitl         # Dev with SITL via scripts/dev-sitl.sh
 - `GC_UDP_PORT` — UDP listen port (default: 14550)
 - `GC_TCP_LINKS` — Comma-separated TCP SITL targets (e.g., `127.0.0.1:5760,127.0.0.1:5761`)
 
+## Logs
+
+- **MAVLink traffic log**: `~/meridian-mavlink.log` — records all RX/TX MAVLink messages with timestamps, sysid:compid, message name, and fields
+
 ## Tech Stack
 
 - **Electron** (39.x) — Desktop shell

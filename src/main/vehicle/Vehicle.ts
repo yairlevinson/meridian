@@ -298,6 +298,7 @@ export class Vehicle extends EventEmitter {
       // Delay slightly to let the link stabilize
       setTimeout(() => {
         this.parameterManager.requestAllParameters()
+        this.missionManager.loadFromVehicle()
         // Request actuator metadata after parameters start loading
         setTimeout(() => this.actuatorMetadata.requestMetadata(), 3000)
       }, 1000)

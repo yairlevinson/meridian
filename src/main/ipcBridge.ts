@@ -48,6 +48,9 @@ export function startIpcBridge(
       vehicle.missionManager.on('progress', (p: { current: number; total: number }) => {
         broadcast('mission:progress', { vehicleId: sysid, ...p })
       })
+      vehicle.missionManager.on('loadComplete', (items: MissionItem[]) => {
+        broadcast(IpcEvents.MissionComplete, { vehicleId: sysid, items })
+      })
       vehicle.missionManager.on('currentChanged', (seq: number) => {
         broadcast('mission:currentChanged', { vehicleId: sysid, seq })
       })

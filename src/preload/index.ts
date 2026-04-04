@@ -47,6 +47,9 @@ export interface Bridge {
   onMissionProgress: (
     cb: (payload: { vehicleId: number; current: number; total: number }) => void
   ) => () => void
+  onMissionComplete: (
+    cb: (payload: { vehicleId: number; items: import('../shared-types/ipc/MissionTypes').MissionItem[] }) => void
+  ) => () => void
   onMissionCurrentChanged: (cb: (payload: { vehicleId: number; seq: number }) => void) => () => void
 
   // Video streaming
@@ -242,6 +245,14 @@ const bridge: Bridge = {
     ipcRenderer.on('mission:progress', handler)
     return () => {
       ipcRenderer.removeListener('mission:progress', handler)
+    }
+  },
+  onMissionComplete: (cb) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: { vehicleId: number; items: unknown[] }): void =>
+      cb(payload as { vehicleId: number; items: import('../shared-types/ipc/MissionTypes').MissionItem[] })
+    ipcRenderer.on(IpcEvents.MissionComplete, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.MissionComplete, handler)
     }
   },
   onMissionCurrentChanged: (cb) => {
