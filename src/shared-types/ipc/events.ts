@@ -66,5 +66,8 @@ export enum IpcEvents {
   /** MAVLink Inspector: 1 Hz message list snapshot */
   MavInspectorSnapshot = 'mavInspector:snapshot',
   /** MAVLink Inspector: 5 Hz field values for selected message */
-  MavInspectorFields = 'mavInspector:fields'
+  MavInspectorFields = 'mavInspector:fields',
+
+  /** MAVLink forwarding state changed */
+  ForwardingStateChanged = 'forwarding:stateChanged'
 }

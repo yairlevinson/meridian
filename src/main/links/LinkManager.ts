@@ -30,6 +30,8 @@ const AUTOPILOT_VENDOR_IDS = new Set([
 ])
 
 const SERIAL_POLL_MS = 1000
+/** After a failed auto-connect, wait this many cycles before retrying */
+const AUTO_CONNECT_RETRY_CYCLES = 5
 
 export class LinkManager extends EventEmitter {
   private links = new Map<string, LinkInterface>()
@@ -40,6 +42,8 @@ export class LinkManager extends EventEmitter {
   private autoConnectedPorts = new Map<string, string>()
   /** Skip port on first detection (let bootloader finish, matching QGC) */
   private waitList = new Set<string>()
+  /** Ports that failed to connect — back off before retrying */
+  private failedPorts = new Map<string, number>()
 
   constructor(protocol: MavlinkProtocol) {
     super()
@@ -80,8 +84,22 @@ export class LinkManager extends EventEmitter {
       this.emit('linkStateChanged', link)
     })
 
+    // Absorb 'error' events to prevent unhandled EventEmitter exceptions.
+    // Errors during connect() are already conveyed via the rejected promise.
+    link.on('error', () => {})
+
     this.links.set(id, link)
-    await link.connect()
+    try {
+      await link.connect()
+    } catch (err) {
+      // Roll back: free the channel and remove from the map
+      if (link.mavlinkChannel >= 0) {
+        this.protocol.freeChannel(link.mavlinkChannel)
+      }
+      this.links.delete(id)
+      throw err
+    }
+    this.emit('linkAdded', link)
     this.emit('linkStateChanged', link)
 
     return link
@@ -91,6 +109,7 @@ export class LinkManager extends EventEmitter {
   disconnectLink(id: string): void {
     const link = this.links.get(id)
     if (!link) return
+    this.emit('linkRemoved', link)
     link.disconnect()
     if (link.mavlinkChannel >= 0) {
       this.protocol.freeChannel(link.mavlinkChannel)
@@ -123,9 +142,11 @@ export class LinkManager extends EventEmitter {
   /** Start polling for USB autopilot boards and auto-connecting */
   startAutoConnect(): void {
     if (this.autoConnectTimer) return
-    this.autoConnectTimer = setInterval(() => this._pollSerial(), SERIAL_POLL_MS)
-    // Run immediately on start
-    this._pollSerial()
+    const poll = (): void => {
+      this._pollSerial().catch(() => {})
+    }
+    this.autoConnectTimer = setInterval(poll, SERIAL_POLL_MS)
+    poll()
   }
 
   /** Stop auto-connect polling */
@@ -149,6 +170,16 @@ export class LinkManager extends EventEmitter {
 
         if (this.autoConnectedPorts.has(port.path)) continue
 
+        // Back off after a failed connect attempt
+        const remaining = this.failedPorts.get(port.path)
+        if (remaining !== undefined) {
+          if (remaining > 0) {
+            this.failedPorts.set(port.path, remaining - 1)
+            continue
+          }
+          this.failedPorts.delete(port.path)
+        }
+
         // Wait one cycle before connecting (bootloader may still be running)
         if (!this.waitList.has(port.path)) {
           this.waitList.add(port.path)
@@ -169,12 +200,16 @@ export class LinkManager extends EventEmitter {
           this.autoConnectedPorts.set(port.path, link.id)
         } catch (err) {
           console.warn(`[LinkManager] Auto-connect failed for ${port.path}:`, err)
+          this.failedPorts.set(port.path, AUTO_CONNECT_RETRY_CYCLES)
         }
       }
 
-      // Clean up disappeared ports from wait list
+      // Clean up disappeared ports from wait list and failed backoff
       for (const path of this.waitList) {
         if (!currentPaths.has(path)) this.waitList.delete(path)
+      }
+      for (const path of this.failedPorts.keys()) {
+        if (!currentPaths.has(path)) this.failedPorts.delete(path)
       }
 
       // Disconnect ports that disappeared

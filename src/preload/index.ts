@@ -15,6 +15,7 @@ import type {
   FirmwareUpgradeState
 } from '../shared-types/ipc/SetupTypes'
 import type { CameraState } from '../shared-types/ipc/CameraTypes'
+import type { ForwardingState } from '../shared-types/ipc/ForwardingTypes'
 
 export interface Bridge {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
@@ -156,6 +157,14 @@ export interface Bridge {
   onMavInspectorFields: (
     cb: (payload: import('../shared-types/ipc/MavInspectorTypes').InspectorFieldsPayload) => void
   ) => () => void
+
+  // MAVLink Forwarding
+  forwardingGetState: () => Promise<ForwardingState>
+  forwardingAddTarget: (host: string, port: number) => Promise<string>
+  forwardingRemoveTarget: (id: string) => Promise<void>
+  forwardingSetEnabled: (enabled: boolean) => Promise<void>
+  forwardingSetTargetEnabled: (id: string, enabled: boolean) => Promise<void>
+  onForwardingStateChanged: (cb: (state: ForwardingState) => void) => () => void
 }
 
 const bridge: Bridge = {
@@ -467,6 +476,22 @@ const bridge: Bridge = {
     ipcRenderer.on(IpcEvents.MavInspectorFields, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.MavInspectorFields, handler)
+    }
+  },
+
+  // MAVLink Forwarding
+  forwardingGetState: () => ipcRenderer.invoke(IpcChannels.ForwardingGetState),
+  forwardingAddTarget: (host, port) =>
+    ipcRenderer.invoke(IpcChannels.ForwardingAddTarget, { host, port }),
+  forwardingRemoveTarget: (id) => ipcRenderer.invoke(IpcChannels.ForwardingRemoveTarget, id),
+  forwardingSetEnabled: (enabled) => ipcRenderer.invoke(IpcChannels.ForwardingSetEnabled, enabled),
+  forwardingSetTargetEnabled: (id, enabled) =>
+    ipcRenderer.invoke(IpcChannels.ForwardingSetTargetEnabled, { id, enabled }),
+  onForwardingStateChanged: (cb) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: ForwardingState): void => cb(state)
+    ipcRenderer.on(IpcEvents.ForwardingStateChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.ForwardingStateChanged, handler)
     }
   }
 }

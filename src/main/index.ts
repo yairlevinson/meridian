@@ -15,6 +15,8 @@ import { GCS_SYSID, GCS_COMPID } from './mavlink/constants'
 import { resolveTileUrl } from '@shared/ipc/tileProviders'
 import { VideoManager } from './video/VideoManager'
 import { mavLog } from './mavlink/trafficLog'
+import { SettingsManager } from './settings/SettingsManager'
+import { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 
 // Prevent crashes from TCP socket errors (e.g. EPIPE, unexpected read errors
 // when SITL container shuts down). These are non-fatal — the link will
@@ -290,6 +292,9 @@ app.whenReady().then(async () => {
   await videoManager.init()
 
   // --- MAVLink stack ---
+  const settingsManager = new SettingsManager({
+    filePath: join(app.getPath('userData'), 'settings.json')
+  })
   const vehicleManager = new VehicleManager()
 
   // Parse TCP link targets
@@ -298,6 +303,19 @@ app.whenReady().then(async () => {
         .map((s) => s.trim())
         .filter(Boolean)
     : []
+
+  function writeToAllLinks(lm: LinkManager, buf: Buffer): void {
+    for (const state of lm.getAllStates()) {
+      const link = lm.getLink(state.id)
+      if (link?.isConnected) {
+        try {
+          link.writeBytes(buf)
+        } catch {
+          /* link closed */
+        }
+      }
+    }
+  }
 
   if (tcpTargets.length > 0) {
     // ---- TCP mode: connect to multiple SITL instances via LinkManager ----
@@ -336,7 +354,12 @@ app.whenReady().then(async () => {
       }
     })
 
-    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager)
+    // --- MAVLink forwarding ---
+    const forwarder = new MavlinkForwarder(settingsManager, UDP_PORT)
+    forwarder.attachLinkManager(linkManager)
+    forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
+
+    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager, forwarder)
 
     // Connect to each TCP target
     for (const target of tcpTargets) {
@@ -389,7 +412,9 @@ app.whenReady().then(async () => {
     }, 1000)
 
     app.on('before-quit', () => {
+      settingsManager.flush()
       clearInterval(heartbeatInterval)
+      forwarder.destroy()
       cleanupIpcBridge()
       linkManager.disconnectAll()
       mavlinkProtocol.destroy()
@@ -446,7 +471,16 @@ app.whenReady().then(async () => {
       vehicleManager.handleMessage(msg, 'udp-0')
     })
 
-    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager)
+    // --- MAVLink forwarding ---
+    const forwarder = new MavlinkForwarder(settingsManager, UDP_PORT)
+    forwarder.attachLinkManager(linkManager)
+    forwarder.attachLegacyUdpLink(udpLink)
+    forwarder.setVehicleWriteFn((buf) => {
+      udpLink.send(buf)
+      writeToAllLinks(linkManager, buf)
+    })
+
+    const cleanupIpcBridge = startIpcBridge(vehicleManager, videoManager, linkManager, forwarder)
 
     await udpLink.bind()
     udpLink.unref()
@@ -487,7 +521,9 @@ app.whenReady().then(async () => {
     }, 1000)
 
     app.on('before-quit', () => {
+      settingsManager.flush()
       clearInterval(heartbeatInterval)
+      forwarder.destroy()
       cleanupIpcBridge()
       cleanupPipeline()
       linkManager.disconnectAll()

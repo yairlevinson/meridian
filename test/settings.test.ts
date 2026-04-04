@@ -52,7 +52,7 @@ describe('SettingsManager', () => {
   })
 
   it('accepts initial settings in constructor', () => {
-    const sm = new SettingsManager({ mapProvider: 'esri_satellite', language: 'fr' })
+    const sm = new SettingsManager({ initial: { mapProvider: 'esri_satellite', language: 'fr' } })
     expect(sm.get('mapProvider')).toBe('esri_satellite')
     expect(sm.get('language')).toBe('fr')
     expect(sm.get('theme')).toBe('dark') // default

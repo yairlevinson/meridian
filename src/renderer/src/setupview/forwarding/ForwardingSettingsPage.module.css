@@ -1,0 +1,255 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.description {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+/* Status bar */
+.statusBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.statusDotOn {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00e676;
+  flex-shrink: 0;
+}
+
+.statusDotOff {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dimmed);
+  flex-shrink: 0;
+}
+
+.statusTextOn {
+  color: #00e676;
+}
+
+.statusTextOff {
+  color: var(--text-dimmed);
+}
+
+.enableToggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggleLabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+}
+
+.toggleBtn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.toggleBtnActive {
+  border-color: #00e676;
+  background: rgba(0, 230, 118, 0.1);
+  color: #00e676;
+}
+
+/* Section */
+.section {
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+/* Add target form */
+.addForm {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.hostInput {
+  width: 200px;
+  padding: 8px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  box-sizing: border-box;
+}
+
+.portInput {
+  width: 100px;
+  padding: 8px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  box-sizing: border-box;
+}
+
+.hostInput:focus,
+.portInput:focus {
+  border-color: var(--accent-blue);
+  outline: none;
+}
+
+.hostInput:disabled,
+.portInput:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.addBtn {
+  background: var(--accent-blue);
+  border: 1px solid var(--accent-blue);
+  border-radius: 4px;
+  padding: 8px 16px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.addBtn:hover {
+  opacity: 0.9;
+}
+
+.addBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Target list */
+.targetList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.targetRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.targetAddress {
+  color: var(--text-primary);
+  font-weight: 600;
+  min-width: 180px;
+}
+
+.targetStats {
+  color: var(--text-dimmed);
+  font-size: var(--fs-xs);
+  flex: 1;
+}
+
+.targetToggle {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  color: var(--text-dimmed);
+}
+
+.targetToggleOn {
+  border-color: #00e676;
+  color: #00e676;
+}
+
+.removeBtn {
+  background: none;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 4px 10px;
+  color: #ff5252;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+
+.removeBtn:hover:not(:disabled) {
+  background: rgba(255, 82, 82, 0.1);
+  border-color: #ff5252;
+}
+
+.targetToggle:disabled,
+.removeBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.emptyState {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-dimmed);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.error {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 82, 82, 0.1);
+  border: 1px solid #ff5252;
+  border-radius: 4px;
+  color: #ff5252;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}

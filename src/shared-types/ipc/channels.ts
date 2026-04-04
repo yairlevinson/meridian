@@ -126,5 +126,12 @@ export enum IpcChannels {
   MavInspectorEnable = 'mavInspector:enable',
   MavInspectorDisable = 'mavInspector:disable',
   MavInspectorSelect = 'mavInspector:select',
-  MavInspectorDeselect = 'mavInspector:deselect'
+  MavInspectorDeselect = 'mavInspector:deselect',
+
+  // MAVLink Forwarding
+  ForwardingGetState = 'forwarding:getState',
+  ForwardingAddTarget = 'forwarding:addTarget',
+  ForwardingRemoveTarget = 'forwarding:removeTarget',
+  ForwardingSetEnabled = 'forwarding:setEnabled',
+  ForwardingSetTargetEnabled = 'forwarding:setTargetEnabled'
 }

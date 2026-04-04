@@ -19,6 +19,7 @@ const items: SidebarItem[] = [
   { page: 'actuators', label: 'Actuators' },
   { page: 'parameters', label: 'Parameters' },
   { page: 'video', label: 'Video' },
+  { page: 'mavlinkForwarding', label: 'MAVLink Forwarding' },
   { page: 'mavConsole', label: 'MAVLink Console' },
   { page: 'mavInspector', label: 'MAVLink Inspector' }
 ]

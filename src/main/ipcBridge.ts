@@ -15,6 +15,7 @@ import { CameraMode } from '@shared/ipc/CameraTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
+import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 
 const TICK_RATE_MS = 33 // ~30 Hz
 
@@ -29,7 +30,8 @@ function broadcast(channel: string, ...args: unknown[]): void {
 export function startIpcBridge(
   vehicleManager: VehicleManager,
   videoManager?: VideoManager,
-  linkManager?: LinkManager
+  linkManager?: LinkManager,
+  forwarder?: MavlinkForwarder
 ): () => void {
   const inspector = new MavlinkInspector(broadcast)
   vehicleManager.onRawMessage = inspector.handleMessage
@@ -117,6 +119,13 @@ export function startIpcBridge(
   if (videoManager) {
     videoManager.on('stateChanged', (state) => {
       broadcast(IpcEvents.VideoStateChanged, state)
+    })
+  }
+
+  // Forward MAVLink forwarding state changes to all renderer windows
+  if (forwarder) {
+    forwarder.on('stateChanged', (state) => {
+      broadcast(IpcEvents.ForwardingStateChanged, state)
     })
   }
 
@@ -600,6 +609,31 @@ export function startIpcBridge(
     {
       channel: IpcChannels.MavInspectorDeselect,
       handler: () => inspector.deselect()
+    },
+    // MAVLink Forwarding
+    {
+      channel: IpcChannels.ForwardingGetState,
+      handler: () => forwarder?.getState() ?? { enabled: false, targets: [] }
+    },
+    {
+      channel: IpcChannels.ForwardingAddTarget,
+      handler: (req: { host: string; port: number }) => {
+        if (!forwarder) throw new Error('Forwarder not available')
+        return forwarder.addTarget(req.host, req.port)
+      }
+    },
+    {
+      channel: IpcChannels.ForwardingRemoveTarget,
+      handler: (id: string) => forwarder?.removeTarget(id)
+    },
+    {
+      channel: IpcChannels.ForwardingSetEnabled,
+      handler: (enabled: boolean) => forwarder?.setEnabled(enabled)
+    },
+    {
+      channel: IpcChannels.ForwardingSetTargetEnabled,
+      handler: (req: { id: string; enabled: boolean }) =>
+        forwarder?.setTargetEnabled(req.id, req.enabled)
     },
     {
       channel: IpcChannels.FirmwareGetBoardInfo,

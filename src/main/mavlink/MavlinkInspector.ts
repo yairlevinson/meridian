@@ -196,9 +196,10 @@ export class MavlinkInspector {
     const obj = data as Record<string, unknown>
 
     if (fieldMeta) {
-      // Use FIELDS metadata for ordering and type info
+      // Use FIELDS metadata for ordering and type info.
+      // mavlink-mappings uses camelCase but MAVLink convention is snake_case.
       return fieldMeta.map((f) => ({
-        name: f.name,
+        name: camelToSnake(f.name),
         value: formatValue(obj[f.name]),
         type: f.type
       }))
@@ -206,11 +207,15 @@ export class MavlinkInspector {
 
     // Fallback: iterate object keys
     return Object.keys(obj).map((key) => ({
-      name: key,
+      name: camelToSnake(key),
       value: formatValue(obj[key]),
       type: typeof obj[key]
     }))
   }
+}
+
+function camelToSnake(s: string): string {
+  return s.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase()
 }
 
 function formatValue(v: unknown): string {

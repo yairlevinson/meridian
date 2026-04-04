@@ -140,6 +140,7 @@ export type SetupPage =
   | 'video'
   | 'mavConsole'
   | 'mavInspector'
+  | 'mavlinkForwarding'
 
 /** ArduCopter flight mode names indexed by custom_mode number */
 export const ARDUCOPTER_MODE_NAMES: Record<number, string> = {
