@@ -12,6 +12,7 @@ files:
 asarUnpack:
   - resources/**
   - node_modules/@serialport/**
+  - node_modules/ffmpeg-static/**
 win:
   executableName: meridian
 nsis:
@@ -20,6 +21,7 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -39,6 +41,7 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: true
+afterPack: scripts/afterPack.js
 publish:
   provider: generic
   url: https://example.com/auto-updates
