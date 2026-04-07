@@ -103,8 +103,27 @@ A modern ground control station for MAVLink-based autonomous vehicles, built wit
 
 ### Prerequisites
 
-- **Node.js** >= 18
+- **Node.js** >= 22
 - **npm** >= 9
+
+#### Windows-Specific Requirements
+
+On Windows, native Node.js modules (e.g., `@serialport/bindings-cpp`) require the **Visual Studio 2022 Build Tools** with the **"Desktop development with C++"** workload.
+
+1. Download [Build Tools for Visual Studio 2022](https://aka.ms/vs/17/release/vs_BuildTools.exe).
+2. Run the installer and select **"Desktop development with C++"**.
+3. Ensure the following components are checked (usually by default):
+   - MSVC v143 - VS 2022 C++ x64/x86 build tools (Latest)
+   - Windows 10 or 11 SDK (Latest)
+   - C++ CMake tools for Windows
+4. After installation, restart your terminal.
+5. Run `npm install` from the **Developer Command Prompt for VS 2022**:
+   ```cmd
+   cd C:\path\to\meridian
+   npm install
+   ```
+
+> **Note:** Visual Studio 2026 and newer are not yet supported by `node-gyp`. You must use Visual Studio 2022 Build Tools for native module compilation.
 
 ### Install
 
