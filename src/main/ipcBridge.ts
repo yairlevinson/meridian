@@ -17,6 +17,9 @@ import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
 import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 import type { SettingsManager } from './settings/SettingsManager'
+import { createLogger } from './logger'
+
+const log = createLogger('IPC')
 
 const TICK_RATE_MS = 33 // ~30 Hz
 
@@ -161,8 +164,8 @@ export function startIpcBridge(
     if (now - lastLogTime >= 5000) {
       const total = sentCount + skippedCount
       const skipPct = total > 0 ? ((skippedCount / total) * 100).toFixed(1) : '0.0'
-      console.log(
-        `[IPC] sent=${sentCount} skipped=${skippedCount} skip_ratio=${skipPct}% vehicles=${vehicleManager.vehicleCount}`
+      log.log(
+        `sent=${sentCount} skipped=${skippedCount} skip_ratio=${skipPct}% vehicles=${vehicleManager.vehicleCount}`
       )
       sentCount = 0
       skippedCount = 0
@@ -199,8 +202,8 @@ export function startIpcBridge(
       channel: IpcChannels.VehicleSetFlightMode,
       handler: (req: FlightModeRequest) => {
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        console.log(
-          `[IPC] setFlightMode vehicleId=${req.vehicleId} mode=${req.modeName} vehicleFound=${!!vehicle} pendingCmds=${vehicle?.commandQueue.pendingCount ?? 'N/A'}`
+        log.log(
+          `setFlightMode vehicleId=${req.vehicleId} mode=${req.modeName} vehicleFound=${!!vehicle} pendingCmds=${vehicle?.commandQueue.pendingCount ?? 'N/A'}`
         )
         return vehicle?.commandQueue.sendCommand(
           common.MavCmd.DO_SET_MODE,
@@ -295,24 +298,24 @@ export function startIpcBridge(
       channel: IpcChannels.MissionWrite,
       handler: (req: { vehicleId: number; items: MissionItem[] }) => {
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        console.log(
-          `[IPC] missionWrite vehicleId=${req.vehicleId} items=${req.items?.length ?? 0} vehicleFound=${!!vehicle} hasLink=${!!(vehicle?.missionManager as unknown as Record<string, unknown>)?.link}`
+        log.log(
+          `missionWrite vehicleId=${req.vehicleId} items=${req.items?.length ?? 0} vehicleFound=${!!vehicle} hasLink=${!!(vehicle?.missionManager as unknown as Record<string, unknown>)?.link}`
         )
         if (!vehicle) return { error: 'No vehicle' }
         return new Promise((resolve) => {
           const timeout = setTimeout(() => {
-            console.log(`[IPC] missionWrite TIMEOUT for vehicle ${req.vehicleId}`)
+            log.log(`missionWrite TIMEOUT for vehicle ${req.vehicleId}`)
             vehicle.missionManager.removeAllListeners('writeComplete')
             vehicle.missionManager.removeAllListeners('error')
             resolve({ error: 'Timeout' })
           }, 30000)
           vehicle.missionManager.once('writeComplete', () => {
-            console.log(`[IPC] missionWrite COMPLETE for vehicle ${req.vehicleId}`)
+            log.log(`missionWrite COMPLETE for vehicle ${req.vehicleId}`)
             clearTimeout(timeout)
             resolve({ success: true })
           })
           vehicle.missionManager.once('error', (code: number) => {
-            console.log(`[IPC] missionWrite ERROR code=${code} for vehicle ${req.vehicleId}`)
+            log.log(`missionWrite ERROR code=${code} for vehicle ${req.vehicleId}`)
             clearTimeout(timeout)
             resolve({ error: `Error code ${code}` })
           })

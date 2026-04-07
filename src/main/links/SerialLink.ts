@@ -1,6 +1,9 @@
 import { SerialPort } from 'serialport'
 import { LinkInterface } from './LinkInterface'
 import { LinkConnectionStatus, type SerialLinkConfig } from '@shared/ipc/LinkState'
+import { createLogger } from '../logger'
+
+const log = createLogger('SerialLink')
 
 const AVAILABILITY_CHECK_MS = 1000
 
@@ -99,7 +102,7 @@ export class SerialLink extends LinkInterface {
         const ports = await SerialPort.list()
         const stillExists = ports.some((p) => p.path === this.portName)
         if (!stillExists && this.port?.isOpen) {
-          console.log(`[SerialLink] Port ${this.portName} disappeared, disconnecting`)
+          log.log(`Port ${this.portName} disappeared, disconnecting`)
           this.disconnect()
         }
       } catch {

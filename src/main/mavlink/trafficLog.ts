@@ -2,6 +2,9 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { app } from 'electron'
 import { REGISTRY } from './registry'
+import { createLogger } from '../logger'
+
+const log = createLogger('MavLog')
 
 /**
  * MAVLink traffic logger — writes both TX and RX messages to a rolling log file.
@@ -65,9 +68,9 @@ class MavTrafficLogger {
       this.fd = fs.openSync(LOG_FILE, 'w')
       this._write(`# MAVLink traffic log started ${new Date().toISOString()}\n`)
       this._write(`# Direction | Timestamp | sysid:compid | MsgName(id) | Fields\n`)
-      console.log(`[MavLog] logging to ${LOG_FILE}`)
+      log.log(`logging to ${LOG_FILE}`)
     } catch (e) {
-      console.warn(`[MavLog] failed to open ${LOG_FILE}:`, e)
+      log.warn(`failed to open ${LOG_FILE}:`, e)
       this.fd = null
     }
   }

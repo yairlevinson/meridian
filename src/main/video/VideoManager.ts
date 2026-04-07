@@ -2,6 +2,9 @@ import { EventEmitter } from 'events'
 import { FfmpegProcess, type FfmpegOptions } from './FfmpegProcess'
 import { VideoWebSocketServer } from './VideoWebSocketServer'
 import { VideoSourceType, type VideoStreamState } from '@shared/ipc/VideoTypes'
+import { createLogger } from '../logger'
+
+const log = createLogger('VideoManager')
 
 /**
  * Central video streaming orchestrator.
@@ -148,8 +151,8 @@ export class VideoManager extends EventEmitter {
   private _scheduleRestart(): void {
     this._clearRestart()
     this._restartCount++
-    console.log(
-      `[VideoManager] scheduling restart ${this._restartCount}/${VideoManager.MAX_RESTARTS} in ${VideoManager.RESTART_DELAY_MS}ms`
+    log.log(
+      `scheduling restart ${this._restartCount}/${VideoManager.MAX_RESTARTS} in ${VideoManager.RESTART_DELAY_MS}ms`
     )
     this.restartTimer = setTimeout(() => {
       if (this._autoRestartOpts) {

@@ -2,6 +2,9 @@ import { EventEmitter } from 'events'
 import fs from 'fs'
 import path from 'path'
 import { DEFAULT_SETTINGS, type AppSettings } from '@shared/ipc/AppSettings'
+import { createLogger } from '../logger'
+
+const log = createLogger('SettingsManager')
 
 export type { AppSettings }
 export { DEFAULT_SETTINGS }
@@ -117,7 +120,7 @@ export class SettingsManager extends EventEmitter {
       fs.mkdirSync(dir, { recursive: true })
       fs.writeFileSync(this.filePath, JSON.stringify(this.settings, null, 2), 'utf-8')
     } catch (err) {
-      console.warn('[SettingsManager] Failed to save settings:', err)
+      log.warn('Failed to save settings:', err)
     }
   }
 }

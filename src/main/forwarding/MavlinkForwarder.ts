@@ -4,6 +4,9 @@ import { EventEmitter } from 'events'
 import type { LinkManager } from '../links/LinkManager'
 import type { LinkInterface } from '../links/LinkInterface'
 import type { SettingsManager } from '../settings/SettingsManager'
+import { createLogger } from '../logger'
+
+const log = createLogger('MavlinkForwarder')
 import type {
   ForwardingTargetConfig,
   ForwardingTargetState,
@@ -240,7 +243,7 @@ export class MavlinkForwarder extends EventEmitter {
       this._onTargetData(msg, target.config.id)
     })
     socket.on('error', (err) => {
-      console.warn(`[MavlinkForwarder] Socket error for ${target.config.id}:`, err.message)
+      log.warn(`Socket error for ${target.config.id}:`, err.message)
     })
     target.socket = socket
   }

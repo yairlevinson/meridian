@@ -1,6 +1,9 @@
 import dgram from 'dgram'
 import { LinkInterface } from './LinkInterface'
 import { LinkConnectionStatus, type UdpLinkConfig } from '@shared/ipc/LinkState'
+import { createLogger } from '../logger'
+
+const log = createLogger('UdpLink')
 
 /**
  * UDP link transport.
@@ -20,7 +23,7 @@ export class UdpLink extends LinkInterface {
     this.socket.on('message', (msg, rinfo) => {
       const key = `${rinfo.address}:${rinfo.port}`
       if (!this.remoteSenders.has(key)) {
-        console.log(`[UdpLink] discovered sender at ${key}`)
+        log.log(`discovered sender at ${key}`)
         this.remoteSenders.set(key, { address: rinfo.address, port: rinfo.port })
       }
       this.emit('data', msg)

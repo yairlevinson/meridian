@@ -16,6 +16,9 @@ import { VideoManager } from './video/VideoManager'
 import { mavLog } from './mavlink/trafficLog'
 import { SettingsManager } from './settings/SettingsManager'
 import { MavlinkForwarder } from './forwarding/MavlinkForwarder'
+import { createLogger } from './logger'
+
+const log = createLogger('main')
 
 // Prevent crashes from TCP socket errors (e.g. EPIPE, unexpected read errors
 // when SITL container shuts down). These are non-fatal — the link will
@@ -23,7 +26,7 @@ import { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 process.on('uncaughtException', (err) => {
   const code = (err as NodeJS.ErrnoException).code
   if (code === 'EPIPE' || code === 'ECONNRESET' || code === 'ERR_OUT_OF_RANGE') {
-    console.warn('[main] Suppressed socket error:', err.message)
+    log.warn('Suppressed socket error:', err.message)
     return
   }
   // Re-throw unknown errors
@@ -144,8 +147,8 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
     req.startStop = 1
 
     writeFn(proto.serialize(req, seq++))
-    console.log(
-      `[main] requested stream id=${id} at ${rate}Hz for sysid=${targetSysId}${label ? ` on ${label}` : ''}`
+    log.log(
+      `requested stream id=${id} at ${rate}Hz for sysid=${targetSysId}${label ? ` on ${label}` : ''}`
     )
   }
 
@@ -177,8 +180,8 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
 
     writeFn(proto.serialize(cmd, seq++))
   }
-  console.log(
-    `[main] requested PX4 message intervals for sysid=${targetSysId}${label ? ` on ${label}` : ''}`
+  log.log(
+    `requested PX4 message intervals for sysid=${targetSysId}${label ? ` on ${label}` : ''}`
   )
 
   // Request HOME_POSITION once (works on both ArduPilot and PX4)
@@ -269,7 +272,7 @@ app.whenReady().then(async () => {
       }
       return response
     } catch (err) {
-      console.warn('[tile] fetch error:', err)
+      log.warn('tile fetch error:', err)
       return new Response(null, { status: 502 })
     }
   })
@@ -341,7 +344,7 @@ app.whenReady().then(async () => {
     })
 
     vehicleManager.on('vehicleAdded', (sysid: number) => {
-      console.log(`[main] Vehicle added: sysid=${sysid}`)
+      log.log(`Vehicle added: sysid=${sysid}`)
       const linkId = vehicleToLink.get(sysid)
       const tcpLink = linkId ? linkManager.getLink(linkId) : undefined
       if (tcpLink) {
@@ -379,13 +382,13 @@ app.whenReady().then(async () => {
       }
       try {
         const link = await linkManager.createLink(config)
-        console.log(`[main] TCP link connected: ${link.id} → ${host}:${port}`)
+        log.log(`TCP link connected: ${link.id} → ${host}:${port}`)
       } catch (err) {
-        console.warn(`[main] Failed to connect TCP ${host}:${port}:`, err)
+        log.warn(`Failed to connect TCP ${host}:${port}:`, err)
       }
     }
 
-    console.log(`[main] Connected ${linkManager.getAllStates().length} TCP links`)
+    log.log(`Connected ${linkManager.getAllStates().length} TCP links`)
 
     // Auto-detect USB autopilot boards and connect via serial
     linkManager.startAutoConnect()
@@ -451,11 +454,11 @@ app.whenReady().then(async () => {
       listenPort: UDP_PORT
     })) as UdpLink
     rootUdpLink.unref()
-    console.log(`[main] Listening for MAVLink on UDP port ${UDP_PORT}`)
+    log.log(`Listening for MAVLink on UDP port ${UDP_PORT}`)
 
     const streamRequestedFor = new Set<number>()
     vehicleManager.on('vehicleAdded', (sysid: number) => {
-      console.log(`[main] Vehicle added: sysid=${sysid}`)
+      log.log(`Vehicle added: sysid=${sysid}`)
       // Check if vehicle came from a managed link (e.g. serial)
       const linkId = vehicleToLink.get(sysid)
       const managedLink = linkId ? linkManager.getLink(linkId) : undefined

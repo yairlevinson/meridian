@@ -1,6 +1,9 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { EventEmitter } from 'events'
 import fs from 'fs'
+import { createLogger } from '../logger'
+
+const log = createLogger('VideoWS')
 
 const MAX_BUFFERED = 1 * 1024 * 1024 // 1 MB backpressure threshold
 
@@ -72,28 +75,28 @@ export class VideoWebSocketServer extends EventEmitter {
       this.wss.on('listening', () => {
         const addr = this.wss!.address()
         this._port = typeof addr === 'object' && addr !== null ? addr.port : null
-        console.log(`[VideoWS] listening on port ${this._port}`)
+        log.log(`listening on port ${this._port}`)
         resolve(this._port!)
       })
 
       this.wss.on('error', (err) => {
-        console.error('[VideoWS] server error:', err.message)
+        log.error('server error:', err.message)
         reject(err)
       })
 
       this.wss.on('connection', (ws) => {
         this.clients.add(ws)
-        console.log(`[VideoWS] client connected (total: ${this.clients.size})`)
+        log.log(`client connected (total: ${this.clients.size})`)
 
         // Send cached init segment so late-joining clients can start decoding
         if (this.initSegment && ws.readyState === WebSocket.OPEN) {
-          console.log(`[VideoWS] sending cached init segment (${this.initSegment.length} bytes)`)
+          log.log(`sending cached init segment (${this.initSegment.length} bytes)`)
           ws.send(this.initSegment, { binary: true })
         }
 
         ws.on('close', () => {
           this.clients.delete(ws)
-          console.log(`[VideoWS] client disconnected (total: ${this.clients.size})`)
+          log.log(`client disconnected (total: ${this.clients.size})`)
         })
 
         ws.on('error', () => {
@@ -120,7 +123,7 @@ export class VideoWebSocketServer extends EventEmitter {
         this.initSegment = combined.subarray(0, end)
         this.initBuf = []
         this.initBufSize = 0
-        console.log(`[VideoWS] cached init segment: ${this.initSegment.length} bytes`)
+        log.log(`cached init segment: ${this.initSegment.length} bytes`)
       }
     }
 
@@ -154,7 +157,7 @@ export class VideoWebSocketServer extends EventEmitter {
     if (this.initSegment) {
       this.recordingStream.write(this.initSegment)
     }
-    console.log(`[VideoWS] recording to ${filePath}`)
+    log.log(`recording to ${filePath}`)
   }
 
   /** Stop recording and close the file. */
@@ -162,7 +165,7 @@ export class VideoWebSocketServer extends EventEmitter {
     if (this.recordingStream) {
       this.recordingStream.end()
       this.recordingStream = null
-      console.log('[VideoWS] recording stopped')
+      log.log('recording stopped')
     }
   }
 

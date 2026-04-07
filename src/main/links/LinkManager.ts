@@ -3,6 +3,9 @@ import { SerialPort } from 'serialport'
 import type { LinkConfig, LinkState } from '@shared/ipc/LinkState'
 import { LinkType } from '@shared/ipc/LinkState'
 import { LinkInterface } from './LinkInterface'
+import { createLogger } from '../logger'
+
+const log = createLogger('LinkManager')
 import { UdpLink } from './UdpLink'
 import { TcpLink } from './TcpLink'
 import { SerialLink } from './SerialLink'
@@ -184,15 +187,15 @@ export class LinkManager extends EventEmitter {
         // Wait one cycle before connecting (bootloader may still be running)
         if (!this.waitList.has(port.path)) {
           this.waitList.add(port.path)
-          console.log(
-            `[LinkManager] Detected autopilot on ${port.path} (${port.manufacturer ?? 'unknown'}), waiting...`
+          log.log(
+            `Detected autopilot on ${port.path} (${port.manufacturer ?? 'unknown'}), waiting...`
           )
           continue
         }
         this.waitList.delete(port.path)
 
         const name = `${port.manufacturer ?? 'Autopilot'} on ${port.path}`
-        console.log(`[LinkManager] Auto-connecting: ${name}`)
+        log.log(`Auto-connecting: ${name}`)
         try {
           const link = await this.createLink({
             type: LinkType.Serial,
@@ -205,9 +208,9 @@ export class LinkManager extends EventEmitter {
           const msg = String(err)
           const busy = msg.includes('Resource busy') || msg.includes('EBUSY')
           if (busy) {
-            console.warn(`[LinkManager] Port ${port.path} is in use by another application`)
+            log.warn(`Port ${port.path} is in use by another application`)
           } else {
-            console.warn(`[LinkManager] Auto-connect failed for ${port.path}:`, err)
+            log.warn(`Auto-connect failed for ${port.path}:`, err)
           }
           // Busy ports get a long backoff (60s) — likely held by another app.
           // Other failures use a short backoff (5s) for transient issues.
@@ -229,7 +232,7 @@ export class LinkManager extends EventEmitter {
       // Disconnect ports that disappeared
       for (const [path, linkId] of this.autoConnectedPorts) {
         if (!currentPaths.has(path)) {
-          console.log(`[LinkManager] Autopilot disconnected: ${path}`)
+          log.log(`Autopilot disconnected: ${path}`)
           this.disconnectLink(linkId)
           this.autoConnectedPorts.delete(path)
         }

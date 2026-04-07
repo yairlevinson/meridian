@@ -1,6 +1,9 @@
 import { ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
+import { createLogger } from '../logger'
+
+const log = createLogger('ffmpeg')
 
 // ffmpeg-static provides the path to a bundled ffmpeg binary
 const ffmpegPath: string = (() => {
@@ -94,7 +97,7 @@ export class FfmpegProcess extends EventEmitter {
     if (this._running) this.stop()
 
     const args = FfmpegProcess.buildArgs(opts)
-    console.log(`[ffmpeg] spawning: ${ffmpegPath} ${args.join(' ')}`)
+    log.log(`spawning: ${ffmpegPath} ${args.join(' ')}`)
 
     this.process = spawn(ffmpegPath, args, {
       stdio: ['pipe', 'pipe', 'pipe']
@@ -108,19 +111,19 @@ export class FfmpegProcess extends EventEmitter {
     this.process.stderr!.on('data', (chunk: Buffer) => {
       const msg = chunk.toString().trim()
       if (msg) {
-        console.log(`[ffmpeg] ${msg}`)
+        log.log(msg)
         this.emit('stderr', msg)
       }
     })
 
     this.process.on('error', (err) => {
-      console.error('[ffmpeg] process error:', err.message)
+      log.error('process error:', err.message)
       this._running = false
       this.emit('error', err)
     })
 
     this.process.on('close', (code) => {
-      console.log(`[ffmpeg] exited with code ${code}`)
+      log.log(`exited with code ${code}`)
       this._running = false
       // Defer close event to allow remaining stderr data to flush first
       setImmediate(() => this.emit('close', code))

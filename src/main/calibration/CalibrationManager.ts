@@ -10,6 +10,9 @@ import {
   type MagCalReport
 } from '@shared/ipc/SetupTypes'
 import { common } from 'mavlink-mappings'
+import { createLogger } from '../logger'
+
+const log = createLogger('Calibration')
 
 /** Maps CalibrationSensor to MAV_CMD_PREFLIGHT_CALIBRATION params */
 function calibrationParams(sensor: CalibrationSensor): {
@@ -256,7 +259,7 @@ export class CalibrationManager extends EventEmitter {
     if (lower.includes('orientation detected')) {
       const orientation = parseOrientation(text)
       if (orientation) {
-        console.log(`[Calibration] Orientation detected: ${orientation}`)
+        log.log(`Orientation detected: ${orientation}`)
         this._state.currentOrientation = orientation
         this._state.currentOrientationProgress = 0
         this._state.status = CalibrationStatus.Collecting
@@ -269,8 +272,8 @@ export class CalibrationManager extends EventEmitter {
       const orientation = parseOrientation(text)
       if (orientation && !this._state.orientationsCompleted.includes(orientation)) {
         this._state.orientationsCompleted.push(orientation)
-        console.log(
-          `[Calibration] Orientation done: ${orientation}, completed: [${this._state.orientationsCompleted}]`
+        log.log(
+          `Orientation done: ${orientation}, completed: [${this._state.orientationsCompleted}]`
         )
         this._state.currentOrientation = null
         this._state.currentOrientationProgress = 0
