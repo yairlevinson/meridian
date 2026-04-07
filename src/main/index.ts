@@ -180,9 +180,7 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
 
     writeFn(proto.serialize(cmd, seq++))
   }
-  log.log(
-    `requested PX4 message intervals for sysid=${targetSysId}${label ? ` on ${label}` : ''}`
-  )
+  log.log(`requested PX4 message intervals for sysid=${targetSysId}${label ? ` on ${label}` : ''}`)
 
   // Request HOME_POSITION once (works on both ArduPilot and PX4)
   const reqHome = new common.CommandLong()
