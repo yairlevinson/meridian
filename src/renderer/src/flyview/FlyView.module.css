@@ -175,13 +175,19 @@
 
 /* ── View toggle ──────────────────────────────────────────── */
 
-.viewToggle {
+.topBar {
   position: absolute;
   top: calc(var(--perf-bar-height) + 8px);
   right: 160px;
   display: flex;
-  gap: 0;
+  align-items: center;
+  gap: 8px;
   z-index: 20;
+}
+
+.viewToggle {
+  display: flex;
+  gap: 0;
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
@@ -262,11 +268,4 @@
   box-shadow:
     0 0 32px rgba(0, 255, 80, 0.2),
     0 4px 16px rgba(0, 0, 0, 0.6);
-}
-
-.radarPanel {
-  position: absolute;
-  top: calc(var(--perf-bar-height) + 8px);
-  right: 280px;
-  z-index: 20;
 }

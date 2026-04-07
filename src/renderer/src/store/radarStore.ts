@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { RadarState } from '../../../shared-types/ipc/RadarTypes'
 
-export type RadarView = 'scope' | 'overlay'
+export type RadarView = 'radar' | 'map'
 
 interface RadarStore {
   state: RadarState | null
@@ -15,7 +15,7 @@ interface RadarStore {
 
 export const useRadarStore = create<RadarStore>((set) => ({
   state: null,
-  scopeView: 'scope',
+  scopeView: 'radar',
   hoveredTrackId: null,
 
   setState: (state) => set({ state }),

@@ -32,7 +32,7 @@ export function FlyView(): React.JSX.Element {
   const { arm } = useCommand()
   const radarEnabled = useRadarStore((s) => s.state?.enabled ?? false)
   const scopeView = useRadarStore((s) => s.scopeView)
-  const showRadarScope = radarEnabled && scopeView === 'scope'
+  const showRadarScope = radarEnabled && scopeView === 'radar'
   const [mainView, setMainView] = useState<MainView>('map')
   const [poppedOut, setPoppedOut] = useState<'video' | 'map' | null>(null)
   const [pipMinimized, setPipMinimized] = useState(false)
@@ -198,23 +198,26 @@ export function FlyView(): React.JSX.Element {
           </div>
         )}
 
-        {/* Toggle buttons */}
-        {showPip && (
-          <div className={styles.viewToggle}>
-            <button
-              className={`${styles.toggleBtn} ${mainView === 'map' ? styles.toggleActive : ''}`}
-              onClick={() => setMainView('map')}
-            >
-              Map
-            </button>
-            <button
-              className={`${styles.toggleBtn} ${mainView === 'video' ? styles.toggleActive : ''}`}
-              onClick={() => setMainView('video')}
-            >
-              Video
-            </button>
-          </div>
-        )}
+        {/* Top bar: view toggles + radar controls */}
+        <div className={styles.topBar}>
+          {showPip && (
+            <div className={styles.viewToggle}>
+              <button
+                className={`${styles.toggleBtn} ${mainView === 'map' ? styles.toggleActive : ''}`}
+                onClick={() => setMainView('map')}
+              >
+                Map
+              </button>
+              <button
+                className={`${styles.toggleBtn} ${mainView === 'video' ? styles.toggleActive : ''}`}
+                onClick={() => setMainView('video')}
+              >
+                Video
+              </button>
+            </div>
+          )}
+          <RadarPanel />
+        </div>
 
         {/* Pop-out button when only one view remains */}
         {!showPip && poppedOut && (
@@ -235,11 +238,6 @@ export function FlyView(): React.JSX.Element {
             <RadarScope size={320} />
           </div>
         )}
-
-        {/* Radar control panel */}
-        <div className={styles.radarPanel}>
-          <RadarPanel />
-        </div>
       </div>
 
       <div className={styles.sidebar}>

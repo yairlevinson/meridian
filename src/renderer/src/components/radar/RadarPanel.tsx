@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useRadarStore, type RadarView } from '../../store/radarStore'
+import { useRadarStore } from '../../store/radarStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import styles from './RadarPanel.module.css'
 
@@ -56,26 +56,26 @@ export function RadarPanel(): React.JSX.Element | null {
       </button>
 
       {enabled && (
-        <>
+        <div className={styles.inner}>
           {/* View toggle */}
           <div className={styles.viewToggle}>
             <button
-              className={`${styles.viewBtn} ${scopeView === 'scope' ? styles.viewActive : ''}`}
-              onClick={() => setScopeView('scope' as RadarView)}
+              className={`${styles.viewBtn} ${scopeView === 'radar' ? styles.viewActive : ''}`}
+              onClick={() => setScopeView('radar')}
             >
-              Scope
+              Radar
             </button>
             <button
-              className={`${styles.viewBtn} ${scopeView === 'overlay' ? styles.viewActive : ''}`}
-              onClick={() => setScopeView('overlay' as RadarView)}
+              className={`${styles.viewBtn} ${scopeView === 'map' ? styles.viewActive : ''}`}
+              onClick={() => setScopeView('map')}
             >
-              Overlay
+              Map
             </button>
           </div>
 
           {/* Radius slider */}
           <div className={styles.sliderGroup}>
-            <label className={styles.sliderLabel}>R: {radiusLabel}</label>
+            <label className={styles.sliderLabel}>{radiusLabel}</label>
             <input
               type="range"
               min={1000}
@@ -89,8 +89,8 @@ export function RadarPanel(): React.JSX.Element | null {
 
           {/* Track counts */}
           <div className={styles.counts}>
-            <span className={styles.friendlyCount}>FRI {friendlyCount}</span>
-            <span className={styles.hostileCount}>HOS {hostileCount}</span>
+            <span className={styles.friendlyCount}>{friendlyCount}F</span>
+            <span className={styles.hostileCount}>{hostileCount}H</span>
           </div>
 
           {/* Sim indicator */}
@@ -100,7 +100,7 @@ export function RadarPanel(): React.JSX.Element | null {
               SIM
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )

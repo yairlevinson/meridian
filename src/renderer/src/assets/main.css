@@ -12,3 +12,20 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+/* Radar track hover popup */
+.radar-track-popup .maplibregl-popup-content {
+  background: rgba(0, 0, 0, 0.88);
+  border: 1px solid rgba(0, 255, 80, 0.3);
+  border-radius: 4px;
+  color: rgba(0, 255, 80, 0.85);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 6px 10px;
+  pointer-events: none;
+}
+
+.radar-track-popup .maplibregl-popup-tip {
+  border-top-color: rgba(0, 0, 0, 0.88);
+}

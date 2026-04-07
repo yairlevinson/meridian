@@ -409,7 +409,7 @@ function drawTrack(
     const hdg = Math.atan2(track.ve, track.vn)
     ctx.save()
     ctx.translate(x, y)
-    ctx.rotate(-hdg + Math.PI)
+    ctx.rotate(hdg)
     ctx.moveTo(0, -s)
     ctx.lineTo(s * 0.6, s * 0.6)
     ctx.lineTo(-s * 0.6, s * 0.6)
@@ -438,7 +438,7 @@ function drawVelocityVector(
   if (speed < 0.5) return
 
   const hdg = Math.atan2(track.ve, track.vn)
-  const len = Math.min(speed * 3 * dpr, 40 * dpr)
+  const len = Math.min(speed * 0.15 * dpr, 20 * dpr)
 
   ctx.save()
   ctx.globalAlpha = brightness * 0.6
@@ -519,7 +519,7 @@ function drawTooltip(
 
 function drawHUD(
   ctx: CanvasRenderingContext2D,
-  radarState: RadarState | null,
+  _radarState: RadarState | null,
   radiusMeters: number,
   dpr: number,
   canvasSize: number
@@ -528,29 +528,6 @@ function drawHUD(
   const pad = 12 * dpr
   ctx.font = `${fontSize}px monospace`
   ctx.textBaseline = 'top'
-
-  // Top-left: label + counts
-  ctx.textAlign = 'left'
-  ctx.fillStyle = `${SCOPE_GREEN} 0.5)`
-  ctx.fillText('AEROSENTRY', pad, pad)
-
-  if (radarState) {
-    let friendly = 0
-    let hostile = 0
-    for (const t of radarState.tracks) {
-      if (t.affiliation === 'friendly') friendly++
-      else hostile++
-    }
-    ctx.fillStyle = FRIENDLY_COLOR
-    ctx.fillText(`FRI: ${friendly}`, pad, pad + fontSize + 4 * dpr)
-    ctx.fillStyle = HOSTILE_COLOR
-    ctx.fillText(`HOS: ${hostile}`, pad + 70 * dpr, pad + fontSize + 4 * dpr)
-
-    if (radarState.simulationActive) {
-      ctx.fillStyle = '#ffaa00'
-      ctx.fillText('SIM', pad, pad + (fontSize + 4 * dpr) * 2)
-    }
-  }
 
   // Top-right: radius
   ctx.textAlign = 'right'

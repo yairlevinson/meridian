@@ -119,13 +119,17 @@ function buildTracksFC(tracks: RadarTrack[]): GeoJSON.FeatureCollection {
       properties: {
         id: t.id,
         affiliation: t.affiliation,
-        color: t.affiliation === 'friendly' ? '#4488ff' : '#ff4444'
+        color: t.affiliation === 'friendly' ? '#4488ff' : '#ff4444',
+        alt: t.alt,
+        speed: Math.sqrt(t.vn ** 2 + t.ve ** 2),
+        strength: t.strength,
+        confidence: t.confidence
       }
     }))
   }
 }
 
-function buildVelocityFC(tracks: RadarTrack[]): GeoJSON.FeatureCollection {
+function buildVelocityFC(tracks: RadarTrack[], radiusMeters: number): GeoJSON.FeatureCollection {
   const earthRadius = 6371000
   return {
     type: 'FeatureCollection',
@@ -133,8 +137,10 @@ function buildVelocityFC(tracks: RadarTrack[]): GeoJSON.FeatureCollection {
       .filter((t) => Math.sqrt(t.vn ** 2 + t.ve ** 2) > 0.5)
       .map((t) => {
         const speed = Math.sqrt(t.vn ** 2 + t.ve ** 2)
-        // Project velocity ~3 seconds ahead for visual length
-        const dt = Math.min(speed * 3, 40) / speed
+        // Scale vector length proportional to radius (matching scope visual proportion)
+        const maxLen = radiusMeters * 0.35
+        const len = Math.min(speed * 5, maxLen)
+        const dt = len / speed
         const dLat = ((t.vn * dt) / earthRadius) * (180 / Math.PI)
         const dLon =
           (((t.ve * dt) / earthRadius) * (180 / Math.PI)) / Math.cos(t.lat * (Math.PI / 180))
@@ -157,10 +163,10 @@ function buildVelocityFC(tracks: RadarTrack[]): GeoJSON.FeatureCollection {
 
 function ensureIcons(map: maplibregl.Map): void {
   if (!map.hasImage(FRIENDLY_ICON)) {
-    map.addImage(FRIENDLY_ICON, createDiamondIcon('#4488ff', 28), { pixelRatio: 2 })
+    map.addImage(FRIENDLY_ICON, createDiamondIcon('#4488ff', 36), { pixelRatio: 2 })
   }
   if (!map.hasImage(HOSTILE_ICON)) {
-    map.addImage(HOSTILE_ICON, createTriangleIcon('#ff4444', 28), { pixelRatio: 2 })
+    map.addImage(HOSTILE_ICON, createTriangleIcon('#ff4444', 36), { pixelRatio: 2 })
   }
 }
 
@@ -184,7 +190,7 @@ function addSourcesAndLayers(map: maplibregl.Map): void {
       source: RANGE_SOURCE,
       paint: {
         'fill-color': '#001a0a',
-        'fill-opacity': 0.25
+        'fill-opacity': 0.45
       }
     })
   }
@@ -196,7 +202,7 @@ function addSourcesAndLayers(map: maplibregl.Map): void {
       paint: {
         'line-color': '#00ff50',
         'line-width': 2,
-        'line-opacity': 0.4
+        'line-opacity': 0.6
       }
     })
   }
@@ -206,9 +212,9 @@ function addSourcesAndLayers(map: maplibregl.Map): void {
       type: 'circle',
       source: TRACKS_SOURCE,
       paint: {
-        'circle-radius': 12,
+        'circle-radius': 14,
         'circle-color': ['get', 'color'],
-        'circle-opacity': 0.2,
+        'circle-opacity': 0.35,
         'circle-blur': 1
       }
     })
@@ -241,8 +247,8 @@ function addSourcesAndLayers(map: maplibregl.Map): void {
       source: VELOCITY_SOURCE,
       paint: {
         'line-color': ['get', 'color'],
-        'line-width': 2,
-        'line-opacity': 0.5
+        'line-width': 2.5,
+        'line-opacity': 0.7
       }
     })
   }
@@ -272,10 +278,11 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
   const radiusMeters = useSettingsStore((s) => s.settings.radarRadiusMeters)
   const simEnabled = useSettingsStore((s) => s.settings.radarSimulationEnabled)
   const markerRef = useRef<maplibregl.Marker | null>(null)
+  const popupRef = useRef<maplibregl.Popup | null>(null)
   const layersAddedRef = useRef(false)
   const prevCircleKeyRef = useRef('')
 
-  const active = radarState?.enabled && scopeView === 'overlay'
+  const active = radarState?.enabled && scopeView === 'map'
 
   // Add/remove layers when overlay becomes active/inactive
   useEffect(() => {
@@ -288,6 +295,7 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
       } else if (!active && layersAddedRef.current) {
         removeLayers(map)
         layersAddedRef.current = false
+        prevCircleKeyRef.current = ''
       }
     }
 
@@ -300,6 +308,7 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
       if (layersAddedRef.current) {
         removeLayers(map)
         layersAddedRef.current = false
+        prevCircleKeyRef.current = ''
       }
     }
   }, [map, active])
@@ -322,11 +331,56 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
     // Filter tracks within radius
     const inRange = filterByRadius(radarState.tracks, unit, radiusMeters)
     ;(map.getSource(TRACKS_SOURCE) as GeoJSONSource)?.setData(buildTracksFC(inRange))
-    ;(map.getSource(VELOCITY_SOURCE) as GeoJSONSource)?.setData(buildVelocityFC(inRange))
+    ;(map.getSource(VELOCITY_SOURCE) as GeoJSONSource)?.setData(
+      buildVelocityFC(inRange, radiusMeters)
+    )
   }, [map, active, radarState, radiusMeters])
 
+  // Track hover popup
+  useEffect(() => {
+    if (!map || !active) return
+
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      className: 'radar-track-popup'
+    })
+    popupRef.current = popup
+
+    const onMouseEnter = (e: maplibregl.MapLayerMouseEvent): void => {
+      map.getCanvas().style.cursor = 'pointer'
+      const f = e.features?.[0]
+      if (!f || !f.properties) return
+      const p = f.properties
+      const coords = (f.geometry as GeoJSON.Point).coordinates.slice() as [number, number]
+      const html = [
+        `<strong style="color:${p.color}">${(p.affiliation as string).toUpperCase()}</strong> #${p.id}`,
+        `Alt: ${Number(p.alt).toFixed(0)}m`,
+        `Speed: ${Number(p.speed).toFixed(1)} m/s`,
+        `RCS: ${Number(p.strength).toFixed(1)} dBsm`,
+        `Conf: ${Number(p.confidence).toFixed(0)}%`
+      ].join('<br/>')
+      popup.setLngLat(coords).setHTML(html).addTo(map)
+    }
+
+    const onMouseLeave = (): void => {
+      map.getCanvas().style.cursor = ''
+      popup.remove()
+    }
+
+    map.on('mouseenter', TRACKS_LAYER, onMouseEnter)
+    map.on('mouseleave', TRACKS_LAYER, onMouseLeave)
+
+    return () => {
+      map.off('mouseenter', TRACKS_LAYER, onMouseEnter)
+      map.off('mouseleave', TRACKS_LAYER, onMouseLeave)
+      popup.remove()
+      popupRef.current = null
+    }
+  }, [map, active])
+
   // Draggable radar marker (simulation only)
-  const showMarker = radarState?.enabled && radarState?.simulationActive && simEnabled
+  const showMarker = active && radarState?.simulationActive && simEnabled
   const unitLat = radarState?.units[0]?.lat
   const unitLon = radarState?.units[0]?.lon
 
@@ -351,14 +405,17 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
       markerRef.current.remove()
       markerRef.current = null
     }
+  }, [map, showMarker, unitLat, unitLon])
 
+  // Clean up marker on unmount only
+  useEffect(() => {
     return () => {
       if (markerRef.current) {
         markerRef.current.remove()
         markerRef.current = null
       }
     }
-  }, [map, showMarker, unitLat, unitLon])
+  }, [])
 }
 
 function filterByRadius(tracks: RadarTrack[], unit: RadarUnit, radiusMeters: number): RadarTrack[] {

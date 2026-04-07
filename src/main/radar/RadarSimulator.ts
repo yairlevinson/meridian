@@ -108,7 +108,7 @@ export class RadarSimulator extends RadarProvider {
       lon: this._centerLon + dLon,
       alt: 30 + Math.random() * 120,
       heading: Math.random() * 360,
-      speed: 3 + Math.random() * 9,
+      speed: 80 + Math.random() * 120,
       baseStrength: -15 + Math.random() * 20,
       baseConfidence: 80 + Math.random() * 19
     }
@@ -128,7 +128,7 @@ export class RadarSimulator extends RadarProvider {
 
     for (const t of this._tracks) {
       // Random-walk heading
-      t.heading += (Math.random() - 0.5) * 15
+      t.heading += (Math.random() - 0.5) * 30
       t.heading = ((t.heading % 360) + 360) % 360
 
       // Velocity from heading + speed
