@@ -25,7 +25,8 @@
     "test:e2e:sitl": "GC_E2E_SITL=1 playwright test",
     "test:e2e:sitl:external": "GC_E2E_SITL=1 GC_E2E_SITL_EXTERNAL=1 playwright test",
     "test:e2e:gazebo": "GC_E2E_SITL=1 GC_E2E_SITL_EXTERNAL=1 playwright test sitl-",
-    "dev:sitl": "./scripts/dev-sitl.sh"
+    "dev:sitl": "./scripts/dev-sitl.sh",
+    "prepare": "husky"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -38,6 +39,9 @@
     "serialport": "^13.0.0",
     "ws": "^8.19.0",
     "zustand": "^5.0.12"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,css,md,yaml,yml}": "prettier --write"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
@@ -58,7 +62,9 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "husky": "^9.1.7",
     "jsdom": "^29.0.1",
+    "lint-staged": "^16.4.0",
     "playwright": "^1.58.2",
     "prettier": "^3.7.4",
     "react": "^19.2.1",
