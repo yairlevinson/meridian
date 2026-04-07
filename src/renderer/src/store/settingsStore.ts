@@ -7,12 +7,21 @@ interface SettingsStore {
   setAll: (settings: AppSettings) => void
 }
 
+/** Update local store only (no IPC) — used for incoming main-process changes */
+function setLocal<K extends keyof AppSettings>(key: K, value: AppSettings[K]): void {
+  useSettingsStore.setState((prev) => ({
+    settings: { ...prev.settings, [key]: value }
+  }))
+}
+
 export const useSettingsStore = create<SettingsStore>((set) => ({
   settings: { ...DEFAULT_SETTINGS },
-  setSetting: (key, value) =>
+  setSetting: (key, value) => {
     set((prev) => ({
       settings: { ...prev.settings, [key]: value }
-    })),
+    }))
+    window.bridge?.settingsSet(key, value)
+  },
   setAll: (settings) => set({ settings })
 }))
 
@@ -23,9 +32,7 @@ setTimeout(() => {
       useSettingsStore.getState().setAll(all)
     })
     window.bridge.onSettingsChanged(({ key, value }) => {
-      useSettingsStore
-        .getState()
-        .setSetting(key as keyof AppSettings, value as AppSettings[keyof AppSettings])
+      setLocal(key as keyof AppSettings, value as AppSettings[keyof AppSettings])
     })
   }
 }, 0)

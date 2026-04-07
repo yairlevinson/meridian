@@ -17,6 +17,7 @@ import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
 import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 import type { SettingsManager } from './settings/SettingsManager'
+import type { RadarManager } from './radar/RadarManager'
 import { createLogger } from './logger'
 
 const log = createLogger('IPC')
@@ -36,7 +37,8 @@ export function startIpcBridge(
   videoManager?: VideoManager,
   linkManager?: LinkManager,
   forwarder?: MavlinkForwarder,
-  settingsManager?: SettingsManager
+  settingsManager?: SettingsManager,
+  radarManager?: RadarManager
 ): () => void {
   const inspector = new MavlinkInspector(broadcast)
   vehicleManager.onRawMessage = inspector.handleMessage
@@ -134,6 +136,13 @@ export function startIpcBridge(
   if (forwarder) {
     forwarder.on('stateChanged', (state) => {
       broadcast(IpcEvents.ForwardingStateChanged, state)
+    })
+  }
+
+  // Forward radar state changes to all renderer windows
+  if (radarManager) {
+    radarManager.on('stateChanged', (state) => {
+      broadcast(IpcEvents.RadarStateChanged, state)
     })
   }
 
@@ -667,6 +676,31 @@ export function startIpcBridge(
             }
           : null
       }
+    },
+
+    // Radar
+    {
+      channel: IpcChannels.RadarEnable,
+      handler: () => radarManager?.enable()
+    },
+    {
+      channel: IpcChannels.RadarDisable,
+      handler: () => radarManager?.disable()
+    },
+    {
+      channel: IpcChannels.RadarGetState,
+      handler: () =>
+        radarManager?.getState() ?? {
+          enabled: false,
+          units: [],
+          tracks: [],
+          simulationActive: false
+        }
+    },
+    {
+      channel: IpcChannels.RadarSetSimPosition,
+      handler: (req: { lat: number; lon: number }) =>
+        radarManager?.setSimulationPosition(req.lat, req.lon)
     },
 
     // Settings

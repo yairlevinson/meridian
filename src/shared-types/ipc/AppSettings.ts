@@ -56,6 +56,15 @@ export interface AppSettings {
     port: number
     enabled: boolean
   }>
+
+  // Radar
+  radarEnabled: boolean
+  radarRadiusMeters: number
+  radarSimulationEnabled: boolean
+  radarSimulationFriendlyCount: number
+  radarSimulationHostileCount: number
+  radarSimulationLat: number
+  radarSimulationLon: number
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -91,5 +100,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   videoRecordingFormat: 'mp4',
   videoGridLines: false,
   mavlinkForwardingEnabled: false,
-  mavlinkForwardingTargets: []
+  mavlinkForwardingTargets: [],
+  radarEnabled: false,
+  radarRadiusMeters: 5000,
+  radarSimulationEnabled: false,
+  radarSimulationFriendlyCount: 4,
+  radarSimulationHostileCount: 3,
+  radarSimulationLat: 32.1,
+  radarSimulationLon: 34.8
 }

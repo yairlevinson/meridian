@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAllVehiclePositions, useActiveVehicleId, useHomePosition } from '../hooks/useVehicle'
 import { useMissionStore } from '../store/missionStore'
 import { useMissionMapLayers } from '../hooks/useMissionMapLayers'
+import { useRadarMapLayers } from '../hooks/useRadarMapLayers'
 import { useSettingsStore } from '../store/settingsStore'
 import { providers, getProviderNames } from '../map/providers/ProviderRegistry'
 
@@ -92,6 +93,7 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
 
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
   useMissionMapLayers(mapInstance, editMode)
+  useRadarMapLayers(mapInstance)
 
   // Initialize map
   useEffect(() => {

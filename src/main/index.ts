@@ -16,6 +16,7 @@ import { VideoManager } from './video/VideoManager'
 import { mavLog } from './mavlink/trafficLog'
 import { SettingsManager } from './settings/SettingsManager'
 import { MavlinkForwarder } from './forwarding/MavlinkForwarder'
+import { RadarManager } from './radar/RadarManager'
 import { createLogger } from './logger'
 
 const log = createLogger('main')
@@ -359,12 +360,16 @@ app.whenReady().then(async () => {
     forwarder.attachLinkManager(linkManager)
     forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
 
+    // --- Radar ---
+    const radarManager = new RadarManager(settingsManager)
+
     const cleanupIpcBridge = startIpcBridge(
       vehicleManager,
       videoManager,
       linkManager,
       forwarder,
-      settingsManager
+      settingsManager,
+      radarManager
     )
 
     // Connect to each TCP target
@@ -420,6 +425,7 @@ app.whenReady().then(async () => {
     app.on('before-quit', () => {
       settingsManager.flush()
       clearInterval(heartbeatInterval)
+      radarManager.destroy()
       forwarder.destroy()
       cleanupIpcBridge()
       linkManager.disconnectAll()
@@ -473,12 +479,16 @@ app.whenReady().then(async () => {
     forwarder.attachLinkManager(linkManager)
     forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
 
+    // --- Radar ---
+    const radarManager = new RadarManager(settingsManager)
+
     const cleanupIpcBridge = startIpcBridge(
       vehicleManager,
       videoManager,
       linkManager,
       forwarder,
-      settingsManager
+      settingsManager,
+      radarManager
     )
 
     // Auto-detect USB autopilot boards and connect via serial
@@ -519,6 +529,7 @@ app.whenReady().then(async () => {
     app.on('before-quit', () => {
       settingsManager.flush()
       clearInterval(heartbeatInterval)
+      radarManager.destroy()
       forwarder.destroy()
       cleanupIpcBridge()
       linkManager.disconnectAll()

@@ -1,0 +1,11 @@
+.container {
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #000;
+}
+
+.canvas {
+  display: block;
+  border-radius: 50%;
+}

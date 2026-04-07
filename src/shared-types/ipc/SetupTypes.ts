@@ -143,6 +143,7 @@ export type SetupPage =
   | 'actuators'
   | 'parameters'
   | 'video'
+  | 'radar'
   | 'mavConsole'
   | 'mavInspector'
   | 'mavlinkForwarding'

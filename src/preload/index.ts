@@ -18,6 +18,7 @@ import type {
 import type { CameraState } from '../shared-types/ipc/CameraTypes'
 import type { ForwardingState } from '../shared-types/ipc/ForwardingTypes'
 import type { AppSettings } from '../shared-types/ipc/AppSettings'
+import type { RadarState } from '../shared-types/ipc/RadarTypes'
 
 export interface Bridge {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
@@ -168,6 +169,13 @@ export interface Bridge {
   onMavInspectorFields: (
     cb: (payload: import('../shared-types/ipc/MavInspectorTypes').InspectorFieldsPayload) => void
   ) => () => void
+
+  // Radar
+  radarEnable: () => Promise<void>
+  radarDisable: () => Promise<void>
+  radarGetState: () => Promise<RadarState>
+  radarSetSimPosition: (lat: number, lon: number) => Promise<void>
+  onRadarStateChanged: (cb: (state: RadarState) => void) => () => void
 
   // Settings
   settingsGetAll: () => Promise<AppSettings>
@@ -518,6 +526,20 @@ const bridge: Bridge = {
     ipcRenderer.on(IpcEvents.MavInspectorFields, handler)
     return () => {
       ipcRenderer.removeListener(IpcEvents.MavInspectorFields, handler)
+    }
+  },
+
+  // Radar
+  radarEnable: () => ipcRenderer.invoke(IpcChannels.RadarEnable),
+  radarDisable: () => ipcRenderer.invoke(IpcChannels.RadarDisable),
+  radarGetState: () => ipcRenderer.invoke(IpcChannels.RadarGetState),
+  radarSetSimPosition: (lat, lon) =>
+    ipcRenderer.invoke(IpcChannels.RadarSetSimPosition, { lat, lon }),
+  onRadarStateChanged: (cb) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: RadarState): void => cb(state)
+    ipcRenderer.on(IpcEvents.RadarStateChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcEvents.RadarStateChanged, handler)
     }
   },
 

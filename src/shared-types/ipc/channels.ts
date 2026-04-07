@@ -133,5 +133,11 @@ export enum IpcChannels {
   ForwardingAddTarget = 'forwarding:addTarget',
   ForwardingRemoveTarget = 'forwarding:removeTarget',
   ForwardingSetEnabled = 'forwarding:setEnabled',
-  ForwardingSetTargetEnabled = 'forwarding:setTargetEnabled'
+  ForwardingSetTargetEnabled = 'forwarding:setTargetEnabled',
+
+  // Radar
+  RadarEnable = 'radar:enable',
+  RadarDisable = 'radar:disable',
+  RadarGetState = 'radar:getState',
+  RadarSetSimPosition = 'radar:setSimPosition'
 }

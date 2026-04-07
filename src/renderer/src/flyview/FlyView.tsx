@@ -17,6 +17,9 @@ import { VehicleSelector } from './VehicleSelector'
 import { CameraPanel } from './CameraPanel'
 import { SystemHealthStrip } from './SystemHealthStrip'
 import { PerfOverlay } from '../perf/PerfOverlay'
+import { RadarScope } from '../components/radar/RadarScope'
+import { RadarPanel } from '../components/radar/RadarPanel'
+import { useRadarStore } from '../store/radarStore'
 import { useTelemetry } from '../hooks/useVehicle'
 import { useCommand } from '../hooks/useCommand'
 import styles from './FlyView.module.css'
@@ -27,6 +30,9 @@ export function FlyView(): React.JSX.Element {
   const core = useTelemetry('core')
   const armed = core?.armed ?? false
   const { arm } = useCommand()
+  const radarEnabled = useRadarStore((s) => s.state?.enabled ?? false)
+  const scopeView = useRadarStore((s) => s.scopeView)
+  const showRadarScope = radarEnabled && scopeView === 'scope'
   const [mainView, setMainView] = useState<MainView>('map')
   const [poppedOut, setPoppedOut] = useState<'video' | 'map' | null>(null)
   const [pipMinimized, setPipMinimized] = useState(false)
@@ -222,6 +228,18 @@ export function FlyView(): React.JSX.Element {
         )}
 
         <StatusTextOverlay />
+
+        {/* Radar scope overlay */}
+        {showRadarScope && (
+          <div className={styles.radarScopeOverlay}>
+            <RadarScope size={320} />
+          </div>
+        )}
+
+        {/* Radar control panel */}
+        <div className={styles.radarPanel}>
+          <RadarPanel />
+        </div>
       </div>
 
       <div className={styles.sidebar}>

@@ -14,6 +14,7 @@ import { FirmwarePage } from './firmware/FirmwarePage'
 import { VideoSettingsPage } from './video/VideoSettingsPage'
 import { MavConsoleView } from './console/MavConsoleView'
 import { MavInspectorView } from './inspector/MavInspectorView'
+import { RadarSettingsPage } from './radar/RadarSettingsPage'
 import { ForwardingSettingsPage } from './forwarding/ForwardingSettingsPage'
 import styles from './SetupView.module.css'
 
@@ -45,6 +46,8 @@ function PageContent(): React.JSX.Element {
       return <ActuatorsPage />
     case 'video':
       return <VideoSettingsPage />
+    case 'radar':
+      return <RadarSettingsPage />
     case 'mavlinkForwarding':
       return <ForwardingSettingsPage />
     case 'mavConsole':

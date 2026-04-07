@@ -241,3 +241,32 @@
 .popoutBtnMain:hover {
   background: rgba(0, 0, 0, 0.85);
 }
+
+/* ── Radar ──────────────────────────────────────────────── */
+
+.radarScopeOverlay {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 15;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    0 0 24px rgba(0, 255, 80, 0.12),
+    0 4px 16px rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(0, 255, 80, 0.2);
+  transition: box-shadow 0.3s;
+}
+
+.radarScopeOverlay:hover {
+  box-shadow:
+    0 0 32px rgba(0, 255, 80, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.radarPanel {
+  position: absolute;
+  top: calc(var(--perf-bar-height) + 8px);
+  right: 280px;
+  z-index: 20;
+}

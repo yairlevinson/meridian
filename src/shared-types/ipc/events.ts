@@ -72,5 +72,8 @@ export enum IpcEvents {
   ForwardingStateChanged = 'forwarding:stateChanged',
 
   /** App settings changed */
-  SettingsChanged = 'settings:changed'
+  SettingsChanged = 'settings:changed',
+
+  /** Radar state changed (units, tracks updated) */
+  RadarStateChanged = 'radar:stateChanged'
 }

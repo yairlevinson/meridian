@@ -1,0 +1,157 @@
+.panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: rgba(0, 20, 10, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 80, 0.15);
+  border-radius: 6px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: rgba(0, 255, 80, 0.7);
+  user-select: none;
+}
+
+/* Power button */
+.powerBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.powerBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.powerOn {
+  border-color: rgba(0, 255, 80, 0.4);
+  color: rgba(0, 255, 80, 0.9);
+}
+
+.powerDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  transition: all 0.2s;
+}
+
+.powerOn .powerDot {
+  background: #00ff50;
+  box-shadow: 0 0 6px #00ff50;
+}
+
+/* View toggle */
+.viewToggle {
+  display: flex;
+  gap: 0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.viewBtn {
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.45);
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.viewBtn:first-child {
+  border-radius: 4px 0 0 4px;
+  border-right: none;
+}
+
+.viewBtn:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.viewActive {
+  background: rgba(0, 255, 80, 0.2);
+  border-color: rgba(0, 255, 80, 0.35);
+  color: rgba(0, 255, 80, 0.9);
+}
+
+/* Radius slider */
+.sliderGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sliderLabel {
+  white-space: nowrap;
+  min-width: 48px;
+  text-align: right;
+}
+
+.slider {
+  width: 70px;
+  height: 3px;
+  accent-color: #00ff50;
+  cursor: pointer;
+}
+
+/* Track counts */
+.counts {
+  display: flex;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 10px;
+}
+
+.friendlyCount {
+  color: #4488ff;
+}
+
+.hostileCount {
+  color: #ff4444;
+}
+
+/* Simulation badge */
+.simBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(255, 170, 0, 0.15);
+  border: 1px solid rgba(255, 170, 0, 0.3);
+  border-radius: 3px;
+  color: #ffaa00;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.simDot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ffaa00;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
