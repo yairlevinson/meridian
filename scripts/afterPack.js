@@ -75,10 +75,7 @@ function removeNonDarwinPrebuilds(dir) {
 exports.default = async function afterPack(context) {
   if (process.platform !== 'darwin') return
 
-  const appDir = path.join(
-    context.appOutDir,
-    `${context.packager.appInfo.productFilename}.app`
-  )
+  const appDir = path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`)
   const contentsDir = path.join(appDir, 'Contents')
   const frameworksDir = path.join(contentsDir, 'Frameworks')
   const entitlements = path.join(__dirname, '..', 'build', 'entitlements.mac.plist')
@@ -87,7 +84,11 @@ exports.default = async function afterPack(context) {
 
   // 1. Remove foreign-platform prebuilds from unpacked serialport
   const unpackedSp = path.join(
-    contentsDir, 'Resources', 'app.asar.unpacked', 'node_modules', '@serialport'
+    contentsDir,
+    'Resources',
+    'app.asar.unpacked',
+    'node_modules',
+    '@serialport'
   )
   removeNonDarwinPrebuilds(unpackedSp)
 
