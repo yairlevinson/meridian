@@ -538,12 +538,12 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 
 ### Video & Camera
 
-| Feature                       | Status | Notes                                                                    |
-| ----------------------------- | ------ | ------------------------------------------------------------------------ |
-| Video Streaming               | ✅     | UDP H.264/H.265, RTSP, TCP MPEG-TS via ffmpeg; settings in Setup > Video |
-| Video Recording               | ✅     | MKV, MOV, MP4 formats; compact Record overlay on fly view                |
-| MAVLink Camera Protocol       | ✅     | Discovery, photo/video capture, mode switching, storage info             |
-| Multiple Simultaneous Streams | ❌     |                                                                          |
+| Feature                       | Status | Notes                                                                       |
+| ----------------------------- | ------ | --------------------------------------------------------------------------- |
+| Video Streaming               | ✅     | UDP H.264, TCP AV1, RTSP, TCP MPEG-TS via ffmpeg; settings in Setup > Video |
+| Video Recording               | ✅     | MKV, MOV, MP4 formats; compact Record overlay on fly view                   |
+| MAVLink Camera Protocol       | ✅     | Discovery, photo/video capture, mode switching, storage info                |
+| Multiple Simultaneous Streams | ❌     |                                                                             |
 
 ### Analysis & Logging
 

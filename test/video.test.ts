@@ -88,6 +88,27 @@ describe('FfmpegProcess', () => {
       })
       expect(args).toContain('-an')
     })
+
+    it('omits -tag:v avc1 for AV1 source and does not force input format', () => {
+      const args = FfmpegProcess.buildArgs({
+        sourceType: VideoSourceType.TCP_AV1,
+        uri: 'tcp://192.168.1.1:5600'
+      })
+      expect(args).not.toContain('-tag:v')
+      expect(args).not.toContain('mpegts')
+      expect(args).toContain('-c:v')
+      expect(args).toContain('copy')
+    })
+
+    it('includes -tag:v avc1 and -f mpegts for H.264 UDP source', () => {
+      const args = FfmpegProcess.buildArgs({
+        sourceType: VideoSourceType.UDP_H264,
+        uri: 'udp://@:5600'
+      })
+      expect(args).toContain('-tag:v')
+      expect(args).toContain('avc1')
+      expect(args).toContain('mpegts')
+    })
   })
 
   describe('buildUri', () => {
@@ -96,9 +117,9 @@ describe('FfmpegProcess', () => {
       expect(uri).toBe('udp://@:5600')
     })
 
-    it('builds UDP H.265 URI from port', () => {
-      const uri = FfmpegProcess.buildUri(VideoSourceType.UDP_H265, 5601, '', '')
-      expect(uri).toBe('udp://@:5601')
+    it('builds TCP AV1 URI from tcpUrl', () => {
+      const uri = FfmpegProcess.buildUri(VideoSourceType.TCP_AV1, 0, '', 'tcp://192.168.1.1:5600')
+      expect(uri).toBe('tcp://192.168.1.1:5600')
     })
 
     it('returns RTSP URL directly', () => {
@@ -155,7 +176,7 @@ describe('VideoSourceType enum', () => {
   it('has all expected values', () => {
     expect(VideoSourceType.Disabled).toBe('disabled')
     expect(VideoSourceType.UDP_H264).toBe('udp_h264')
-    expect(VideoSourceType.UDP_H265).toBe('udp_h265')
+    expect(VideoSourceType.TCP_AV1).toBe('tcp_av1')
     expect(VideoSourceType.RTSP).toBe('rtsp')
     expect(VideoSourceType.TCP_MPEGTS).toBe('tcp_mpegts')
   })

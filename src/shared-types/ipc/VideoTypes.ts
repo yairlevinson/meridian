@@ -1,7 +1,7 @@
 export enum VideoSourceType {
   Disabled = 'disabled',
   UDP_H264 = 'udp_h264',
-  UDP_H265 = 'udp_h265',
+  TCP_AV1 = 'tcp_av1',
   RTSP = 'rtsp',
   TCP_MPEGTS = 'tcp_mpegts'
 }

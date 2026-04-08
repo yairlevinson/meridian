@@ -49,8 +49,13 @@ export class FfmpegProcess extends EventEmitter {
         args.push('-rtsp_transport', 'tcp')
         break
       case VideoSourceType.UDP_H264:
-      case VideoSourceType.UDP_H265:
-        // UDP source: ffmpeg expects udp://@:port format for listening
+        // UDP streams are typically MPEG-TS wrapped; force the demuxer
+        // so ffmpeg doesn't misdetect the container format
+        args.push('-f', 'mpegts')
+        break
+      case VideoSourceType.TCP_AV1:
+        // AV1 is streamed over TCP in Matroska container (AV1 in MPEG-TS
+        // is non-standard and not supported by most ffmpeg builds)
         break
       case VideoSourceType.TCP_MPEGTS:
         break
@@ -61,9 +66,12 @@ export class FfmpegProcess extends EventEmitter {
     args.push('-i', opts.uri)
 
     // Output: passthrough video, no audio
-    // -tag:v avc1 is needed because MPEG-TS uses codec tag 0x1b for H.264,
-    // which is incompatible with the MP4 muxer that expects 'avc1'.
-    args.push('-c:v', 'copy', '-an', '-tag:v', 'avc1')
+    args.push('-c:v', 'copy', '-an')
+    // MPEG-TS uses codec tag 0x1b for H.264, incompatible with the MP4 muxer
+    // that expects 'avc1'. AV1 doesn't need a tag override.
+    if (opts.sourceType !== VideoSourceType.TCP_AV1) {
+      args.push('-tag:v', 'avc1')
+    }
 
     // Output: fragmented MP4 to stdout for WebSocket broadcast
     args.push('-f', 'mp4')
@@ -82,11 +90,11 @@ export class FfmpegProcess extends EventEmitter {
   ): string {
     switch (sourceType) {
       case VideoSourceType.UDP_H264:
-      case VideoSourceType.UDP_H265:
         return `udp://@:${udpPort}`
       case VideoSourceType.RTSP:
         return rtspUrl
       case VideoSourceType.TCP_MPEGTS:
+      case VideoSourceType.TCP_AV1:
         return tcpUrl
       default:
         return ''

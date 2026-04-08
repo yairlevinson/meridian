@@ -1,4 +1,14 @@
 import { useEffect, useRef } from 'react'
+import { VideoSourceType } from '../../../shared-types/ipc/VideoTypes'
+
+/** MSE codec MIME string for each source type. */
+function mseCodecForSource(sourceType: VideoSourceType | undefined): string {
+  if (sourceType === VideoSourceType.TCP_AV1) {
+    return 'video/mp4; codecs="av01.0.04M.08"'
+  }
+  // H.264 Main Profile Level 4.1 — covers most drone cameras
+  return 'video/mp4; codecs="avc1.4D0029"'
+}
 
 /**
  * Hook that connects a <video> element to the VideoManager's WebSocket server,
@@ -10,7 +20,8 @@ import { useEffect, useRef } from 'react'
  */
 export function useVideoStream(
   videoRef: React.RefObject<HTMLVideoElement | null>,
-  wsPort: number | null
+  wsPort: number | null,
+  sourceType?: VideoSourceType
 ): void {
   const cleanupRef = useRef<(() => void) | null>(null)
 
@@ -61,7 +72,7 @@ export function useVideoStream(
       if (destroyed) return
       console.log('[VideoStream] sourceopen')
       try {
-        sb = ms.addSourceBuffer('video/mp4; codecs="avc1.4D0029"')
+        sb = ms.addSourceBuffer(mseCodecForSource(sourceType))
         sb.mode = 'segments'
         sb.addEventListener('updateend', () => {
           tryPlay()
@@ -152,5 +163,5 @@ export function useVideoStream(
 
     cleanupRef.current = cleanup
     return cleanup
-  }, [wsPort, videoRef])
+  }, [wsPort, videoRef, sourceType])
 }

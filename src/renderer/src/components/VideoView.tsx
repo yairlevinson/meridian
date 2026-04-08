@@ -10,7 +10,7 @@ export function VideoView(): React.JSX.Element {
   const wsPort = streamState?.wsPort ?? null
   const streaming = streamState?.streaming ?? false
 
-  useVideoStream(videoRef, wsPort)
+  useVideoStream(videoRef, wsPort, streamState?.sourceType)
 
   return (
     <div className={styles.container}>

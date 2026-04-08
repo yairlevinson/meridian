@@ -15,9 +15,9 @@ const SOURCE_OPTIONS: Array<{ value: VideoSourceType; label: string; description
     description: 'Receive raw H.264 over UDP (most MAVLink vehicles)'
   },
   {
-    value: VideoSourceType.UDP_H265,
-    label: 'UDP H.265',
-    description: 'Receive raw H.265/HEVC over UDP'
+    value: VideoSourceType.TCP_AV1,
+    label: 'TCP AV1',
+    description: 'Receive AV1-encoded video over TCP (Matroska container)'
   },
   {
     value: VideoSourceType.RTSP,
@@ -34,7 +34,7 @@ const SOURCE_OPTIONS: Array<{ value: VideoSourceType; label: string; description
 const DEFAULT_URIS: Record<VideoSourceType, string> = {
   [VideoSourceType.Disabled]: '',
   [VideoSourceType.UDP_H264]: 'udp://@:5600',
-  [VideoSourceType.UDP_H265]: 'udp://@:5600',
+  [VideoSourceType.TCP_AV1]: 'tcp://192.168.1.1:5600',
   [VideoSourceType.RTSP]: 'rtsp://192.168.1.1:8554/live',
   [VideoSourceType.TCP_MPEGTS]: 'tcp://192.168.1.1:5000'
 }
@@ -42,7 +42,7 @@ const DEFAULT_URIS: Record<VideoSourceType, string> = {
 const PLACEHOLDERS: Record<VideoSourceType, string> = {
   [VideoSourceType.Disabled]: '',
   [VideoSourceType.UDP_H264]: 'udp://@:port',
-  [VideoSourceType.UDP_H265]: 'udp://@:port',
+  [VideoSourceType.TCP_AV1]: 'tcp://vehicle-ip:port',
   [VideoSourceType.RTSP]: 'rtsp://vehicle-ip:port/path',
   [VideoSourceType.TCP_MPEGTS]: 'tcp://vehicle-ip:port'
 }
