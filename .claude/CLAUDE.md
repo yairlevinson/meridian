@@ -163,6 +163,10 @@ Requires a pre-built PX4: `cd $PX4_HOME && make px4_sitl gz_x500`
 - **Zombie PX4 processes**: If Gazebo fails to find its world file, PX4 enters an unkillable kernel wait (`UEs` state). The launcher has a 30s watchdog to kill stalled PX4 before this happens. If zombies occur, reboot is the only fix.
 - **Stale Gazebo between runs**: Always kill all `gz sim`, `gz-sim-server`, `bin/px4` processes and remove `/tmp/px4_lock-*` before starting fresh.
 
+## CodeTour
+
+Three CodeTour walkthroughs live in `.tours/`. When you modify files referenced by a tour step, check whether the step's `line` number or description still matches and update the `.tour` JSON if not. Pay special attention to line number shifts from added/removed code.
+
 ## Conventions
 
 - Shared types live in `src/shared-types/` — no type duplication across process boundaries

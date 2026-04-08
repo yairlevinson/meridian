@@ -26,12 +26,13 @@ const log = createLogger('main')
 // reconnect or the app will show disconnected state.
 process.on('uncaughtException', (err) => {
   const code = (err as NodeJS.ErrnoException).code
-  if (code === 'EPIPE' || code === 'ECONNRESET' || code === 'ERR_OUT_OF_RANGE') {
+  if (code === 'EPIPE' || code === 'ECONNRESET') {
     log.warn('Suppressed socket error:', err.message)
     return
   }
-  // Re-throw unknown errors
-  throw err
+  // Unknown errors are fatal — log and exit cleanly
+  log.error('Fatal uncaught exception:', err)
+  process.exit(1)
 })
 
 const UDP_PORT = parseInt(process.env.GC_UDP_PORT || '14550', 10)
@@ -39,10 +40,6 @@ const UDP_PORT = parseInt(process.env.GC_UDP_PORT || '14550', 10)
 // TCP SITL connections: comma-separated "host:port" pairs
 // e.g. GC_TCP_LINKS="127.0.0.1:5760,127.0.0.1:5761,..."
 const TCP_LINKS = process.env.GC_TCP_LINKS || ''
-
-// Assigned on app-ready; kept for future multi-window management
-// @ts-expect-error written but not yet read
-let _mainWindow: BrowserWindow | null = null
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -79,7 +76,7 @@ function createWindow(): BrowserWindow {
 // Track active popout windows by view name
 const popoutWindows = new Map<string, BrowserWindow>()
 
-function createPopoutWindow(view: string): BrowserWindow {
+function openPopoutWindow(view: string): BrowserWindow {
   // Close existing popout for the same view
   const existing = popoutWindows.get(view)
   if (existing && !existing.isDestroyed()) {
@@ -147,29 +144,29 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
     req.reqMessageRate = rate
     req.startStop = 1
 
-    writeFn(proto.serialize(req, seq++))
+    writeFn(proto.serialize(req, seq++ & 0xff))
     log.log(
       `requested stream id=${id} at ${rate}Hz for sysid=${targetSysId}${label ? ` on ${label}` : ''}`
     )
   }
 
-  // PX4: MAV_CMD_SET_MESSAGE_INTERVAL (511) via COMMAND_LONG
+  // PX4: MAV_CMD_SET_MESSAGE_INTERVAL via COMMAND_LONG
   // PX4 ignores REQUEST_DATA_STREAM — it uses COMMAND_LONG to set message intervals
   const px4Messages = [
-    { msgId: 33, rate: 4 }, // GLOBAL_POSITION_INT
-    { msgId: 30, rate: 10 }, // ATTITUDE
-    { msgId: 74, rate: 4 }, // VFR_HUD
-    { msgId: 1, rate: 2 }, // SYS_STATUS
-    { msgId: 24, rate: 2 }, // GPS_RAW_INT
-    { msgId: 242, rate: 0.2 }, // HOME_POSITION (every 5s)
-    { msgId: 0, rate: 1 } // HEARTBEAT (keep-alive)
+    { msgId: common.GlobalPositionInt.MSG_ID, rate: 4 },
+    { msgId: common.Attitude.MSG_ID, rate: 10 },
+    { msgId: common.VfrHud.MSG_ID, rate: 4 },
+    { msgId: common.SysStatus.MSG_ID, rate: 2 },
+    { msgId: common.GpsRawInt.MSG_ID, rate: 2 },
+    { msgId: common.HomePosition.MSG_ID, rate: 0.2 },
+    { msgId: minimal.Heartbeat.MSG_ID, rate: 1 }
   ]
 
   for (const { msgId, rate } of px4Messages) {
     const cmd = new common.CommandLong()
     cmd.targetSystem = targetSysId
     cmd.targetComponent = 0
-    cmd.command = 511 // MAV_CMD_SET_MESSAGE_INTERVAL
+    cmd.command = common.MavCmd.SET_MESSAGE_INTERVAL
     cmd.confirmation = 0
     cmd._param1 = msgId
     cmd._param2 = Math.round(1_000_000 / rate) // interval in microseconds
@@ -179,7 +176,7 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
     cmd._param6 = 0
     cmd._param7 = 0
 
-    writeFn(proto.serialize(cmd, seq++))
+    writeFn(proto.serialize(cmd, seq++ & 0xff))
   }
   log.log(`requested PX4 message intervals for sysid=${targetSysId}${label ? ` on ${label}` : ''}`)
 
@@ -187,16 +184,16 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
   const reqHome = new common.CommandLong()
   reqHome.targetSystem = targetSysId
   reqHome.targetComponent = 0
-  reqHome.command = 512 // MAV_CMD_REQUEST_MESSAGE
+  reqHome.command = common.MavCmd.REQUEST_MESSAGE
   reqHome.confirmation = 0
-  reqHome._param1 = 242 // HOME_POSITION message id
+  reqHome._param1 = common.HomePosition.MSG_ID
   reqHome._param2 = 0
   reqHome._param3 = 0
   reqHome._param4 = 0
   reqHome._param5 = 0
   reqHome._param6 = 0
   reqHome._param7 = 0
-  writeFn(proto.serialize(reqHome, seq++))
+  writeFn(proto.serialize(reqHome, seq++ & 0xff))
 }
 
 // Register a custom protocol that proxies OSM tile requests from the main process,
@@ -246,8 +243,16 @@ app.whenReady().then(async () => {
       // Legacy fallback: tile://osm/{z}/{x}/{y}.png
       const legacyUrl = request.url.replace('tile://osm/', 'https://tile.openstreetmap.org/')
       if (legacyUrl !== request.url) {
+        const legacyCached = tileCacheGet(legacyUrl)
+        if (legacyCached) return legacyCached
         try {
           const resp = await net.fetch(legacyUrl, { headers: { 'User-Agent': 'Meridian/1.0' } })
+          if (resp.ok) {
+            const buf = await resp.arrayBuffer()
+            const ct = resp.headers.get('content-type') ?? 'image/png'
+            tileCachePut(legacyUrl, { 'content-type': ct }, buf)
+            return new Response(buf, { headers: { 'content-type': ct } })
+          }
           return resp
         } catch {
           return new Response(null, { status: 502 })
@@ -280,11 +285,11 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  _mainWindow = createWindow()
+  createWindow()
 
   // --- Popout windows ---
   ipcMain.handle('popout:open', (_event, view: string) => {
-    createPopoutWindow(view)
+    openPopoutWindow(view)
   })
   ipcMain.handle('popout:close', (_event, view: string) => {
     const win = popoutWindows.get(view)
@@ -321,58 +326,28 @@ app.whenReady().then(async () => {
     }
   }
 
+  // --- MAVLink stack (shared across TCP and UDP modes) ---
+  const mavlinkProtocol = new MavlinkProtocol()
+  const linkManager = new LinkManager(mavlinkProtocol)
+
+  // Route all decoded messages to the VehicleManager
+  linkManager.on('message', (msg, link) => {
+    vehicleManager.handleMessage(msg, link.id)
+  })
+
+  // Track which link a vehicle came from
+  const vehicleToLink = new Map<number, string>()
+  linkManager.on('message', (msg, link) => {
+    if (!vehicleToLink.has(msg.sysid)) {
+      vehicleToLink.set(msg.sysid, link.id)
+    }
+  })
+
+  // --- Mode-specific link creation ---
+  let rootUdpLink: UdpLink | null = null
+
   if (tcpTargets.length > 0) {
-    // ---- TCP mode: connect to multiple SITL instances via LinkManager ----
-    const mavlinkProtocol = new MavlinkProtocol()
-    const linkManager = new LinkManager(mavlinkProtocol)
-
-    // Route all decoded messages to the VehicleManager
-    linkManager.on('message', (msg, link) => {
-      vehicleManager.handleMessage(msg, link.id)
-    })
-
-    // When a vehicle is discovered, request data streams on the link that carries it
-    const streamRequestedFor = new Set<number>()
-    const vehicleToLink = new Map<number, string>()
-
-    // Track which link a vehicle came from
-    linkManager.on('message', (msg, link) => {
-      if (!vehicleToLink.has(msg.sysid)) {
-        vehicleToLink.set(msg.sysid, link.id)
-      }
-    })
-
-    vehicleManager.on('vehicleAdded', (sysid: number) => {
-      log.log(`Vehicle added: sysid=${sysid}`)
-      const linkId = vehicleToLink.get(sysid)
-      const tcpLink = linkId ? linkManager.getLink(linkId) : undefined
-      if (tcpLink) {
-        vehicleManager.getVehicle(sysid)?.addLink(tcpLink)
-        if (!streamRequestedFor.has(sysid)) {
-          streamRequestedFor.add(sysid)
-          requestStreams((buf) => tcpLink.writeBytes(buf), sysid, linkId!)
-        }
-      }
-    })
-
-    // --- MAVLink forwarding ---
-    const forwarder = new MavlinkForwarder(settingsManager, UDP_PORT)
-    forwarder.attachLinkManager(linkManager)
-    forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
-
-    // --- Radar ---
-    const radarManager = new RadarManager(settingsManager)
-
-    const cleanupIpcBridge = startIpcBridge(
-      vehicleManager,
-      videoManager,
-      linkManager,
-      forwarder,
-      settingsManager,
-      radarManager
-    )
-
-    // Connect to each TCP target
+    // TCP mode: connect to multiple SITL instances
     for (const target of tcpTargets) {
       const parts = target.split(':')
       const host = parts[0] ?? '127.0.0.1'
@@ -390,158 +365,101 @@ app.whenReady().then(async () => {
         log.warn(`Failed to connect TCP ${host}:${port}:`, err)
       }
     }
-
     log.log(`Connected ${linkManager.getAllStates().length} TCP links`)
-
-    // Auto-detect USB autopilot boards and connect via serial
-    linkManager.startAutoConnect()
-
-    // Send GCS heartbeats at 1Hz on all TCP links.
-    // PX4's TCP bridge (mavlink-routerd) requires GCS heartbeats before
-    // it starts relaying vehicle data to the client.
-    const gcsProto = new MavLinkProtocolV2(GCS_SYSID, GCS_COMPID)
-    let gcsSeq = 0
-    const heartbeatInterval = setInterval(() => {
-      const hb = new minimal.Heartbeat()
-      hb.type = minimal.MavType.GCS
-      hb.autopilot = minimal.MavAutopilot.INVALID
-      hb.baseMode = 0 as minimal.MavModeFlag
-      hb.customMode = 0
-      hb.systemStatus = minimal.MavState.ACTIVE
-      hb.mavlinkVersion = 3
-      const buf = gcsProto.serialize(hb, gcsSeq++ & 0xff)
-      for (const state of linkManager.getAllStates()) {
-        const link = linkManager.getLink(state.id)
-        if (link?.isConnected) {
-          try {
-            link.writeBytes(buf)
-          } catch {
-            /* link closed */
-          }
-        }
-      }
-    }, 1000)
-
-    app.on('before-quit', () => {
-      settingsManager.flush()
-      clearInterval(heartbeatInterval)
-      radarManager.destroy()
-      forwarder.destroy()
-      cleanupIpcBridge()
-      linkManager.disconnectAll()
-      mavlinkProtocol.destroy()
-      vehicleManager.destroy()
-      videoManager.destroy()
-    })
   } else {
-    // ---- UDP mode: listen for incoming MAVLink (SyntheticVehicle / single SITL) ----
-    const mavlinkProtocol = new MavlinkProtocol()
-    const linkManager = new LinkManager(mavlinkProtocol)
-
-    // Route all decoded messages to the VehicleManager
-    linkManager.on('message', (msg, link) => {
-      vehicleManager.handleMessage(msg, link.id)
-    })
-
-    // Track which link a vehicle came from
-    const vehicleToLink = new Map<number, string>()
-    linkManager.on('message', (msg, link) => {
-      if (!vehicleToLink.has(msg.sysid)) {
-        vehicleToLink.set(msg.sysid, link.id)
-      }
-    })
-
-    // Create root UDP link as a managed link
-    const rootUdpLink = (await linkManager.createLink({
+    // UDP mode: listen for incoming MAVLink
+    rootUdpLink = (await linkManager.createLink({
       type: LinkType.UDP,
       name: 'Root UDP',
       listenPort: UDP_PORT
     })) as UdpLink
     rootUdpLink.unref()
     log.log(`Listening for MAVLink on UDP port ${UDP_PORT}`)
+  }
 
-    const streamRequestedFor = new Set<number>()
-    vehicleManager.on('vehicleAdded', (sysid: number) => {
-      log.log(`Vehicle added: sysid=${sysid}`)
-      // Check if vehicle came from a managed link (e.g. serial)
-      const linkId = vehicleToLink.get(sysid)
-      const managedLink = linkId ? linkManager.getLink(linkId) : undefined
-      const link = managedLink ?? rootUdpLink
+  // When a vehicle is discovered, assign its link and request data streams
+  const streamRequestedFor = new Set<number>()
+  vehicleManager.on('vehicleAdded', (sysid: number) => {
+    log.log(`Vehicle added: sysid=${sysid}`)
+    const linkId = vehicleToLink.get(sysid)
+    const managedLink = linkId ? linkManager.getLink(linkId) : undefined
+    const link = managedLink ?? rootUdpLink
+    if (link) {
       vehicleManager.getVehicle(sysid)?.addLink(link)
       if (!streamRequestedFor.has(sysid)) {
         streamRequestedFor.add(sysid)
         requestStreams((buf) => link.writeBytes(buf), sysid, linkId)
       }
-    })
+    }
+  })
 
-    // --- MAVLink forwarding ---
-    const forwarder = new MavlinkForwarder(settingsManager, UDP_PORT)
-    forwarder.attachLinkManager(linkManager)
-    forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
+  // --- MAVLink forwarding ---
+  const forwarder = new MavlinkForwarder(settingsManager, UDP_PORT)
+  forwarder.attachLinkManager(linkManager)
+  forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
 
-    // --- Radar ---
-    const radarManager = new RadarManager(settingsManager)
+  // --- Radar ---
+  const radarManager = new RadarManager(settingsManager)
 
-    const cleanupIpcBridge = startIpcBridge(
-      vehicleManager,
-      videoManager,
-      linkManager,
-      forwarder,
-      settingsManager,
-      radarManager
-    )
+  const cleanupIpcBridge = startIpcBridge(
+    vehicleManager,
+    videoManager,
+    linkManager,
+    forwarder,
+    settingsManager,
+    radarManager
+  )
 
-    // Auto-detect USB autopilot boards and connect via serial
-    linkManager.startAutoConnect()
+  // Auto-detect USB autopilot boards and connect via serial
+  linkManager.startAutoConnect()
 
-    // Send GCS heartbeats at 1Hz to PX4 SITL's default MAVLink port.
-    // PX4 SITL (started without -o flag) only sends data after it receives
-    // a packet from the GCS, so we need to initiate the connection.
-    const PX4_SITL_PORT = 18570
-    const gcsProto = new MavLinkProtocolV2(GCS_SYSID, GCS_COMPID)
-    let gcsSeq = 0
-    const heartbeatInterval = setInterval(() => {
-      const hb = new minimal.Heartbeat()
-      hb.type = minimal.MavType.GCS
-      hb.autopilot = minimal.MavAutopilot.INVALID
-      hb.baseMode = 0 as minimal.MavModeFlag
-      hb.customMode = 0
-      hb.systemStatus = minimal.MavState.ACTIVE
-      hb.mavlinkVersion = 3
-      const buf = gcsProto.serialize(hb, gcsSeq++ & 0xff)
-      // Send to PX4 SITL default port and also to all known senders
+  // Send GCS heartbeats at 1Hz on all links.
+  // PX4's TCP bridge (mavlink-routerd) and PX4 SITL require GCS heartbeats
+  // before they start relaying vehicle data to the client.
+  const PX4_SITL_PORT = 18570
+  const gcsProto = new MavLinkProtocolV2(GCS_SYSID, GCS_COMPID)
+  let gcsSeq = 0
+  const heartbeatInterval = setInterval(() => {
+    const hb = new minimal.Heartbeat()
+    hb.type = minimal.MavType.GCS
+    hb.autopilot = minimal.MavAutopilot.INVALID
+    hb.baseMode = 0 as minimal.MavModeFlag
+    hb.customMode = 0
+    hb.systemStatus = minimal.MavState.ACTIVE
+    hb.mavlinkVersion = 3
+    const buf = gcsProto.serialize(hb, gcsSeq++ & 0xff)
+    // In UDP mode, also send to PX4 SITL's default MAVLink port
+    if (rootUdpLink) {
       rootUdpLink.sendTo(buf, PX4_SITL_PORT, '127.0.0.1')
-      rootUdpLink.writeBytes(buf)
-      // Send on all other managed links (serial, TCP) so autopilot starts talking
-      for (const state of linkManager.getAllStates()) {
-        if (state.id === rootUdpLink.id) continue
-        const link = linkManager.getLink(state.id)
-        if (link?.isConnected) {
-          try {
-            link.writeBytes(buf)
-          } catch {
-            /* link closed */
-          }
+    }
+    // Send on all managed links
+    for (const state of linkManager.getAllStates()) {
+      const link = linkManager.getLink(state.id)
+      if (link?.isConnected) {
+        try {
+          link.writeBytes(buf)
+        } catch {
+          /* link closed */
         }
       }
-    }, 1000)
+    }
+  }, 1000)
 
-    app.on('before-quit', () => {
-      settingsManager.flush()
-      clearInterval(heartbeatInterval)
-      radarManager.destroy()
-      forwarder.destroy()
-      cleanupIpcBridge()
-      linkManager.disconnectAll()
-      mavlinkProtocol.destroy()
-      vehicleManager.destroy()
-      videoManager.destroy()
-    })
-  }
+  app.on('before-quit', () => {
+    settingsManager.flush()
+    clearInterval(heartbeatInterval)
+    radarManager.destroy()
+    forwarder.destroy()
+    cleanupIpcBridge()
+    vehicleManager.destroy()
+    linkManager.disconnectAll()
+    mavlinkProtocol.destroy()
+    videoManager.destroy()
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      _mainWindow = createWindow()
+      createWindow()
     }
   })
 })

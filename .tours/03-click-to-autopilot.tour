@@ -1,0 +1,79 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "3/3: From Click to Autopilot",
+  "description": "Trace a user action (arming the vehicle) from the UI button through the IPC bridge, command queue, MAVLink serialization, and back via COMMAND_ACK. Completes the full round-trip picture.",
+  "steps": [
+    {
+      "file": "src/renderer/src/flyview/ArmedIndicator.tsx",
+      "line": 6,
+      "title": "Where a User Action Starts",
+      "description": "This component shows the arm/disarm button. Let's trace what happens when the user holds \"ARM\" for 1 second.\n\n- **Line 7**: `useTelemetry('core')` subscribes to the core telemetry group for the `armed` state\n- **Line 8**: `useCommand()` returns typed command dispatchers (we'll look inside next)\n- **Line 15**: `onConfirm={() => arm()}` — after the hold gesture completes, `arm()` is called\n\nThe `HoldButton` component requires a 1-second press-and-hold to prevent accidental arming. When it triggers, `arm()` fires. Let's follow that call."
+    },
+    {
+      "file": "src/renderer/src/hooks/useCommand.ts",
+      "line": 1,
+      "title": "useCommand — Typed Command Dispatchers",
+      "description": "**React concept: useCallback**\n\n`useCallback` wraps a function so React can cache it between re-renders. Without it, every re-render creates a new function object, which could cause child components to re-render unnecessarily. The `[vid]` array (line 21) means \"only recreate this function when `vid` changes.\" This is a performance optimization — the code works without it, just slightly slower.\n\n---\n\n`useCommand()` returns an object of command dispatchers, each targeting the active vehicle. Line 16-17 resolves the vehicle ID from the store. Line 20: `arm()` simply calls `window.bridge?.arm(vid)`. Let's follow that bridge call."
+    },
+    {
+      "file": "src/preload/index.ts",
+      "line": 219,
+      "title": "Bridge Invoke — Crossing to Main",
+      "description": "`window.bridge.arm(vehicleId)` calls `ipcRenderer.invoke(IpcChannels.VehicleArm, vehicleId)`.\n\n`invoke` sends a message to the main process and returns a **Promise** that resolves when the main process replies. The channel name `'vehicle:arm'` (from the `IpcChannels` enum) matches a handler registered in `ipcBridge.ts`.\n\nThis is the IPC boundary crossing: the call left the renderer and entered the main process. Compare this with `onVehicleDelta` (line 195) which goes the other direction — data is **pushed** from main to renderer."
+    },
+    {
+      "file": "src/shared-types/ipc/channels.ts",
+      "line": 7,
+      "title": "Channel Name Enum",
+      "description": "`IpcChannels.VehicleArm = 'vehicle:arm'` — both `preload/index.ts` and `ipcBridge.ts` import this enum, ensuring the channel names match at **compile time**.\n\nAdding a new command means:\n1. Add an enum entry here\n2. Add a handler in `ipcBridge.ts`\n3. Add a method in the preload's `Bridge` interface\n4. TypeScript will catch any missing pieces\n\nScroll down to see the full list — vehicle commands, parameters, missions, calibration, video, camera, and more."
+    },
+    {
+      "file": "src/main/ipcBridge.ts",
+      "line": 186,
+      "title": "IPC Handler Registration",
+      "description": "`startIpcBridge()` registers an array of `{channel, handler}` pairs.\n\nThe arm handler on **line 188-189** is simple:\n```\nchannel: IpcChannels.VehicleArm,\nhandler: (vehicleId) => vehicleManager.getVehicle(vehicleId)?.arm()\n```\n\nIt looks up the Vehicle by sysid and calls its `arm()` method. The optional chaining (`?.`) handles the case where the vehicle disconnected between the UI click and the handler running.\n\nAll handlers follow this pattern — find the vehicle, call a method. The handlers array keeps all IPC registrations in one place, making this file the central switchboard."
+    },
+    {
+      "file": "src/main/vehicle/Vehicle.ts",
+      "line": 435,
+      "title": "Vehicle.arm() — Command Abstraction",
+      "description": "`Vehicle.arm()` is a convenience wrapper:\n```\nthis.commandQueue.sendCommand(\n  400,        // MAV_CMD_COMPONENT_ARM_DISARM\n  this.sysid, // target vehicle\n  0,          // target component (0 = autopilot default)\n  { p1: 1 }   // p1=1 means arm, p1=0 means disarm\n)\n```\n\nCommand 400 is the MAVLink standard for arm/disarm. The method returns a `Promise<MavResult>` — it does **not** resolve until the autopilot responds or the command times out.\n\nSee `disarm()` on line 444 — same command, just `p1: 0`. Other convenience methods below: `guidedTakeoff`, `guidedRTL`, `guidedLand`, etc."
+    },
+    {
+      "file": "src/main/vehicle/MavCommandQueue.ts",
+      "line": 48,
+      "title": "Command Queue with Retry",
+      "description": "`sendCommand` creates a `PendingCommand` record (lines 64-81) with:\n- The 7 MAVLink command parameters\n- Retry tracking: default 3 retries, 1.5s timeout each\n- A Promise's `resolve`/`reject` — the caller awaits this\n\nLine 82: pushes onto the queue\nLine 83: immediately calls `_sendPending()` to serialize and transmit the first attempt\n\nThe returned Promise is stored on the PendingCommand. It will be resolved when COMMAND_ACK arrives, or rejected after all retries are exhausted."
+    },
+    {
+      "file": "src/main/vehicle/MavCommandQueue.ts",
+      "line": 121,
+      "title": "Serializing & Transmitting",
+      "description": "`_sendPending` builds a `COMMAND_LONG` message — the standard MAVLink command envelope:\n\n- **Line 127-138**: Populate all fields (target, command number, 7 parameters)\n- **Line 131**: `cmd.confirmation = pending.retryCount` — the autopilot uses this to detect retransmissions\n- **Line 151**: Serialize to bytes using `MavLinkProtocolV2`\n- **Line 152**: Write the raw bytes to the link (UDP/TCP/serial socket)\n- **Line 154**: Start a timeout timer — if no ACK arrives in 1.5s, retry\n\nThe bytes are now on the wire, heading to the autopilot. Now we wait for a response."
+    },
+    {
+      "file": "src/main/vehicle/MavCommandQueue.ts",
+      "line": 88,
+      "title": "COMMAND_ACK Processing",
+      "description": "When the autopilot responds, a COMMAND_ACK (msgid 77) comes back through the entire MAVLink decode pipeline (LinkManager → VehicleManager → Vehicle).\n\nThe queue processes it:\n1. **Line 89**: Find the matching pending command by command number\n2. **Line 93**: Clear the timeout timer\n3. **Line 94**: Remove from queue\n4. **Line 97-100**: If result is `IN_PROGRESS`, re-queue with a fresh timeout — the autopilot is still working on it\n5. **Line 102**: Otherwise, resolve the Promise with the result code\n6. **Line 103**: Emit `'commandResult'` event for the UI\n\nThe caller's `await arm()` now resolves with `MavResult.ACCEPTED` (or an error code)."
+    },
+    {
+      "file": "src/main/vehicle/Vehicle.ts",
+      "line": 248,
+      "title": "ACK Routing Between Subsystems",
+      "description": "Back in Vehicle's dispatch table, the COMMAND_ACK handler (msgid 77) shows an important routing decision:\n\n- **Line 250**: If the command is 241 (PREFLIGHT_CALIBRATION) and calibration is active, the ACK goes to the **calibration manager** instead of the command queue\n- **Line 254-255**: Otherwise, it goes to **both** the command queue (resolves the Promise) and the calibration manager (which can ignore it)\n\nThis prevents the command queue from swallowing ACKs meant for calibration. It's a pattern you'll see when multiple subsystems share the same ACK stream."
+    },
+    {
+      "file": "src/main/ipcBridge.ts",
+      "line": 51,
+      "title": "Event Forwarding to Renderer",
+      "description": "When a vehicle is added, ipcBridge wires up event forwarding for that vehicle's subsystems:\n\n- **Line 55-59**: Mission progress and completion events\n- **Line 66-73**: Parameter events\n- **Line 77-78**: STATUSTEXT messages\n- **Line 82-90**: Calibration progress\n\nFor commands specifically, the `commandResult` event from the queue gets broadcast to all renderer windows, where the preload's `onCommandResult` listener picks it up. The UI can then show success/failure feedback.\n\nThis completes the wiring: main process events → broadcast → preload listener → renderer callback."
+    },
+    {
+      "file": "src/renderer/src/flyview/ArmedIndicator.tsx",
+      "line": 7,
+      "title": "Full Round-Trip Complete",
+      "description": "After arming succeeds, the autopilot's next HEARTBEAT will have the `SAFETY_ARMED` flag set.\n\nThe data flows back through the entire receive path from Tour 1:\n```\nHEARTBEAT → VehicleState._handleHeartbeat\n→ core.armed = true, core.seq++\n→ ipcBridge 30Hz delta push\n→ vehicleStore.mergeDelta\n→ useTelemetry('core') detects the change\n→ ArmedIndicator re-renders\n```\n\nThe \"Hold to ARM\" button (line 13) is replaced by the red \"ARMED\" button (line 24). The user sees the state change within one 30Hz tick (~33ms) of the HEARTBEAT arriving.\n\nNo explicit \"refresh\" needed — the push-based architecture handles it automatically.\n\n---\n\n**End of Tour 3 and the walkthrough.** You now understand the complete data flow in both directions:\n- **In**: MAVLink → decode → VehicleState → delta IPC → Zustand → hooks → components\n- **Out**: Click → useCommand → bridge.invoke → ipcBridge → Vehicle → MavCommandQueue → MAVLink → autopilot → ACK → back to state"
+    }
+  ]
+}

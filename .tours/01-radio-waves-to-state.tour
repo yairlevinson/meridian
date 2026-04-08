@@ -1,0 +1,91 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "1/3: From Radio Waves to State",
+  "description": "Follow a MAVLink message from the network socket through decoding, vehicle state management, and delta-encoded IPC push. By the end you'll understand how telemetry data arrives and is prepared for the UI.",
+  "steps": [
+    {
+      "file": "src/main/index.ts",
+      "line": 1,
+      "title": "The Main Process",
+      "description": "Welcome to Meridian's entry point. This file runs in Electron's **main process** — a full Node.js environment with access to networking, file system, and serial ports.\n\nElectron apps have two process types:\n- **Main process** (this file) — one per app, owns the OS window, runs all I/O\n- **Renderer process** — a sandboxed browser that shows the UI (React lives here)\n\nThey cannot share memory. All communication goes through IPC (Inter-Process Communication). This separation is the single most important architectural fact in the codebase.\n\nEvery file under `src/main/` runs here. Every file under `src/renderer/` runs in the browser sandbox."
+    },
+    {
+      "file": "src/main/index.ts",
+      "line": 44,
+      "title": "Window Creation & Preload",
+      "description": "`createWindow()` creates a `BrowserWindow` — the Electron wrapper around a Chromium renderer.\n\nTwo critical settings in `webPreferences`:\n- `contextIsolation: true` — the renderer cannot access Node.js APIs directly\n- `preload: join(__dirname, '../preload/index.js')` — a special script that runs before the renderer loads\n\nThe preload script builds a `window.bridge` object — the **only** way the renderer can talk to the main process. Think of it as a phone switchboard connecting two isolated rooms. We'll see the preload in Tour 2."
+    },
+    {
+      "file": "src/main/index.ts",
+      "line": 303,
+      "title": "MAVLink Stack Startup",
+      "description": "Inside `app.whenReady()`, the main process creates the three pillars of the MAVLink stack:\n\n1. `SettingsManager` — persisted user configuration\n2. `VehicleManager` — tracks all connected drones, auto-discovers new ones\n3. `LinkManager` — manages network transports (UDP, TCP, serial)\n\nThe shared MAVLink setup (protocol, link manager, message routing, forwarding, radar) is initialized once. Only link creation differs between the two modes:\n- **TCP mode** (line 349) — connects to specific SITL simulator instances\n- **UDP mode** (line 370) — listens for incoming MAVLink on port 14550\n\nThen `startIpcBridge()` on line 404 wires everything to the renderer."
+    },
+    {
+      "file": "src/main/links/LinkManager.ts",
+      "line": 52,
+      "title": "LinkManager — Transport Abstraction",
+      "description": "`LinkManager` owns all transport connections. It doesn't care whether bytes arrive via UDP, TCP, or serial — each is a `LinkInterface` that emits raw bytes.\n\nWhen `createLink()` is called (line 58), it:\n1. Creates the appropriate link type (UDP/TCP/Serial)\n2. Allocates a MAVLink channel for decoding (line 77)\n3. Pipes the link's raw bytes into the channel (line 83)\n4. Emits decoded messages as `'message'` events (line 78)\n\nBack in `index.ts`, the line `linkManager.on('message', (msg, link) => vehicleManager.handleMessage(msg, link.id))` connects the output here to the vehicle layer."
+    },
+    {
+      "file": "src/main/links/LinkManager.ts",
+      "line": 77,
+      "title": "Channel Allocation & Decode Pipeline",
+      "description": "Each link gets its own `MavlinkChannel` from a pool of 16 (matching the C++ QGroundControl implementation).\n\nThe channel is the decode pipeline: raw bytes enter, structured MAVLink messages exit. The callback passed to `allocateChannel` (line 78) emits the decoded message on the LinkManager, tagged with which link it came from.\n\nOn line 83-85, the link's `'data'` event (raw bytes from the socket) is piped into `channel.write()`. Let's look inside the channel next."
+    },
+    {
+      "file": "src/main/mavlink/MavlinkChannel.ts",
+      "line": 58,
+      "title": "MAVLink Protocol Decode",
+      "description": "Here's where raw bytes become structured messages.\n\nLine 34 sets up the pipeline: `PassThrough → MavLinkPacketSplitter → MavLinkPacketParser`\n- The **splitter** finds packet boundaries using MAVLink's magic byte (0xFD for v2)\n- The **parser** validates CRC checksums and extracts headers\n\nEach valid packet yields:\n- `msgid` — message type (e.g., 0=HEARTBEAT, 33=GLOBAL_POSITION_INT)\n- `sysid` — which vehicle (1-199)\n- `compid` — which component (1=autopilot)\n- `data` — decoded fields\n\nLine 60 tracks per-sender sequence numbers to detect packet loss over the radio link. The decoded message is passed to the callback (line 70-76), which was set by LinkManager."
+    },
+    {
+      "file": "src/main/vehicle/VehicleManager.ts",
+      "line": 16,
+      "title": "Vehicle Discovery & Message Routing",
+      "description": "Every decoded message arrives here. The manager routes by `sysid` (system ID — each drone has a unique one).\n\nKey logic:\n- **Line 21**: Filter out GCS sysids (>=200) and broadcast (0) — we only care about vehicle messages\n- **Line 24-29**: If no Vehicle exists for this sysid, auto-create one — but **only** on HEARTBEAT (msgid 0) from compid 1 (the autopilot). This is how Meridian discovers drones: no manual configuration needed, just listen for heartbeats.\n- **Line 31**: Route the message to the vehicle\n\nThis is a clean 65-line file — the entire multi-vehicle discovery system."
+    },
+    {
+      "file": "src/main/vehicle/Vehicle.ts",
+      "line": 126,
+      "title": "Message Dispatch Table",
+      "description": "Each Vehicle has a static dispatch table (`DISPATCH`) mapping MAVLink message IDs to handler functions.\n\nFor example:\n- `0` (HEARTBEAT) → link tracking, camera detection, auto-request parameters\n- `22` (PARAM_VALUE) → routes to ParameterManager\n- `77` (COMMAND_ACK) → routes to MavCommandQueue (we'll see this in Tour 3)\n- `253` (STATUSTEXT) → emits text for the UI overlay\n\nAfter any specialized handler runs, `this.state.handleMessage()` is **always** called (line 420) to update telemetry state. That's next."
+    },
+    {
+      "file": "src/main/vehicleState.ts",
+      "line": 259,
+      "title": "VehicleState — Grouped Telemetry",
+      "description": "`VehicleState.handleMessage()` is a big switch on message ID. Each case calls a private handler that updates the relevant telemetry group.\n\nThe state is partitioned into **17 groups**: core, attitude, gps, gpsRaw, home, battery, rc, vfrHud, sysStatus, wind, radio, vibration, extendedState, missionStatus, terrain, camera, servoOutput.\n\nEach group has a `seq` counter that increments on every update. When a GLOBAL_POSITION_INT arrives (msgid 33, line 274), only the `gps` group is updated and marked dirty. The dirty tracking is what makes delta encoding possible."
+    },
+    {
+      "file": "src/main/vehicleState.ts",
+      "line": 330,
+      "title": "Concrete Example: Heartbeat → Core Group",
+      "description": "Let's trace one message end-to-end. When a HEARTBEAT arrives:\n\n- **Line 333**: Extract the `armed` flag from `baseMode` using a bitwise AND with `SAFETY_ARMED`\n- **Line 334**: Read the flight mode from `customMode`\n- **Line 335**: Convert mode number to display name (e.g., 4 → \"Guided\")\n- **Line 339**: Increment `core.seq` — this marks the group as changed\n- **Line 341**: `markDirty('core')` — flags this group for the next delta push\n\nNothing is sent to the renderer yet. Dirty state accumulates until the next 30Hz tick."
+    },
+    {
+      "file": "src/main/vehicleState.ts",
+      "line": 715,
+      "title": "Delta Extraction",
+      "description": "`getDelta()` returns a `VehicleDelta` containing **only the groups that changed** since the last call, then resets all dirty flags.\n\nIf only attitude and gps changed in the last 33ms, the delta contains just those two groups. The other 15 groups are omitted entirely.\n\nThis is the key optimization: instead of shipping the entire 17-group snapshot 30 times per second, we send only what changed — reducing IPC bandwidth by ~80-90%."
+    },
+    {
+      "file": "src/main/ipcBridge.ts",
+      "line": 150,
+      "title": "30Hz Delta Push",
+      "description": "A `setInterval` at 33ms (~30Hz) iterates all vehicles. For each vehicle with dirty state:\n\n1. **Line 156**: `vehicle.hasDirty()` — O(1) check, skips vehicles with no changes\n2. **Line 157**: `vehicle.getDelta()` — extracts only changed groups\n3. **Line 158**: Wraps in a payload with `vehicleId` and `sentAt` timestamp (for latency measurement)\n4. **Lines 159-161**: Sends to all BrowserWindows via `webContents.send()`\n\nIf no vehicle has changes, the tick is a no-op. The skip counter (line 169) tracks idle ticks for diagnostics."
+    },
+    {
+      "file": "src/main/ipcBridge.ts",
+      "line": 28,
+      "title": "Broadcast to All Windows",
+      "description": "The `broadcast()` helper sends an event to every open `BrowserWindow` — the main window plus any popout windows (video, map).\n\nThis is **one-directional**: main process pushes to renderer. The renderer never polls. This push model means the UI always shows the latest data without any request/response overhead.\n\nThe data flow so far:\n```\nUDP socket → LinkManager → MavlinkChannel (decode)\n→ VehicleManager → Vehicle → VehicleState (update + dirty)\n→ ipcBridge 30Hz tick → broadcast to all windows\n```\n\nIn Tour 2, we'll pick up on the renderer side where these broadcasts arrive."
+    },
+    {
+      "file": "src/shared-types/ipc/VehicleState.ts",
+      "line": 1,
+      "title": "Shared Types — The IPC Contract",
+      "description": "This file defines every telemetry group interface (`CoreGroup`, `AttitudeGroup`, `GpsGroup`, etc.), the `VehicleSnapshot` (all groups combined), `VehicleDelta` (partial snapshot), and `VehicleDeltaPayload` (delta + metadata).\n\nThese types are imported by **both** main and renderer code. They are the contract that keeps the two processes in sync. If a field is added here, TypeScript will enforce that both sides handle it.\n\nThe `src/shared-types/` directory contains **no runtime behavior** — only type definitions. It's where you evolve the IPC protocol, and the compiler flags every site that needs updating.\n\n---\n\n**End of Tour 1.** You now understand the receive path: how MAVLink bytes arrive, get decoded, update vehicle state, and are pushed to the renderer. Continue with Tour 2 to see how the renderer turns this into pixels."
+    }
+  ]
+}

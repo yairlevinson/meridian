@@ -1,0 +1,85 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "2/3: From State to Pixels",
+  "description": "Follow telemetry data from the IPC boundary through the preload bridge, into the Zustand store, through React hooks, and into rendered components. Introduces React concepts along the way.",
+  "steps": [
+    {
+      "file": "src/preload/index.ts",
+      "line": 1,
+      "title": "The Preload Script",
+      "description": "The preload script runs in a special context: it has access to Electron's `ipcRenderer` (to talk to the main process) but executes before the renderer's code loads.\n\nIts job: build a `bridge` object and expose it via `contextBridge.exposeInMainWorld()` (line 577). After this, `window.bridge` is the **only** way the renderer can communicate with the main process.\n\nThink of it as the public API between two worlds. When you want to add new functionality, you start here."
+    },
+    {
+      "file": "src/preload/index.ts",
+      "line": 194,
+      "title": "Bridge Structure — Events vs Commands",
+      "description": "The `bridge` object has two patterns:\n\n1. **Event listeners** (like `onVehicleDelta` on line 195) — register a callback on `ipcRenderer.on()`, return an unsubscribe function. These receive **pushed data** from the main process.\n\n2. **Command methods** (like `arm` on line 219) — call `ipcRenderer.invoke()` and return a Promise. These **send requests** to the main process and await responses.\n\nThe `Bridge` interface (line 23) is the complete typed contract — scroll up to see all ~40 methods. Events = data flowing in, commands = actions flowing out."
+    },
+    {
+      "file": "src/preload/index.ts",
+      "line": 195,
+      "title": "The Telemetry Entry Point",
+      "description": "`onVehicleDelta` listens for the `'vehicle:delta'` event that `ipcBridge.ts` pushes at 30Hz (Tour 1, step 12).\n\nIt wraps the raw Electron event handler in a clean callback pattern:\n- The caller passes a function `cb`\n- That function is called with the `VehicleDeltaPayload` every time new data arrives\n- The return value is an unsubscribe function to stop listening\n\nThis is the entry point for all telemetry data into the renderer process. Next, let's see what calls this."
+    },
+    {
+      "file": "src/renderer/src/store/vehicleStore.ts",
+      "line": 1,
+      "title": "Zustand — A Reactive State Container",
+      "description": "**React concept: Zustand**\n\nBefore we look at how data reaches the UI, you need one React fundamental: React components re-render when their state changes. But \"state\" needs to live somewhere.\n\n**Zustand** is a tiny library that creates a global state object. Any component can subscribe to a slice of it, and when that slice changes, only subscribed components re-render. Think of it as a global variable with automatic change notifications.\n\n---\n\nThis file creates `useVehicleStore` — a Zustand store that holds all vehicle telemetry for the renderer process. Its shape mirrors what comes over IPC: a `vehicles` map keyed by vehicle ID, each containing a partial `VehicleSnapshot`."
+    },
+    {
+      "file": "src/renderer/src/store/vehicleStore.ts",
+      "line": 24,
+      "title": "Delta Merge into Store",
+      "description": "When a delta arrives from the main process, `mergeDelta` shallow-merges it into the vehicle's existing snapshot.\n\nLine 28: `{ ...prev.vehicles[vehicleId], ...delta }` — the spread operator means:\n- Start with all existing groups for this vehicle\n- Overwrite only the groups present in the delta\n- Unchanged groups **keep their existing object references**\n\nThis last point is critical for React's change detection. If the `battery` group didn't change, its object reference stays the same, so components subscribed to `battery` won't re-render.\n\nLine 33: `activeVehicleId: prev.activeVehicleId ?? vehicleId` — auto-selects the first vehicle seen."
+    },
+    {
+      "file": "src/renderer/src/store/vehicleStore.ts",
+      "line": 58,
+      "title": "IPC Wiring at Module Load",
+      "description": "This block connects the IPC bridge to the Zustand store. At module load time, it registers three listeners:\n\n1. `onVehicleDelta` — calls `mergeDelta()` on every 30Hz tick\n2. `onVehicleAdded` — adds an empty slot for a new vehicle\n3. `onVehicleRemoved` — removes a vehicle's data\n\nThe `setTimeout(..., 0)` defers registration to the next event loop tick. This ensures React has finished mounting before store updates start flowing in.\n\nThis is the connection point: IPC events from Tour 1 flow into the Zustand store here. From here, React hooks pick up the data."
+    },
+    {
+      "file": "src/renderer/src/hooks/useVehicle.ts",
+      "line": 20,
+      "title": "useTelemetry — Subscribing to a Group",
+      "description": "**React concept: Hooks**\n\nA **hook** is a function starting with `use` that lets a component \"hook into\" something external — in this case, the Zustand store. When you write `const battery = useTelemetry('battery')` inside a component, you're subscribing to the battery group. Whenever the battery group changes in the store, React will re-render that component with the new data. If attitude changes but battery doesn't, your component is left alone.\n\n---\n\n`useTelemetry` is generic over group name. The selector (line 24-27) extracts just one group from the active vehicle's snapshot. It returns `undefined` if the group hasn't been received yet — components must handle this loading case."
+    },
+    {
+      "file": "src/renderer/src/hooks/useVehicle.ts",
+      "line": 79,
+      "title": "JSON.stringify Stability Trick",
+      "description": "Zustand compares selector results with `Object.is()` to decide if a re-render is needed. For object/array returns, a new object is created every call — triggering unnecessary re-renders even when the data hasn't changed.\n\nThe pattern here:\n1. **Line 92**: The selector returns `JSON.stringify(result)` — a primitive string\n2. **Line 94**: The component parses it back with `JSON.parse()`\n\nThis ensures the selector returns a **stable primitive**. The component only re-renders when the actual data values change, not when object references change.\n\nYou'll see this pattern throughout the codebase. Watch for it when debugging performance issues."
+    },
+    {
+      "file": "src/renderer/src/App.tsx",
+      "line": 44,
+      "title": "React Root Component",
+      "description": "**React concept: Components & JSX**\n\nA **component** is a function that returns JSX — the HTML-like syntax you see below (e.g., `<div className={styles.root}>`). Components compose by nesting: `App` renders `FlyView`, which renders `BatteryStatus`, which renders `BatteryWidget`.\n\n`useState` (line 45) creates local state that persists across re-renders — here it tracks which view (fly/plan/setup) is active.\n\n---\n\n`App` is the root. Line 48 checks if this window is a popout (via URL parameter). Line 55: `{view === 'fly' && <FlyView />}` is **conditional rendering** — only the active view's component tree exists at any time."
+    },
+    {
+      "file": "src/renderer/src/flyview/FlyView.tsx",
+      "line": 29,
+      "title": "FlyView — Layout Composition",
+      "description": "FlyView is the primary flight interface. Look at the sidebar section starting at line 243:\n\n```\n<VehicleSelector />\n<FlightModeButton />\n<ArmedIndicator />\n<AttitudeIndicator />\n<Compass />\n<InstrumentPanel />\n<GpsStatus />\n<BatteryStatus />\n<LinkQuality />\n```\n\nEach widget **independently subscribes** to its needed telemetry group via hooks. There is no \"prop drilling\" of telemetry data from FlyView down to children — each widget fetches what it needs directly from the store.\n\nThis is a common pattern: the parent handles layout, children handle their own data."
+    },
+    {
+      "file": "src/renderer/src/flyview/BatteryStatus.tsx",
+      "line": 4,
+      "title": "End-to-End: Battery Telemetry",
+      "description": "This is the simplest complete example of the full telemetry data flow.\n\n- **Line 5**: `useTelemetry('battery')` subscribes to the battery group\n- **Lines 7-9**: Guard against no data (group hasn't been received yet)\n- **Lines 13-21**: Render each battery instance\n\nThe complete data journey:\n```\nAutopilot sends BATTERY_STATUS (msgid 147)\n→ VehicleState._handleBatteryStatus updates battery group, increments seq\n→ ipcBridge 30Hz tick pushes delta\n→ vehicleStore.mergeDelta merges it\n→ useTelemetry('battery') detects the change\n→ BatteryStatus re-renders with new values\n```\n\nNo polling. No explicit refresh. The push-based architecture handles it automatically."
+    },
+    {
+      "file": "src/renderer/src/flyview/BatteryStatus.tsx",
+      "line": 26,
+      "title": "Props — Passing Data to Children",
+      "description": "**React concept: Props**\n\nWhen `BatteryStatus` renders `<BatteryWidget voltage={bat.voltage} ...>`, it passes data as **props** — read-only arguments to the child component. The child receives them as a typed object parameter (lines 27-35).\n\nThis is how data flows *down* the component tree. `BatteryWidget` doesn't know about Zustand or hooks — it just renders what it receives.\n\n---\n\nThis separation — **container component** (BatteryStatus, has hooks) and **presentational component** (BatteryWidget, just props) — is a common React pattern in this codebase. The container fetches data; the child draws it."
+    },
+    {
+      "file": "src/shared-types/ipc/events.ts",
+      "line": 1,
+      "title": "Event & Channel Name Enums",
+      "description": "The `IpcEvents` enum defines all push event names (main → renderer), while `IpcChannels` (in `channels.ts`) defines all request/response channel names (renderer → main).\n\nUsing enums instead of string literals ensures a typo causes a **compile error**, not a silent bug. Both the preload and ipcBridge import these same enums.\n\nWhen debugging IPC issues, these two files are the lookup table: find the event/channel name, then grep for it in `ipcBridge.ts` and the preload to trace the full path.\n\n---\n\n**End of Tour 2.** You now understand the render path: how deltas cross the IPC bridge, merge into the Zustand store, flow through hooks, and render in components. Continue with Tour 3 to see the reverse direction — user actions flowing back to the autopilot."
+    }
+  ]
+}
