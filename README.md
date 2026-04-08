@@ -165,6 +165,18 @@ npm run dev
 | `GC_UDP_PORT`  | `14550`   | UDP port to listen for MAVLink                             |
 | `GC_TCP_LINKS` | _(empty)_ | Comma-separated `host:port` pairs for TCP SITL connections |
 
+## Code Walkthrough
+
+Interactive [CodeTour](https://marketplace.visualstudio.com/items?itemName=vsls-live-share.codetour) walkthroughs are included in `.tours/` to help new developers understand the full-stack data flow. Install the CodeTour VS Code extension, then open the CodeTour panel to start.
+
+| Tour                           | Steps | What you'll learn                                                      |
+| ------------------------------ | ----- | ---------------------------------------------------------------------- |
+| 1/3: From Radio Waves to State | 14    | MAVLink decode pipeline, VehicleState grouping, delta-encoded IPC push |
+| 2/3: From State to Pixels      | 13    | Preload bridge, Zustand stores, React hooks, component rendering       |
+| 3/3: From Click to Autopilot   | 12    | Command dispatch, MavCommandQueue with retry, COMMAND_ACK round-trip   |
+
+The tours are designed for experienced developers with little or no React experience. React concepts (components, hooks, props, Zustand) are explained inline as they appear.
+
 ## Testing
 
 ### Unit Tests
