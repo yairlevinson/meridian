@@ -84,6 +84,7 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
   const containerRef = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
   const hasCenteredRef = useRef(false)
+  const prevProviderRef = useRef<string | null>(null)
 
   const positions = useAllVehiclePositions()
   const activeVehicleId = useActiveVehicleId()
@@ -124,10 +125,18 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Switch tile provider when setting changes
+  // Switch tile provider when setting changes (skip initial mount — map
+  // was already created with the current provider in the init effect)
   useEffect(() => {
     if (!mapRef.current) return
-    mapRef.current.setStyle(buildStyle(mapProvider))
+    if (prevProviderRef.current === null) {
+      prevProviderRef.current = mapProvider
+      return
+    }
+    if (mapProvider !== prevProviderRef.current) {
+      prevProviderRef.current = mapProvider
+      mapRef.current.setStyle(buildStyle(mapProvider))
+    }
   }, [mapProvider])
 
   useEffect(() => {

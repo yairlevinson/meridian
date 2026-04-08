@@ -298,6 +298,46 @@ function updateSources(
   )
 }
 
+/**
+ * Ensure radar layers are present on the map and populated with data.
+ * Handles both the "style already loaded" and "style not yet loaded" cases.
+ * Returns a cleanup function.
+ */
+function ensureRadarLayers(
+  map: maplibregl.Map,
+  radarStateRef: { current: RadarState | null },
+  radiusRef: { current: number },
+  layersAddedRef: { current: boolean },
+  prevCircleKeyRef: { current: string }
+): () => void {
+  const addAndPopulate = (): void => {
+    if (layersAddedRef.current) return
+    addSourcesAndLayers(map)
+    layersAddedRef.current = true
+    updateSources(map, radarStateRef.current, radiusRef.current, prevCircleKeyRef)
+  }
+
+  if (map.isStyleLoaded()) {
+    addAndPopulate()
+  }
+  // Always listen: handles initial async load AND subsequent setStyle() reloads
+  const onStyleLoad = (): void => {
+    layersAddedRef.current = false
+    prevCircleKeyRef.current = ''
+    addAndPopulate()
+  }
+  map.on('style.load', onStyleLoad)
+
+  return () => {
+    map.off('style.load', onStyleLoad)
+    if (layersAddedRef.current) {
+      removeLayers(map)
+      layersAddedRef.current = false
+      prevCircleKeyRef.current = ''
+    }
+  }
+}
+
 export function useRadarMapLayers(map: maplibregl.Map | null): void {
   const radarState = useRadarStore((s) => s.state)
   const scopeView = useRadarStore((s) => s.scopeView)
@@ -306,51 +346,31 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
   const markerRef = useRef<maplibregl.Marker | null>(null)
   const layersAddedRef = useRef(false)
   const prevCircleKeyRef = useRef('')
-  const radarStateLatestRef = useRef<RadarState | null>(null)
-  const radiusLatestRef = useRef(radiusMeters)
+  const radarStateRef = useRef<RadarState | null>(null)
+  const radiusRef = useRef(radiusMeters)
 
   const active = radarState?.enabled && scopeView === 'map'
 
-  // Keep refs in sync for async callbacks (style.load)
-  useEffect(() => {
-    radarStateLatestRef.current = radarState ?? null
-    radiusLatestRef.current = radiusMeters
-  })
+  // Keep refs in sync so ensureRadarLayers always has fresh data
+  radarStateRef.current = radarState ?? null
+  radiusRef.current = radiusMeters
 
-  // Manage layer lifecycle — only runs when map or active changes
+  // Manage layer lifecycle — add/remove when map or active changes
   useEffect(() => {
-    if (!map) return
-
-    const setup = (): void => {
-      if (active && !layersAddedRef.current) {
-        addSourcesAndLayers(map)
-        layersAddedRef.current = true
-      } else if (!active && layersAddedRef.current) {
+    if (!map || !active) {
+      // If layers were added by a previous run, remove them
+      if (map && layersAddedRef.current) {
         removeLayers(map)
         layersAddedRef.current = false
         prevCircleKeyRef.current = ''
       }
+      return
     }
 
-    if (map.isStyleLoaded()) setup()
-    const onStyleLoad = (): void => {
-      layersAddedRef.current = false
-      prevCircleKeyRef.current = ''
-      setup()
-    }
-    map.on('style.load', onStyleLoad)
-
-    return () => {
-      map.off('style.load', onStyleLoad)
-      if (layersAddedRef.current) {
-        removeLayers(map)
-        layersAddedRef.current = false
-        prevCircleKeyRef.current = ''
-      }
-    }
+    return ensureRadarLayers(map, radarStateRef, radiusRef, layersAddedRef, prevCircleKeyRef)
   }, [map, active])
 
-  // Update data when radar state changes (no layer teardown)
+  // Update data when radar state or radius changes (no layer teardown)
   useEffect(() => {
     if (!map || !active || !layersAddedRef.current) return
     updateSources(map, radarState ?? null, radiusMeters, prevCircleKeyRef)
