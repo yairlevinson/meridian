@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl'
 import { useRadarStore } from '../store/radarStore'
 import { useSettingsStore } from '../store/settingsStore'
-import type { RadarTrack, RadarUnit } from '../../../shared-types/ipc/RadarTypes'
+import type { RadarState, RadarTrack, RadarUnit } from '../../../shared-types/ipc/RadarTypes'
 
 const RANGE_SOURCE = 'radar-range'
 const TRACKS_SOURCE = 'radar-tracks'
@@ -19,6 +19,7 @@ const HOSTILE_ICON = 'radar-hostile'
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 const CIRCLE_POINTS = 64
+const EARTH_RADIUS = 6371000
 
 /** Create a diamond icon (friendly) as ImageData for MapLibre */
 function createDiamondIcon(color: string, size: number): ImageData {
@@ -89,12 +90,11 @@ function buildCirclePolygon(
   radiusMeters: number
 ): GeoJSON.FeatureCollection {
   const coords: [number, number][] = []
-  const earthRadius = 6371000
   for (let i = 0; i <= CIRCLE_POINTS; i++) {
     const angle = (i / CIRCLE_POINTS) * 2 * Math.PI
-    const dLat = (radiusMeters / earthRadius) * Math.cos(angle) * (180 / Math.PI)
+    const dLat = (radiusMeters / EARTH_RADIUS) * Math.cos(angle) * (180 / Math.PI)
     const dLon =
-      ((radiusMeters / earthRadius) * Math.sin(angle) * (180 / Math.PI)) /
+      ((radiusMeters / EARTH_RADIUS) * Math.sin(angle) * (180 / Math.PI)) /
       Math.cos(lat * (Math.PI / 180))
     coords.push([lon + dLon, lat + dLat])
   }
@@ -120,6 +120,7 @@ function buildTracksFC(tracks: RadarTrack[]): GeoJSON.FeatureCollection {
         id: t.id,
         affiliation: t.affiliation,
         color: t.affiliation === 'friendly' ? '#4488ff' : '#ff4444',
+        heading: (Math.atan2(t.ve, t.vn) * 180) / Math.PI,
         alt: t.alt,
         speed: Math.sqrt(t.vn ** 2 + t.ve ** 2),
         strength: t.strength,
@@ -130,7 +131,6 @@ function buildTracksFC(tracks: RadarTrack[]): GeoJSON.FeatureCollection {
 }
 
 function buildVelocityFC(tracks: RadarTrack[], radiusMeters: number): GeoJSON.FeatureCollection {
-  const earthRadius = 6371000
   return {
     type: 'FeatureCollection',
     features: tracks
@@ -141,9 +141,9 @@ function buildVelocityFC(tracks: RadarTrack[], radiusMeters: number): GeoJSON.Fe
         const maxLen = radiusMeters * 0.35
         const len = Math.min(speed * 5, maxLen)
         const dt = len / speed
-        const dLat = ((t.vn * dt) / earthRadius) * (180 / Math.PI)
+        const dLat = ((t.vn * dt) / EARTH_RADIUS) * (180 / Math.PI)
         const dLon =
-          (((t.ve * dt) / earthRadius) * (180 / Math.PI)) / Math.cos(t.lat * (Math.PI / 180))
+          (((t.ve * dt) / EARTH_RADIUS) * (180 / Math.PI)) / Math.cos(t.lat * (Math.PI / 180))
         return {
           type: 'Feature' as const,
           geometry: {
@@ -232,6 +232,8 @@ function addSourcesAndLayers(map: maplibregl.Map): void {
           HOSTILE_ICON
         ],
         'icon-size': 1,
+        'icon-rotate': ['get', 'heading'],
+        'icon-rotation-alignment': 'map',
         'icon-allow-overlap': true,
         'icon-ignore-placement': true
       },
@@ -272,19 +274,50 @@ function removeLayers(map: maplibregl.Map): void {
   }
 }
 
+function updateSources(
+  map: maplibregl.Map,
+  radarState: RadarState | null,
+  radiusMeters: number,
+  prevCircleKeyRef: { current: string }
+): void {
+  if (!radarState) return
+  const unit = radarState.units[0]
+  if (!unit) return
+
+  const circleKey = `${unit.lat},${unit.lon},${radiusMeters}`
+  if (circleKey !== prevCircleKeyRef.current) {
+    prevCircleKeyRef.current = circleKey
+    const rangeData = buildCirclePolygon(unit.lat, unit.lon, radiusMeters)
+    ;(map.getSource(RANGE_SOURCE) as GeoJSONSource)?.setData(rangeData)
+  }
+
+  const inRange = filterByRadius(radarState.tracks, unit, radiusMeters)
+  ;(map.getSource(TRACKS_SOURCE) as GeoJSONSource)?.setData(buildTracksFC(inRange))
+  ;(map.getSource(VELOCITY_SOURCE) as GeoJSONSource)?.setData(
+    buildVelocityFC(inRange, radiusMeters)
+  )
+}
+
 export function useRadarMapLayers(map: maplibregl.Map | null): void {
   const radarState = useRadarStore((s) => s.state)
   const scopeView = useRadarStore((s) => s.scopeView)
   const radiusMeters = useSettingsStore((s) => s.settings.radarRadiusMeters)
   const simEnabled = useSettingsStore((s) => s.settings.radarSimulationEnabled)
   const markerRef = useRef<maplibregl.Marker | null>(null)
-  const popupRef = useRef<maplibregl.Popup | null>(null)
   const layersAddedRef = useRef(false)
   const prevCircleKeyRef = useRef('')
+  const radarStateLatestRef = useRef<RadarState | null>(null)
+  const radiusLatestRef = useRef(radiusMeters)
 
   const active = radarState?.enabled && scopeView === 'map'
 
-  // Add/remove layers when overlay becomes active/inactive
+  // Keep refs in sync for async callbacks (style.load)
+  useEffect(() => {
+    radarStateLatestRef.current = radarState ?? null
+    radiusLatestRef.current = radiusMeters
+  })
+
+  // Manage layer lifecycle — only runs when map or active changes
   useEffect(() => {
     if (!map) return
 
@@ -300,7 +333,11 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
     }
 
     if (map.isStyleLoaded()) setup()
-    const onStyleLoad = (): void => setup()
+    const onStyleLoad = (): void => {
+      layersAddedRef.current = false
+      prevCircleKeyRef.current = ''
+      setup()
+    }
     map.on('style.load', onStyleLoad)
 
     return () => {
@@ -313,27 +350,10 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
     }
   }, [map, active])
 
-  // Update data when radar state changes
+  // Update data when radar state changes (no layer teardown)
   useEffect(() => {
-    if (!map || !active || !layersAddedRef.current || !radarState) return
-
-    const unit = radarState.units[0]
-    if (!unit) return
-
-    // Only rebuild circle polygon when position or radius actually changes
-    const circleKey = `${unit.lat},${unit.lon},${radiusMeters}`
-    if (circleKey !== prevCircleKeyRef.current) {
-      prevCircleKeyRef.current = circleKey
-      const rangeData = buildCirclePolygon(unit.lat, unit.lon, radiusMeters)
-      ;(map.getSource(RANGE_SOURCE) as GeoJSONSource)?.setData(rangeData)
-    }
-
-    // Filter tracks within radius
-    const inRange = filterByRadius(radarState.tracks, unit, radiusMeters)
-    ;(map.getSource(TRACKS_SOURCE) as GeoJSONSource)?.setData(buildTracksFC(inRange))
-    ;(map.getSource(VELOCITY_SOURCE) as GeoJSONSource)?.setData(
-      buildVelocityFC(inRange, radiusMeters)
-    )
+    if (!map || !active || !layersAddedRef.current) return
+    updateSources(map, radarState ?? null, radiusMeters, prevCircleKeyRef)
   }, [map, active, radarState, radiusMeters])
 
   // Track hover popup
@@ -345,8 +365,6 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
       closeOnClick: false,
       className: 'radar-track-popup'
     })
-    popupRef.current = popup
-
     const onMouseEnter = (e: maplibregl.MapLayerMouseEvent): void => {
       map.getCanvas().style.cursor = 'pointer'
       const f = e.features?.[0]
@@ -375,7 +393,6 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
       map.off('mouseenter', TRACKS_LAYER, onMouseEnter)
       map.off('mouseleave', TRACKS_LAYER, onMouseLeave)
       popup.remove()
-      popupRef.current = null
     }
   }, [map, active])
 
@@ -419,7 +436,6 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
 }
 
 function filterByRadius(tracks: RadarTrack[], unit: RadarUnit, radiusMeters: number): RadarTrack[] {
-  const earthRadius = 6371000
   return tracks.filter((t) => {
     const dLat = (t.lat - unit.lat) * (Math.PI / 180)
     const dLon = (t.lon - unit.lon) * (Math.PI / 180)
@@ -428,7 +444,7 @@ function filterByRadius(tracks: RadarTrack[], unit: RadarUnit, radiusMeters: num
       Math.cos(unit.lat * (Math.PI / 180)) *
         Math.cos(t.lat * (Math.PI / 180)) *
         Math.sin(dLon / 2) ** 2
-    const dist = 2 * earthRadius * Math.asin(Math.sqrt(a))
+    const dist = 2 * EARTH_RADIUS * Math.asin(Math.sqrt(a))
     return dist <= radiusMeters
   })
 }
