@@ -46,6 +46,7 @@ src/
 │   ├── adsb/               # ADS-B traffic tracking
 │   ├── parameters/         # Vehicle parameter download/set protocol
 │   ├── ftp/                # MAVLink FTP implementation
+│   ├── kml/                # KML file parser for overlay import
 │   ├── terrain/            # Custom tile:// protocol handler
 │   └── settings/           # App settings management
 ├── renderer/src/           # React UI

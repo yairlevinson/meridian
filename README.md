@@ -504,6 +504,7 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 | DO_JUMP / Flow Control  | ❌     | Mission loops and conditionals                    |
 | Speed/Delay Commands    | ❌     | In-mission speed changes, waits                   |
 | Servo/Relay Commands    | ❌     | Hardware actuator control                         |
+| KML Import              | ✅     | Import KML polygons/lines/points as map overlays  |
 | KML/KMZ Export          | ❌     |                                                   |
 
 ### Flight Control

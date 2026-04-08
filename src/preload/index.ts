@@ -19,6 +19,7 @@ import type { CameraState } from '../shared-types/ipc/CameraTypes'
 import type { ForwardingState } from '../shared-types/ipc/ForwardingTypes'
 import type { AppSettings } from '../shared-types/ipc/AppSettings'
 import type { RadarState } from '../shared-types/ipc/RadarTypes'
+import type { KmlImportResult } from '../shared-types/ipc/OverlayTypes'
 
 export interface Bridge {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
@@ -181,6 +182,10 @@ export interface Bridge {
   settingsGetAll: () => Promise<AppSettings>
   settingsSet: (key: string, value: unknown) => Promise<void>
   onSettingsChanged: (cb: (payload: { key: string; value: unknown }) => void) => () => void
+
+  // KML Import
+  kmlImport: () => Promise<KmlImportResult | { cancelled: true }>
+  kmlImportFromPath: (filePath: string) => Promise<KmlImportResult>
 
   // MAVLink Forwarding
   forwardingGetState: () => Promise<ForwardingState>
@@ -556,6 +561,10 @@ const bridge: Bridge = {
       ipcRenderer.removeListener(IpcEvents.SettingsChanged, handler)
     }
   },
+
+  // KML Import
+  kmlImport: () => ipcRenderer.invoke(IpcChannels.KmlImport),
+  kmlImportFromPath: (filePath) => ipcRenderer.invoke(IpcChannels.KmlImportFromPath, filePath),
 
   // MAVLink Forwarding
   forwardingGetState: () => ipcRenderer.invoke(IpcChannels.ForwardingGetState),

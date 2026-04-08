@@ -19,6 +19,7 @@ import { SystemHealthStrip } from './SystemHealthStrip'
 import { PerfOverlay } from '../perf/PerfOverlay'
 import { RadarScope } from '../components/radar/RadarScope'
 import { RadarPanel } from '../components/radar/RadarPanel'
+import { OverlayPanel } from '../components/OverlayPanel'
 import { useRadarStore } from '../store/radarStore'
 import { useTelemetry } from '../hooks/useVehicle'
 import { useCommand } from '../hooks/useCommand'
@@ -231,6 +232,7 @@ export function FlyView(): React.JSX.Element {
         )}
 
         <StatusTextOverlay />
+        <OverlayPanel />
 
         {/* Radar scope overlay */}
         {showRadarScope && (

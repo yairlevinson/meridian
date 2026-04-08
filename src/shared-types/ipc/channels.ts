@@ -139,5 +139,9 @@ export enum IpcChannels {
   RadarEnable = 'radar:enable',
   RadarDisable = 'radar:disable',
   RadarGetState = 'radar:getState',
-  RadarSetSimPosition = 'radar:setSimPosition'
+  RadarSetSimPosition = 'radar:setSimPosition',
+
+  // KML Import
+  KmlImport = 'kml:import',
+  KmlImportFromPath = 'kml:importFromPath'
 }

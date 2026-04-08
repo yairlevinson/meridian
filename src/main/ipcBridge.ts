@@ -13,6 +13,7 @@ import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { CalibrationSensor } from '@shared/ipc/SetupTypes'
 import { CameraMode } from '@shared/ipc/CameraTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
+import { parseKmlFile } from './kml/KmlParser'
 import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
 import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
@@ -718,6 +719,23 @@ export function startIpcBridge(
           )
         }
       }
+    },
+
+    // KML Import
+    {
+      channel: IpcChannels.KmlImport,
+      handler: async () => {
+        const result = await dialog.showOpenDialog({
+          filters: [{ name: 'KML Files', extensions: ['kml'] }],
+          properties: ['openFile']
+        })
+        if (result.canceled || result.filePaths.length === 0) return { cancelled: true }
+        return parseKmlFile(result.filePaths[0]!)
+      }
+    },
+    {
+      channel: IpcChannels.KmlImportFromPath,
+      handler: (filePath: string) => parseKmlFile(filePath)
     }
   ]
 

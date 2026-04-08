@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react'
 import { useMission } from '../hooks/useMission'
 import { useMissionStore } from '../store/missionStore'
+import { useOverlayStore } from '../store/overlayStore'
 import { MissionProtocolState } from '../../../shared-types/ipc/MissionTypes'
+import type { KmlImportResult } from '../../../shared-types/ipc/OverlayTypes'
 import styles from './MissionToolbar.module.css'
 
 type ToastType = 'success' | 'error'
@@ -11,6 +13,7 @@ export function MissionToolbar(): React.JSX.Element {
   const protocolState = useMissionStore((s) => s.protocolState)
   const isDirty = useMissionStore((s) => s.isDirty)
   const clearMission = useMissionStore((s) => s.clearMission)
+  const addOverlayLayer = useOverlayStore((s) => s.addLayer)
   const [toast, setToast] = useState<{ msg: string; type: ToastType } | null>(null)
 
   const showToast = useCallback((msg: string, type: ToastType = 'success') => {
@@ -38,6 +41,18 @@ export function MissionToolbar(): React.JSX.Element {
     }
   }, [downloadMission, showToast])
 
+  const handleImportKml = useCallback(async () => {
+    try {
+      const result = await window.bridge?.kmlImport()
+      if (!result || 'cancelled' in result) return
+      const kml = result as KmlImportResult
+      addOverlayLayer(kml.fileName, kml.geometries)
+      showToast(`Imported ${kml.geometries.length} geometries`)
+    } catch {
+      showToast('KML import failed', 'error')
+    }
+  }, [addOverlayLayer, showToast])
+
   const handleClear = useCallback(() => {
     clearMission()
     showToast('Mission cleared')
@@ -56,6 +71,9 @@ export function MissionToolbar(): React.JSX.Element {
       </button>
       <button className="btn" onClick={() => void openPlan()}>
         Open
+      </button>
+      <button className="btn" onClick={() => void handleImportKml()}>
+        Import KML
       </button>
       <button className="btn btn-danger" disabled={busy} onClick={handleClear}>
         Clear

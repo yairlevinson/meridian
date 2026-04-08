@@ -5,6 +5,7 @@ import { useAllVehiclePositions, useActiveVehicleId, useHomePosition } from '../
 import { useMissionStore } from '../store/missionStore'
 import { useMissionMapLayers } from '../hooks/useMissionMapLayers'
 import { useRadarMapLayers } from '../hooks/useRadarMapLayers'
+import { useOverlayMapLayers } from '../hooks/useOverlayMapLayers'
 import { useSettingsStore } from '../store/settingsStore'
 import { providers, getProviderNames } from '../map/providers/ProviderRegistry'
 
@@ -95,6 +96,7 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
   useMissionMapLayers(mapInstance, editMode)
   useRadarMapLayers(mapInstance)
+  useOverlayMapLayers(mapInstance)
 
   // Initialize map
   useEffect(() => {

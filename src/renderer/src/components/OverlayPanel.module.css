@@ -1,0 +1,106 @@
+.root {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.85);
+  border-radius: 8px;
+  padding: 8px;
+  min-width: 200px;
+  max-width: 320px;
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.headerActions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-primary);
+}
+
+.item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.colorSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.layerName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.layerName:hover {
+  text-decoration: underline;
+}
+
+.dimmed {
+  opacity: 0.4;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.iconBtn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.clearBtn {
+  composes: iconBtn;
+  color: #ff5252;
+}
+
+.clearBtn:hover {
+  color: #ff8a80;
+}
