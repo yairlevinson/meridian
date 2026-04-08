@@ -53,7 +53,7 @@ export class FfmpegProcess extends EventEmitter {
         // so ffmpeg doesn't misdetect the container format
         args.push('-f', 'mpegts')
         break
-      case VideoSourceType.TCP_AV1:
+      case VideoSourceType.AV1:
         // AV1 is streamed over TCP in Matroska container (AV1 in MPEG-TS
         // is non-standard and not supported by most ffmpeg builds)
         break
@@ -69,7 +69,7 @@ export class FfmpegProcess extends EventEmitter {
     args.push('-c:v', 'copy', '-an')
     // MPEG-TS uses codec tag 0x1b for H.264, incompatible with the MP4 muxer
     // that expects 'avc1'. AV1 doesn't need a tag override.
-    if (opts.sourceType !== VideoSourceType.TCP_AV1) {
+    if (opts.sourceType !== VideoSourceType.AV1) {
       args.push('-tag:v', 'avc1')
     }
 
@@ -94,7 +94,7 @@ export class FfmpegProcess extends EventEmitter {
       case VideoSourceType.RTSP:
         return rtspUrl
       case VideoSourceType.TCP_MPEGTS:
-      case VideoSourceType.TCP_AV1:
+      case VideoSourceType.AV1:
         return tcpUrl
       default:
         return ''

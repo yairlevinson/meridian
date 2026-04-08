@@ -135,17 +135,20 @@ export class VideoManager extends EventEmitter {
     })
   }
 
-  /** Choose which pipeline to use based on source type. */
-  private _selectPipeline(sourceType: VideoSourceType): Pipeline {
-    // RTSP needs ffmpeg for protocol handling;
-    // AV1/MPEG-TS over TCP need ffmpeg to remux into fMP4 for MSE
-    if (
-      sourceType === VideoSourceType.RTSP ||
-      sourceType === VideoSourceType.TCP_AV1 ||
-      sourceType === VideoSourceType.TCP_MPEGTS
-    ) {
+  /** Choose which pipeline to use based on source type and URI. */
+  private _selectPipeline(sourceType: VideoSourceType, uri: string): Pipeline {
+    // RTSP and MPEG-TS/TCP are handled by ffmpeg remux path.
+    if (sourceType === VideoSourceType.RTSP || sourceType === VideoSourceType.TCP_MPEGTS) {
       return 'ffmpeg'
     }
+
+    // AV1 can run in two modes:
+    // - udp://...  => direct AV1 RTP depayload + WebCodecs
+    // - tcp://...  => ffmpeg remux fallback path
+    if (sourceType === VideoSourceType.AV1) {
+      return uri.startsWith('udp://') ? 'webcodecs' : 'ffmpeg'
+    }
+
     // H.264 UDP → direct socket + jmuxer (no ffmpeg needed)
     return 'webcodecs'
   }
@@ -159,7 +162,7 @@ export class VideoManager extends EventEmitter {
       return
     }
 
-    this._pipeline = this._selectPipeline(sourceType)
+    this._pipeline = this._selectPipeline(sourceType, uri)
     this._state.sourceType = sourceType
     this._state.uri = uri
     this._state.error = null

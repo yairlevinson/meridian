@@ -5,7 +5,7 @@ import styles from './VideoControls.module.css'
 
 const DEFAULT_URIS: Record<VideoSourceType, string> = {
   [VideoSourceType.UDP_H264]: 'udp://@:5600',
-  [VideoSourceType.TCP_AV1]: 'tcp://192.168.1.1:5600',
+  [VideoSourceType.AV1]: 'udp://@:5601',
   [VideoSourceType.RTSP]: 'rtsp://192.168.1.1:8554/live',
   [VideoSourceType.TCP_MPEGTS]: 'tcp://192.168.1.1:5000',
   [VideoSourceType.Disabled]: ''
@@ -13,7 +13,7 @@ const DEFAULT_URIS: Record<VideoSourceType, string> = {
 
 const PLACEHOLDERS: Record<VideoSourceType, string> = {
   [VideoSourceType.UDP_H264]: 'udp://@:port (listens for incoming video)',
-  [VideoSourceType.TCP_AV1]: 'tcp://vehicle-ip:port',
+  [VideoSourceType.AV1]: 'udp://@:port or tcp://vehicle-ip:port',
   [VideoSourceType.RTSP]: 'rtsp://vehicle-ip:port/path',
   [VideoSourceType.TCP_MPEGTS]: 'tcp://vehicle-ip:port',
   [VideoSourceType.Disabled]: ''
@@ -60,7 +60,7 @@ export function VideoControls(): React.JSX.Element {
           onChange={(e) => handleSourceChange(e.target.value as VideoSourceType)}
         >
           <option value={VideoSourceType.UDP_H264}>UDP H.264 (listen)</option>
-          <option value={VideoSourceType.TCP_AV1}>TCP AV1 (connect)</option>
+          <option value={VideoSourceType.AV1}>AV1 RTP (UDP) / AV1 TCP</option>
           <option value={VideoSourceType.RTSP}>RTSP (connect)</option>
           <option value={VideoSourceType.TCP_MPEGTS}>TCP MPEG-TS</option>
         </select>

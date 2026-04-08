@@ -2,11 +2,13 @@ import { useRef } from 'react'
 import { useVideoStore } from '../store/videoStore'
 import { useVideoStream } from '../hooks/useVideoStream'
 import { useWebCodecsStream } from '../hooks/useWebCodecsStream'
+import { VideoSourceType } from '../../../shared-types/ipc/VideoTypes'
 import styles from './VideoView.module.css'
 
 export function VideoView(): React.JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const jmuxerVideoRef = useRef<HTMLVideoElement>(null)
+  const rawVideoRef = useRef<HTMLVideoElement>(null)
+  const av1CanvasRef = useRef<HTMLCanvasElement>(null)
   const streamState = useVideoStore((s) => s.streamState)
   const gridLines = useVideoStore((s) => s.gridLines)
   const wsPort = streamState?.wsPort ?? null
@@ -15,14 +17,21 @@ export function VideoView(): React.JSX.Element {
 
   // Use the appropriate hook based on the active pipeline
   useVideoStream(videoRef, pipeline === 'ffmpeg' ? wsPort : null, streamState?.sourceType)
-  useWebCodecsStream(jmuxerVideoRef, pipeline === 'webcodecs' ? wsPort : null)
+  useWebCodecsStream(
+    rawVideoRef,
+    av1CanvasRef,
+    pipeline === 'webcodecs' ? wsPort : null,
+    streamState?.sourceType
+  )
 
   return (
     <div className={styles.container}>
       {pipeline === 'ffmpeg' ? (
         <video ref={videoRef} className={styles.video} autoPlay muted playsInline />
+      ) : streamState?.sourceType === VideoSourceType.AV1 ? (
+        <canvas ref={av1CanvasRef} className={styles.video} />
       ) : (
-        <video ref={jmuxerVideoRef} className={styles.video} autoPlay muted playsInline />
+        <video ref={rawVideoRef} className={styles.video} autoPlay muted playsInline />
       )}
       {gridLines && <div className={styles.grid} />}
       {!streaming && (

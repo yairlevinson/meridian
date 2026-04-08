@@ -39,7 +39,7 @@ export interface AppSettings {
   streamRateRawSensors: number
 
   // Video streaming
-  videoSource: 'disabled' | 'udp_h264' | 'tcp_av1' | 'rtsp' | 'tcp_mpegts'
+  videoSource: 'disabled' | 'udp_h264' | 'av1' | 'rtsp' | 'tcp_mpegts'
   videoUdpPort: number
   videoRtspUrl: string
   videoTcpUrl: string

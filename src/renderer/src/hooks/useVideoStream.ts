@@ -3,7 +3,7 @@ import { VideoSourceType } from '../../../shared-types/ipc/VideoTypes'
 
 /** MSE codec MIME string for each source type. */
 function mseCodecForSource(sourceType: VideoSourceType | undefined): string {
-  if (sourceType === VideoSourceType.TCP_AV1) {
+  if (sourceType === VideoSourceType.AV1) {
     return 'video/mp4; codecs="av01.0.04M.08"'
   }
   // H.264 Main Profile Level 4.1 — covers most drone cameras
