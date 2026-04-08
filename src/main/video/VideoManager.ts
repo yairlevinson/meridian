@@ -1,5 +1,6 @@
 import { EventEmitter } from 'events'
 import { FfmpegProcess, type FfmpegOptions } from './FfmpegProcess'
+import { VideoReceiver } from './VideoReceiver'
 import { VideoWebSocketServer } from './VideoWebSocketServer'
 import { VideoSourceType, type VideoStreamState } from '@shared/ipc/VideoTypes'
 import { createLogger } from '../logger'
@@ -7,21 +8,35 @@ import { createLogger } from '../logger'
 const log = createLogger('VideoManager')
 
 /**
+ * Pipelines:
+ *  - 'ffmpeg': source → ffmpeg (remux to fMP4) → WebSocket → MSE (renderer)
+ *  - 'webcodecs': source → raw socket → WebSocket → WebCodecs VideoDecoder (renderer)
+ *
+ * The ffmpeg pipeline handles container remuxing; the webcodecs pipeline sends
+ * raw encoded data and relies on the renderer to decode via the WebCodecs API.
+ * RTSP sources always use the ffmpeg pipeline.
+ */
+type Pipeline = 'ffmpeg' | 'webcodecs'
+
+/**
  * Central video streaming orchestrator.
  *
- * Manages the ffmpeg subprocess (which remuxes incoming video into fMP4)
- * and a local WebSocket server that pushes fMP4 data to the renderer.
+ * Manages either an ffmpeg subprocess or a direct socket receiver,
+ * plus a local WebSocket server that pushes data to the renderer.
  */
 export class VideoManager extends EventEmitter {
   private ffmpeg = new FfmpegProcess()
+  private receiver = new VideoReceiver()
   private wsServer = new VideoWebSocketServer()
+  private _pipeline: Pipeline = 'ffmpeg'
   private _state: VideoStreamState = {
     sourceType: VideoSourceType.Disabled,
     uri: '',
     streaming: false,
     recording: false,
     wsPort: null,
-    error: null
+    error: null,
+    pipeline: 'ffmpeg'
   }
 
   private restartTimer: ReturnType<typeof setTimeout> | null = null
@@ -40,7 +55,7 @@ export class VideoManager extends EventEmitter {
     this._state.wsPort = port
     this._emitState()
 
-    // Wire ffmpeg stdout → WebSocket broadcast
+    // ── ffmpeg pipeline wiring ──────────────────────────────────
     this.ffmpeg.on('data', (chunk: Buffer) => {
       this.wsServer.broadcast(chunk)
     })
@@ -96,6 +111,43 @@ export class VideoManager extends EventEmitter {
       this._state.error = err.message
       this._emitState()
     })
+
+    // ── WebCodecs pipeline wiring (direct socket) ──────────────
+    this.receiver.on('data', (chunk: Buffer) => {
+      this.wsServer.broadcast(chunk)
+    })
+
+    this.receiver.on('started', () => {
+      this._state.streaming = true
+      this._state.error = null
+      this._emitState()
+    })
+
+    this.receiver.on('error', (err: Error) => {
+      this._state.streaming = false
+      this._state.error = err.message
+      this._emitState()
+    })
+
+    this.receiver.on('close', () => {
+      this._state.streaming = false
+      this._emitState()
+    })
+  }
+
+  /** Choose which pipeline to use based on source type. */
+  private _selectPipeline(sourceType: VideoSourceType): Pipeline {
+    // RTSP needs ffmpeg for protocol handling;
+    // AV1/MPEG-TS over TCP need ffmpeg to remux into fMP4 for MSE
+    if (
+      sourceType === VideoSourceType.RTSP ||
+      sourceType === VideoSourceType.TCP_AV1 ||
+      sourceType === VideoSourceType.TCP_MPEGTS
+    ) {
+      return 'ffmpeg'
+    }
+    // H.264 UDP → direct socket + jmuxer (no ffmpeg needed)
+    return 'webcodecs'
   }
 
   /**
@@ -107,17 +159,24 @@ export class VideoManager extends EventEmitter {
       return
     }
 
-    const opts: FfmpegOptions = { sourceType, uri, lowLatency }
-    this._autoRestartOpts = opts
-    this._restartCount = 0
-    this._lastStderrLines = []
-
+    this._pipeline = this._selectPipeline(sourceType)
     this._state.sourceType = sourceType
     this._state.uri = uri
     this._state.error = null
+    this._state.pipeline = this._pipeline
     this._emitState()
 
-    this.ffmpeg.start(opts)
+    if (this._pipeline === 'ffmpeg') {
+      this.wsServer.setRawMode(false)
+      const opts: FfmpegOptions = { sourceType, uri, lowLatency }
+      this._autoRestartOpts = opts
+      this._restartCount = 0
+      this._lastStderrLines = []
+      this.ffmpeg.start(opts)
+    } else {
+      this.wsServer.setRawMode(true)
+      this.receiver.start(sourceType, uri)
+    }
   }
 
   stop(): void {
@@ -127,6 +186,7 @@ export class VideoManager extends EventEmitter {
 
     this.wsServer.stopRecording()
     this.ffmpeg.stop()
+    this.receiver.stop()
     this._state.sourceType = VideoSourceType.Disabled
     this._state.uri = ''
     this._state.streaming = false
@@ -176,6 +236,7 @@ export class VideoManager extends EventEmitter {
   destroy(): void {
     this._clearRestart()
     this.ffmpeg.destroy()
+    this.receiver.destroy()
     this.wsServer.destroy()
     this.removeAllListeners()
   }

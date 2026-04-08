@@ -63,6 +63,10 @@ export class VideoWebSocketServer extends EventEmitter {
   /** Accumulates early data until we can extract the init segment. */
   private initBuf: Buffer[] = []
   private initBufSize = 0
+  /** When true, skip fMP4 init segment detection (raw data mode for WebCodecs). */
+  private _rawMode = false
+  private _broadcastCount = 0
+  private _broadcastBytes = 0
 
   get port(): number | null {
     return this._port
@@ -106,15 +110,34 @@ export class VideoWebSocketServer extends EventEmitter {
     })
   }
 
+  /** Enable raw mode — skips fMP4 init segment detection (for WebCodecs pipeline). */
+  setRawMode(raw: boolean): void {
+    this._rawMode = raw
+    if (raw) {
+      this.initBuf = []
+      this.initBufSize = 0
+    }
+  }
+
   /** Broadcast binary data to all connected clients. */
   broadcast(data: Buffer): void {
+    this._broadcastCount++
+    this._broadcastBytes += data.length
+    if (this._broadcastCount % 200 === 0) {
+      log.log(
+        `broadcast #${this._broadcastCount}: ${(this._broadcastBytes / 1024).toFixed(0)} KB total, ` +
+          `clients=${this.clients.size}, chunk=${data.length} bytes, raw=${this._rawMode}, ` +
+          `initBufSize=${this.initBufSize}`
+      )
+    }
+
     // Write to recording file if active
     if (this.recordingStream && !this.recordingStream.destroyed) {
       this.recordingStream.write(data)
     }
 
-    // Capture the init segment from early data
-    if (!this.initSegment) {
+    // Capture the init segment from early data (fMP4 pipeline only)
+    if (!this.initSegment && !this._rawMode) {
       this.initBuf.push(data)
       this.initBufSize += data.length
       const combined = Buffer.concat(this.initBuf, this.initBufSize)

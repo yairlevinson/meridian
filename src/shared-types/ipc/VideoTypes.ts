@@ -13,6 +13,8 @@ export interface VideoStreamState {
   recording: boolean
   wsPort: number | null
   error: string | null
+  /** Which pipeline is active: ffmpeg (remux to fMP4 + MSE) or webcodecs (raw data + VideoDecoder) */
+  pipeline: 'ffmpeg' | 'webcodecs'
 }
 
 export interface VideoSettings {
