@@ -10,6 +10,8 @@ const registeredHandlers = new Map<string, (...args: any[]) => any>()
 // The mock windows list — tests manipulate this to control broadcast targets
 let mockWindows: { webContents: ReturnType<typeof createMockWebContents> }[] = []
 
+const registeredListeners = new Map<string, (...args: any[]) => any>()
+
 vi.mock('electron', () => ({
   ipcMain: {
     handle: (channel: string, handler: (...args: any[]) => any) => {
@@ -17,6 +19,12 @@ vi.mock('electron', () => ({
     },
     removeHandler: (channel: string) => {
       registeredHandlers.delete(channel)
+    },
+    on: (channel: string, handler: (...args: any[]) => any) => {
+      registeredListeners.set(channel, handler)
+    },
+    removeListener: (channel: string) => {
+      registeredListeners.delete(channel)
     }
   },
   BrowserWindow: {
