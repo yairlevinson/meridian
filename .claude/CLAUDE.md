@@ -112,6 +112,7 @@ npm run dev:sitl         # Dev with SITL via scripts/dev-sitl.sh
 
 ## Logs
 
+- **App log**: `~/meridian-app.log` — main process + renderer logs (renderer forwards via `bridge.log()` IPC). Use `rlog('Tag')` in renderer code (`src/renderer/src/lib/rlog.ts`) for tagged logging that appears here.
 - **MAVLink traffic log**: `~/meridian-mavlink.log` — records all RX/TX MAVLink messages with timestamps, sysid:compid, message name, and fields
 
 ## Tech Stack
@@ -132,7 +133,36 @@ npm run dev:sitl         # Dev with SITL via scripts/dev-sitl.sh
 
 ## PX4 SITL Testing
 
-### Running SITL E2E Tests
+### Docker SITL (recommended)
+
+Two Docker image tiers, built from repo root:
+
+```bash
+# Headless PX4 SIH (~5 min build, no GPU needed)
+docker build -t meridian-px4-sitl:latest -f test/e2e/sitl/Dockerfile.px4-sitl .
+
+# PX4 + Gazebo Harmonic (full physics, optional video streaming)
+docker build -t meridian-px4-gz:latest -f test/e2e/sitl/Dockerfile.px4-gz .
+```
+
+Run with Docker Compose:
+
+```bash
+# Headless (default)
+docker compose -f test/e2e/sitl/docker-compose.sitl.yml up -d
+
+# Gazebo
+docker compose -f test/e2e/sitl/docker-compose.sitl.yml --profile gz up -d
+
+# Multi-vehicle
+docker compose -f test/e2e/sitl/docker-compose.sitl.yml -f test/e2e/sitl/docker-compose.sitl.multi.yml up -d
+```
+
+Connect Meridian: `GC_TCP_LINKS=127.0.0.1:5760 npm run dev`
+
+Key files: `entrypoint-sitl.sh` / `entrypoint-gz.sh` (startup), `write-sitl-params.py` (BSON parameter injection), `healthcheck.sh`, `gz-video-bridge.py` (Gazebo camera → H.264 RTP/UDP).
+
+### Native SITL E2E Tests
 
 ```bash
 PX4_HOME=/path/to/PX4-Autopilot ./scripts/run-sitl-tests.sh
@@ -144,7 +174,8 @@ Requires a pre-built PX4: `cd $PX4_HOME && make px4_sitl gz_x500`
 
 ### How It Works
 
-- **GazeboLauncher** (`test/e2e/sitl/gazeboLauncher.ts`) starts PX4 + Gazebo headless
+- **GazeboLauncher** (`test/e2e/sitl/gazeboLauncher.ts`) starts PX4 + Gazebo headless (native mode)
+- **SitlManager** (`test/e2e/sitl/SitlManager.ts`) manages Docker containers for E2E tests
 - SITL parameters are written directly to `parameters.bson` (BSON format) — no bootstrap restart needed
 - Worker-scoped Playwright fixtures share one Electron app across all SITL tests
 - PX4's GCS MAVLink instance (UDP 18570) only sends after receiving a packet; `src/main/index.ts` sends GCS heartbeats at 1Hz to 127.0.0.1:18570 to initiate the connection
@@ -153,16 +184,19 @@ Requires a pre-built PX4: `cd $PX4_HOME && make px4_sitl gz_x500`
 
 | Parameter         | Value    | Why                                                                                     |
 | ----------------- | -------- | --------------------------------------------------------------------------------------- |
+| `SYS_AUTOSTART`   | 10040    | SIH quadcopter airframe (sihsim_quadx) — required for headless SITL                     |
 | `EKF2_MAG_TYPE`   | 6 (Init) | Use mag for initial heading only; avoids continuous innovation checks that fail in SITL |
 | `EKF2_HEAD_NOISE` | 10.0     | Increases heading noise variance so innovation ratio stays below 0.5                    |
 | `MAV_0_BROADCAST` | 1        | PX4 proactively broadcasts to GCS port                                                  |
 | `SYS_AUTOCONFIG`  | 0        | Prevents rcS from resetting params on boot                                              |
+| `CAL_*`           | Identity | Sensor calibration for accel, gyro, mag, baro — required for preflight health           |
 
 ### Known Issues
 
 - **macOS SIGBUS with `gz_x500_depth`**: The depth camera model crashes PX4 (~80s after startup) due to missing Gazebo plugins (`libGstCameraSystem`, `libOpticalFlowSystem`) corrupting shared memory. Use `gz_x500` instead. Set `PX4_SITL_TARGET=gz_x500_depth` only if those plugins are installed.
 - **Zombie PX4 processes**: If Gazebo fails to find its world file, PX4 enters an unkillable kernel wait (`UEs` state). The launcher has a 30s watchdog to kill stalled PX4 before this happens. If zombies occur, reboot is the only fix.
 - **Stale Gazebo between runs**: Always kill all `gz sim`, `gz-sim-server`, `bin/px4` processes and remove `/tmp/px4_lock-*` before starting fresh.
+- **Mission download fails with concurrent GCS**: If another GCS (e.g. QGC) is actively connected when Meridian starts, the initial mission auto-download may fail due to PX4's single-client mission protocol. Close other GCS apps or manually download via PlanView.
 
 ## CodeTour
 
