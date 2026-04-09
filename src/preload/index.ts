@@ -183,6 +183,9 @@ export interface Bridge {
   settingsSet: (key: string, value: unknown) => Promise<void>
   onSettingsChanged: (cb: (payload: { key: string; value: unknown }) => void) => () => void
 
+  // Renderer → main process logging (written to ~/meridian-app.log)
+  log: (level: 'info' | 'warn' | 'error' | 'debug', tag: string, message: string) => void
+
   // KML Import
   kmlImport: () => Promise<KmlImportResult | { cancelled: true }>
   kmlImportFromPath: (filePath: string) => Promise<KmlImportResult>
@@ -560,6 +563,11 @@ const bridge: Bridge = {
     return () => {
       ipcRenderer.removeListener(IpcEvents.SettingsChanged, handler)
     }
+  },
+
+  // Renderer → main process logging
+  log: (level, tag, message) => {
+    ipcRenderer.send('renderer:log', { level, tag, message })
   },
 
   // KML Import

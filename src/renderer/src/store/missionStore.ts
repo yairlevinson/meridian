@@ -1,4 +1,7 @@
 import { create } from 'zustand'
+import { rlog } from '../lib/rlog'
+
+const log = rlog('MissionStore')
 import type {
   MissionItem,
   GeoFencePolygon,
@@ -167,17 +170,21 @@ export const useMissionStore = create<MissionStore>((set) => ({
 
   selectWaypoint: (seq) => set({ selectedWaypointSeq: seq }),
 
-  clearMission: () =>
-    set({
+  clearMission: () => {
+    log.debug('[MissionStore] clearMission')
+    return set({
       editableWaypoints: [],
       selectedWaypointSeq: null,
       isDirty: false,
       missionStats: emptyStats
-    }),
+    })
+  },
 
-  loadFromItems: (items) =>
-    set((state) => {
+  loadFromItems: (items) => {
+    log.debug('[MissionStore] loadFromItems:', items.length, 'items')
+    return set((state) => {
       const waypoints = items.map(missionItemToWaypoint)
+      log.debug('[MissionStore] loadFromItems → editableWaypoints:', waypoints.length)
       return {
         editableWaypoints: waypoints,
         missionStats: computeMissionStats(waypoints, state.plannedHome),
@@ -185,6 +192,7 @@ export const useMissionStore = create<MissionStore>((set) => ({
         selectedWaypointSeq: null
       }
     })
+  }
 }))
 
 // Request GCS geolocation as default planned home position
@@ -214,6 +222,7 @@ if (typeof window !== 'undefined' && 'geolocation' in navigator) {
 // Auto-load mission items when the main process pushes a completed download
 if (typeof window !== 'undefined' && window.bridge?.onMissionComplete) {
   window.bridge.onMissionComplete(({ items }) => {
+    log.debug('[MissionStore] onMissionComplete received:', items.length, 'items')
     useMissionStore.getState().loadFromItems(items)
   })
 }

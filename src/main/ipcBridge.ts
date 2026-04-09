@@ -44,6 +44,18 @@ export function startIpcBridge(
   const inspector = new MavlinkInspector(broadcast)
   vehicleManager.onRawMessage = inspector.handleMessage
 
+  // Forward renderer logs to main process log file
+  const rendererLog = createLogger('renderer')
+  ipcMain.on(
+    'renderer:log',
+    (_event, { level, tag, message }: { level: string; tag: string; message: string }) => {
+      const tagged = `[${tag}] ${message}`
+      if (level === 'error') rendererLog.error(tagged)
+      else if (level === 'warn') rendererLog.warn(tagged)
+      else rendererLog.log(tagged)
+    }
+  )
+
   let sentCount = 0
   let skippedCount = 0
   let lastLogTime = Date.now()

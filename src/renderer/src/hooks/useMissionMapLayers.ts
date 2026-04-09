@@ -1,4 +1,7 @@
 import { useEffect, useRef } from 'react'
+import { rlog } from '../lib/rlog'
+
+const log = rlog('MissionMapLayers')
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl'
 import { useMissionStore } from '../store/missionStore'
 import type { EditableWaypoint } from '../../../shared-types/ipc/MissionTypes'
@@ -151,9 +154,15 @@ export function useMissionMapLayers(map: maplibregl.Map | null, editMode: boolea
     if (!map) return
 
     const setup = (): void => {
+      log.debug(
+        '[MissionMapLayers] setup() editMode=%s, style loaded=%s',
+        editMode,
+        map.isStyleLoaded()
+      )
       addSourcesAndLayers(map)
       // Push initial data
       const { editableWaypoints, selectedWaypointSeq, plannedHome } = useMissionStore.getState()
+      log.debug('[MissionMapLayers] setup() pushing %d waypoints', editableWaypoints.length)
       const wpSrc = map.getSource(WP_SOURCE) as GeoJSONSource | undefined
       const pathSrc = map.getSource(PATH_SOURCE) as GeoJSONSource | undefined
       const homePathSrc = map.getSource(HOME_PATH_SOURCE) as GeoJSONSource | undefined
@@ -197,6 +206,14 @@ export function useMissionMapLayers(map: maplibregl.Map | null, editMode: boolea
       })
       if (json === prevJson) return
       prevJson = json
+
+      log.debug(
+        '[MissionMapLayers] store changed: editMode=%s, waypoints=%d, sources exist: wp=%s path=%s',
+        editMode,
+        state.editableWaypoints.length,
+        !!map.getSource(WP_SOURCE),
+        !!map.getSource(PATH_SOURCE)
+      )
 
       const wpSrc = map.getSource(WP_SOURCE) as GeoJSONSource | undefined
       const pathSrc = map.getSource(PATH_SOURCE) as GeoJSONSource | undefined
