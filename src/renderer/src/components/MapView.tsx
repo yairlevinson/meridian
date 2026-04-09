@@ -85,11 +85,14 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
   const containerRef = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
   const hasCenteredRef = useRef(false)
+  const hasIncludedWaypointsRef = useRef(false)
   const prevProviderRef = useRef<string | null>(null)
 
   const positions = useAllVehiclePositions()
   const activeVehicleId = useActiveVehicleId()
   const homePos = useHomePosition()
+  const waypoints = useMissionStore((s) => s.editableWaypoints)
+  const plannedHome = useMissionStore((s) => s.plannedHome)
   const mapProvider = useSettingsStore((s) => s.settings.mapProvider) || DEFAULT_PROVIDER
   const setSetting = useSettingsStore((s) => s.setSetting)
 
@@ -123,6 +126,7 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
       markers.clear()
       initializedRef.current = false
       hasCenteredRef.current = false
+      hasIncludedWaypointsRef.current = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -194,10 +198,36 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
       for (const { lat, lon } of positions) {
         bounds.extend([lon, lat])
       }
+      for (const wp of waypoints) {
+        bounds.extend([wp.lon, wp.lat])
+      }
+      if (plannedHome) {
+        bounds.extend([plannedHome.lon, plannedHome.lat])
+      }
+      if (waypoints.length > 0) hasIncludedWaypointsRef.current = true
       map.fitBounds(bounds, { padding: 80, maxZoom: 15, duration: 500 })
       hasCenteredRef.current = true
     }
-  }, [positions, activeVehicleId])
+  }, [positions, activeVehicleId, waypoints, plannedHome])
+
+  // Refit bounds when waypoints arrive after initial vehicle-only centering
+  useEffect(() => {
+    if (!mapRef.current || !hasCenteredRef.current || hasIncludedWaypointsRef.current) return
+    if (waypoints.length === 0) return
+
+    hasIncludedWaypointsRef.current = true
+    const bounds = new maplibregl.LngLatBounds()
+    for (const { lat, lon } of positions) {
+      bounds.extend([lon, lat])
+    }
+    for (const wp of waypoints) {
+      bounds.extend([wp.lon, wp.lat])
+    }
+    if (plannedHome) {
+      bounds.extend([plannedHome.lon, plannedHome.lat])
+    }
+    mapRef.current.fitBounds(bounds, { padding: 80, maxZoom: 15, duration: 500 })
+  }, [waypoints, positions, plannedHome])
 
   // Home marker — draggable in edit mode so user can reposition planned home
   useEffect(() => {
