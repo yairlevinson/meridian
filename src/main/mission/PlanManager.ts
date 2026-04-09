@@ -15,6 +15,8 @@ const log = createLogger('PlanManager')
 
 const ACK_TIMEOUT_MS = 1500
 const MAX_RETRY_COUNT = 5
+const MAX_DOWNLOAD_RETRIES = 3
+const DOWNLOAD_RETRY_DELAY_MS = 2000
 
 /**
  * Base plan manager implementing the MAVLink mission protocol.
@@ -36,6 +38,8 @@ export class PlanManager extends EventEmitter {
   private currentRequestIndex = 0
   private retryCount = 0
   private ackTimer: ReturnType<typeof setTimeout> | null = null
+  private downloadRetryCount = 0
+  private downloadRetryTimer: ReturnType<typeof setTimeout> | null = null
 
   // Write state
   private writeItems: MissionItem[] = []
@@ -66,7 +70,17 @@ export class PlanManager extends EventEmitter {
   /** Download mission items from vehicle */
   loadFromVehicle(): void {
     if (!this.link) return
-    log.log('loadFromVehicle: requesting mission list')
+    this.downloadRetryCount = 0
+    this._startDownload()
+  }
+
+  private _startDownload(): void {
+    if (!this.link) return
+    log.log(
+      'loadFromVehicle: requesting mission list (attempt %d/%d)',
+      this.downloadRetryCount + 1,
+      MAX_DOWNLOAD_RETRIES + 1
+    )
     this.state = MissionProtocolState.ReadingCount
     this.receivedItems = []
     this.retryCount = 0
@@ -128,7 +142,7 @@ export class PlanManager extends EventEmitter {
     // Only process if we actually requested a download — otherwise this is
     // a response to another GCS (e.g. QGC connected via MAVLink forwarding).
     if (this.state !== MissionProtocolState.ReadingCount) {
-      log.log('handleMissionCount: ignoring count=%d (state=%s)', count, this.state)
+      log.debug('handleMissionCount: ignoring count=%d (state=%s)', count, this.state)
       return
     }
     log.log('handleMissionCount: count=%d', count)
@@ -154,10 +168,16 @@ export class PlanManager extends EventEmitter {
   /** Handle MISSION_ITEM_INT from vehicle */
   handleMissionItemInt(item: MissionItem): void {
     if (this.state !== MissionProtocolState.ReadingItems) {
-      log.log('handleMissionItemInt: ignoring seq=%d (state=%s)', item.seq, this.state)
+      log.debug('handleMissionItemInt: ignoring seq=%d (state=%s)', item.seq, this.state)
       return
     }
 
+    log.debug(
+      'handleMissionItemInt: seq=%d received=%d/%d',
+      item.seq,
+      this.receivedItems.length + 1,
+      this.expectedCount
+    )
     this._clearAckTimer()
     this.receivedItems.push(item)
 
@@ -171,6 +191,7 @@ export class PlanManager extends EventEmitter {
       this._sendAck(0) // ACCEPTED
       this.items = this.receivedItems
       this.state = MissionProtocolState.Idle
+      log.debug('loadComplete: %d items', this.items.length)
       this.emit('stateChanged', this.state)
       this.emit('loadComplete', this.items)
     } else {
@@ -233,7 +254,7 @@ export class PlanManager extends EventEmitter {
   /** Handle MISSION_ACK from vehicle */
   handleMissionAck(type: number): void {
     if (this.state === MissionProtocolState.Idle) {
-      log.log('handleMissionAck: ignoring type=%d (state=Idle)', type)
+      log.debug('handleMissionAck: ignoring type=%d (state=Idle)', type)
       return
     }
     log.log('handleMissionAck: type=%d state=%s', type, this.state)
@@ -259,6 +280,10 @@ export class PlanManager extends EventEmitter {
 
   destroy(): void {
     this._clearAckTimer()
+    if (this.downloadRetryTimer) {
+      clearTimeout(this.downloadRetryTimer)
+      this.downloadRetryTimer = null
+    }
   }
 
   private _requestItem(seq: number): void {
@@ -320,6 +345,20 @@ export class PlanManager extends EventEmitter {
   }
 
   private _error(code: MissionError): void {
+    // Auto-retry failed downloads (e.g. concurrent GCS interference)
+    if (code === MissionError.Timeout && this.downloadRetryCount < MAX_DOWNLOAD_RETRIES) {
+      this.downloadRetryCount++
+      log.log(
+        'download failed, scheduling retry %d/%d in %dms',
+        this.downloadRetryCount,
+        MAX_DOWNLOAD_RETRIES,
+        DOWNLOAD_RETRY_DELAY_MS
+      )
+      this.state = MissionProtocolState.Idle
+      this.downloadRetryTimer = setTimeout(() => this._startDownload(), DOWNLOAD_RETRY_DELAY_MS)
+      return
+    }
+
     this.state = MissionProtocolState.Error
     this.emit('stateChanged', this.state)
     this.emit('error', code)

@@ -42,6 +42,7 @@ function close(): void {
 
 export interface Logger {
   log(...args: unknown[]): void
+  debug(...args: unknown[]): void
   warn(...args: unknown[]): void
   error(...args: unknown[]): void
 }
@@ -60,6 +61,11 @@ export function createLogger(tag: string): Logger {
       const msg = format(args)
       console.log(`[${tag}] ${msg}`)
       write('INFO', tag, msg)
+    },
+    debug(...args: unknown[]): void {
+      const msg = format(args)
+      console.debug(`[${tag}] ${msg}`)
+      write('DEBUG', tag, msg)
     },
     warn(...args: unknown[]): void {
       const msg = format(args)

@@ -204,41 +204,60 @@ describe('PlanManager — timeout and retry', () => {
     expect(link.sentBuffers.length).toBe(sentAfterItem + 1) // retry item
   })
 
-  it('errors with Timeout after MAX_RETRY_COUNT (5) exhausted', () => {
+  it('errors with Timeout after MAX_RETRY_COUNT (5) exhausted and download retries', () => {
     const error = vi.fn()
     pm.on('error', error)
 
     pm.loadFromVehicle()
 
-    // 6 timeouts: initial + 5 retries = exhaust MAX_RETRY_COUNT
-    for (let i = 0; i < 6; i++) {
-      vi.advanceTimersByTime(1500)
+    // 4 download attempts total (1 initial + 3 retries)
+    // Each attempt: 6 ack timeouts (initial + 5 retries), then 2s retry delay
+    for (let attempt = 0; attempt < 4; attempt++) {
+      for (let i = 0; i < 6; i++) {
+        vi.advanceTimersByTime(1500)
+      }
+      if (attempt < 3) {
+        // Advance past download retry delay
+        vi.advanceTimersByTime(2000)
+      }
     }
 
     expect(error).toHaveBeenCalledWith(MissionError.Timeout)
     expect(pm.currentState).toBe(MissionProtocolState.Error)
   })
 
-  it('retryCount carries from ReadingCount to ReadingItems phase', () => {
+  it('auto-retries download after timeout, then errors after all retries exhausted', () => {
     const error = vi.fn()
+    const stateChanged = vi.fn()
     pm.on('error', error)
+    pm.on('stateChanged', stateChanged)
 
     pm.loadFromVehicle()
 
-    // 3 timeouts during ReadingCount phase (retryCount now 3)
-    vi.advanceTimersByTime(1500)
-    vi.advanceTimersByTime(1500)
-    vi.advanceTimersByTime(1500)
+    // First attempt: exhaust ack retries (6 timeouts)
+    for (let i = 0; i < 6; i++) {
+      vi.advanceTimersByTime(1500)
+    }
+    // Should not error yet — download retry scheduled
+    expect(error).not.toHaveBeenCalled()
+    expect(pm.currentState).toBe(MissionProtocolState.Idle)
 
-    // Respond with count — moves to ReadingItems, but retryCount is not reset
-    pm.handleMissionCount(1)
+    // Advance past retry delay → second download attempt starts
+    vi.advanceTimersByTime(2000)
+    expect(pm.currentState).toBe(MissionProtocolState.ReadingCount)
 
-    // 3 more timeouts during ReadingItems → retryCount reaches 6 > MAX_RETRY_COUNT(5)
-    vi.advanceTimersByTime(1500)
-    vi.advanceTimersByTime(1500)
-    vi.advanceTimersByTime(1500)
+    // Exhaust remaining 3 download retries (2nd, 3rd, 4th attempts)
+    for (let attempt = 0; attempt < 3; attempt++) {
+      for (let i = 0; i < 6; i++) {
+        vi.advanceTimersByTime(1500)
+      }
+      if (attempt < 2) {
+        vi.advanceTimersByTime(2000)
+      }
+    }
 
     expect(error).toHaveBeenCalledWith(MissionError.Timeout)
+    expect(pm.currentState).toBe(MissionProtocolState.Error)
   })
 
   it('stateChanged events fire on each state transition', () => {
