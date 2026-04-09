@@ -1,8 +1,8 @@
 # Minimal PX4 SITL image — no Gazebo, no rendering.
 # Native ARM64 + AMD64 support.
 #
-# Build (one-time, ~5 min):
-#   docker build -t meridian-px4-sitl -f Dockerfile.px4-sitl .
+# Build (one-time, ~5 min, from repo root):
+#   docker build -t meridian-px4-sitl:latest -f test/e2e/sitl/Dockerfile.px4-sitl .
 #
 # Run:
 #   docker run --rm -p 5760:5760 meridian-px4-sitl
@@ -38,8 +38,10 @@ RUN DONT_RUN=1 make px4_sitl_default
 # --- Runtime stage ---
 FROM ubuntu:22.04
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip netcat-openbsd \
+    python3 python3-pip netcat-openbsd bc \
     && pip3 install --no-cache-dir --break-system-packages \
        future pymavlink MAVProxy 2>/dev/null || \
        pip3 install --no-cache-dir future pymavlink MAVProxy \
@@ -55,32 +57,22 @@ WORKDIR /px4
 # TCP port for Meridian/app connections (via MAVProxy bridge)
 EXPOSE 5760
 
-# PX4_SIM_MODEL=none tells PX4 not to wait for a physics sim
-ENV PX4_SIM_MODEL=none
+# SIH (Simulator-In-Hardware): PX4's built-in physics sim, no external
+# simulator needed. Airframe 10040 = sihsim_quadx.
+ENV PX4_SIM_MODEL=sihsim_quadx
 ENV PX4_SIM_SPEED_FACTOR=1
 
-COPY <<'ENTRYPOINT_SCRIPT' /entrypoint.sh
-#!/bin/bash
-set -e
+# Configurable home position (defaults to Boston)
+ENV PX4_HOME_LAT=42.3898
+ENV PX4_HOME_LON=-71.1476
+ENV PX4_HOME_ALT=14
 
-# Start MAVProxy to bridge PX4's internal UDP 14550 → external TCP 5760
-# --daemon runs in background; tcpin means MAVProxy listens for TCP connections
-python3 -m MAVProxy.mavproxy \
-  --daemon \
-  --master=udpin:127.0.0.1:14550 \
-  --out=tcpin:0.0.0.0:5760 \
-  2>&1 > /tmp/mavproxy.log &
+COPY test/e2e/sitl/write-sitl-params.py /write-sitl-params.py
+COPY test/e2e/sitl/healthcheck.sh /healthcheck.sh
+COPY test/e2e/sitl/entrypoint-sitl.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh /healthcheck.sh
 
-# Give MAVProxy a moment to bind its ports
-sleep 1
-
-# Run PX4 SITL directly (no physics sim, just firmware + MAVLink)
-exec /px4/build/px4_sitl_default/bin/px4 \
-  /px4/ROMFS/px4fmu_common \
-  -s etc/init.d-posix/rcS \
-  -t /px4/test_data
-ENTRYPOINT_SCRIPT
-
-RUN chmod +x /entrypoint.sh
+HEALTHCHECK --interval=5s --timeout=3s --retries=30 --start-period=30s \
+  CMD /healthcheck.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

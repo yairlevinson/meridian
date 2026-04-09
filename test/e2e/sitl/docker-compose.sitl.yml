@@ -1,4 +1,20 @@
+# Docker Compose for Meridian SITL testing.
+#
+# Profiles:
+#   (default)  — headless PX4 SITL, no Gazebo
+#   --profile gz    — PX4 + Gazebo Harmonic (full physics sim)
+#   --profile gui   — adds noVNC for Gazebo visual debugging
+#
+# Usage:
+#   docker compose -f docker-compose.sitl.yml up -d
+#   docker compose -f docker-compose.sitl.yml --profile gz up -d
+#   docker compose -f docker-compose.sitl.yml --profile gui up -d
+#
+# Multi-vehicle:
+#   docker compose -f docker-compose.sitl.yml -f docker-compose.sitl.multi.yml up -d
+
 services:
+  # ── Headless PX4 SITL (default) ──────────────────────────────
   sitl:
     image: ${SITL_IMAGE:-meridian-px4-sitl:latest}
     container_name: ${SITL_CONTAINER_NAME:-meridian-e2e-sitl}
@@ -8,8 +24,10 @@ services:
       - PX4_HOME_LAT=${PX4_HOME_LAT:-42.3898}
       - PX4_HOME_LON=${PX4_HOME_LON:--71.1476}
       - PX4_HOME_ALT=${PX4_HOME_ALT:-14}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     healthcheck:
-      test: ['CMD-SHELL', 'nc -z localhost ${SITL_CONTAINER_PORT:-5760} || exit 1']
+      test: ['CMD', '/healthcheck.sh']
       interval: 5s
       timeout: 3s
       retries: 30
@@ -19,3 +37,48 @@ services:
         limits:
           cpus: '2'
           memory: 2G
+
+  # ── PX4 + Gazebo Harmonic ────────────────────────────────────
+  sitl-gz:
+    image: ${SITL_GZ_IMAGE:-meridian-px4-gz:latest}
+    container_name: ${SITL_CONTAINER_NAME:-meridian-e2e-sitl-gz}
+    profiles: ['gz', 'gui']
+    ports:
+      - '${SITL_MAVLINK_PORT:-5760}:5760'
+      - '${SITL_VIDEO_PORT:-5601}:5601'
+    environment:
+      - PX4_HOME_LAT=${PX4_HOME_LAT:-42.3898}
+      - PX4_HOME_LON=${PX4_HOME_LON:--71.1476}
+      - PX4_HOME_ALT=${PX4_HOME_ALT:-14}
+      - PX4_GZ_MODEL=${PX4_GZ_MODEL:-x500}
+      - HEADLESS=1
+      - GZ_VIDEO_ENABLED=${GZ_VIDEO_ENABLED:-0}
+      - GZ_VIDEO_HOST=${GZ_VIDEO_HOST:-host.docker.internal}
+      - GZ_VIDEO_PORT=${GZ_VIDEO_PORT:-5600}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test: ['CMD', '/healthcheck.sh']
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+
+  # ── noVNC sidecar for Gazebo GUI access ──────────────────────
+  novnc:
+    image: theasp/novnc:latest
+    container_name: meridian-sitl-novnc
+    profiles: ['gui']
+    ports:
+      - '${NOVNC_PORT:-6080}:8080'
+    environment:
+      - DISPLAY_WIDTH=1280
+      - DISPLAY_HEIGHT=720
+    depends_on:
+      sitl-gz:
+        condition: service_healthy

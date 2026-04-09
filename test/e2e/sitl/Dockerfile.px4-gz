@@ -1,0 +1,111 @@
+# PX4 SITL + Gazebo Harmonic image — full physics simulation.
+# Runs headless by default; optional noVNC via compose --profile gui.
+#
+# Build (~10-15 min, from repo root):
+#   docker build -t meridian-px4-gz:latest -f test/e2e/sitl/Dockerfile.px4-gz .
+#
+# Run:
+#   docker run --rm -p 5760:5760 meridian-px4-gz
+#
+# With video streaming (AV1 RTP to host):
+#   docker run --rm -p 5760:5760 \
+#     -e GZ_VIDEO_PORT=5601 \
+#     -e GZ_VIDEO_HOST=host.docker.internal \
+#     meridian-px4-gz
+
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# PX4 build dependencies only — Gazebo is NOT needed at build time.
+# PX4's SITL firmware (px4_sitl_default) is the same binary regardless of
+# which simulator is used. The gz_bridge plugin and model spawning happen
+# at runtime via PX4's rcS scripts when Gazebo is present in the PATH.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git cmake build-essential g++ python3 python3-pip python3-venv \
+    python3-jinja2 python3-empy python3-packaging python3-jsonschema \
+    python3-yaml python3-toml python3-numpy python3-requests \
+    libxml2-dev libxslt1-dev ninja-build zip gawk \
+    && rm -rf /var/lib/apt/lists/*
+
+# Clone PX4 v1.15.4
+RUN git clone --branch v1.15.4 --recursive --shallow-submodules --jobs 4 \
+    https://github.com/PX4/PX4-Autopilot.git /px4
+
+WORKDIR /px4
+
+RUN pip3 install --no-cache-dir --break-system-packages \
+    kconfiglib pyros-genmsg future lxml 2>/dev/null || \
+    pip3 install --no-cache-dir kconfiglib pyros-genmsg future lxml
+
+# Build SITL firmware only (same binary as headless — Gazebo integration
+# is handled at runtime, not compile time)
+RUN DONT_RUN=1 make px4_sitl_default
+
+# --- Runtime stage ---
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Gazebo Harmonic repo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl gnupg lsb-release software-properties-common \
+    && curl -fsSL https://packages.osrfoundation.org/gazebo.gpg \
+       -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] \
+       http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+       > /etc/apt/sources.list.d/gazebo-stable.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+       gz-harmonic \
+       python3 python3-pip netcat-openbsd bc \
+       gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+       gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav \
+       mesa-utils libgl1-mesa-dri libglx-mesa0 libegl-mesa0 \
+    && pip3 install --no-cache-dir --break-system-packages \
+       future pymavlink MAVProxy 2>/dev/null || \
+       pip3 install --no-cache-dir future pymavlink MAVProxy \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy PX4 build artifacts
+COPY --from=builder /px4/build/px4_sitl_default /px4/build/px4_sitl_default
+COPY --from=builder /px4/ROMFS /px4/ROMFS
+COPY --from=builder /px4/test_data /px4/test_data
+COPY --from=builder /px4/Tools/simulation/gz /px4/Tools/simulation/gz
+
+WORKDIR /px4
+
+# Ports: MAVLink TCP (5760), optional video RTP (5601)
+EXPOSE 5760 5601
+
+# Headless rendering by default (software renderer, no GPU needed)
+ENV LIBGL_ALWAYS_SOFTWARE=1
+ENV HEADLESS=1
+ENV PX4_SIM_SPEED_FACTOR=1
+
+# Configurable vehicle model (gz_x500, gz_x500_depth for camera, etc.)
+ENV PX4_GZ_MODEL=x500
+
+# Configurable home position (defaults to Boston)
+ENV PX4_HOME_LAT=42.3898
+ENV PX4_HOME_LON=-71.1476
+ENV PX4_HOME_ALT=14
+
+# Video streaming: set GZ_VIDEO_ENABLED=1 to auto-start the camera bridge.
+# Requires a camera-equipped model (e.g. x500_depth).
+# Streams H.264 RTP/UDP to GZ_VIDEO_HOST:GZ_VIDEO_PORT via GStreamer.
+ENV GZ_VIDEO_ENABLED=0
+ENV GZ_VIDEO_HOST=host.docker.internal
+ENV GZ_VIDEO_PORT=5600
+ENV GZ_VIDEO_WORLD=default
+ENV GZ_VIDEO_SENSOR=IMX214
+
+COPY test/e2e/sitl/write-sitl-params.py /write-sitl-params.py
+COPY test/e2e/sitl/gz-video-bridge.py /gz-video-bridge.py
+COPY test/e2e/sitl/healthcheck.sh /healthcheck.sh
+COPY test/e2e/sitl/entrypoint-gz.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh /healthcheck.sh /gz-video-bridge.py
+
+HEALTHCHECK --interval=5s --timeout=3s --retries=60 --start-period=60s \
+  CMD /healthcheck.sh
+
+ENTRYPOINT ["/entrypoint.sh"]

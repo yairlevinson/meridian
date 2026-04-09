@@ -1,6 +1,10 @@
 /**
  * Manages the SITL Docker container lifecycle for E2E tests.
  * Starts/stops Docker Compose with the selected autopilot profile.
+ *
+ * Supports two image tiers controlled via the profile's dockerImage:
+ *   - meridian-px4-sitl:latest  — headless, no Gazebo (fast, CI-friendly)
+ *   - meridian-px4-gz:latest    — PX4 + Gazebo Harmonic (full physics sim)
  */
 
 import { execSync } from 'child_process'
@@ -9,6 +13,7 @@ import type { AutopilotProfile } from './AutopilotProfile'
 import { waitForHeartbeat, type ReadinessResult } from './readiness'
 
 const COMPOSE_FILE = path.resolve(__dirname, 'docker-compose.sitl.yml')
+const COMPOSE_MULTI_FILE = path.resolve(__dirname, 'docker-compose.sitl.multi.yml')
 const CONTAINER_NAME = 'meridian-e2e-sitl'
 
 export class SitlManager {
@@ -37,9 +42,13 @@ export class SitlManager {
     console.log(`[SitlManager]   image: ${profile.dockerImage}`)
     console.log(`[SitlManager]   port: ${profile.mavlinkPort}:${profile.containerPort}`)
 
+    const composeProfiles = this.resolveComposeProfiles(profile)
+    const composeFiles = this.resolveComposeFiles()
+
     const env = {
       ...process.env,
       SITL_IMAGE: profile.dockerImage,
+      SITL_GZ_IMAGE: profile.dockerImage,
       SITL_MAVLINK_PORT: String(profile.mavlinkPort),
       SITL_CONTAINER_PORT: String(profile.containerPort),
       SITL_COMMAND: profile.command,
@@ -48,7 +57,12 @@ export class SitlManager {
       ...Object.fromEntries(Object.entries(profile.env ?? {}).map(([k, v]) => [`SITL_ENV_${k}`, v]))
     }
 
-    execSync(`docker compose -f "${COMPOSE_FILE}" up -d`, {
+    const fileArgs = composeFiles.map((f) => `-f "${f}"`).join(' ')
+    const profileArgs = composeProfiles.length
+      ? composeProfiles.map((p) => `--profile ${p}`).join(' ')
+      : ''
+
+    execSync(`docker compose ${fileArgs} ${profileArgs} up -d`, {
       env,
       stdio: 'pipe'
     })
@@ -69,8 +83,11 @@ export class SitlManager {
     if (!this.running) return
 
     console.log(`[SitlManager] Stopping SITL...`)
+    const composeFiles = this.resolveComposeFiles()
+    const fileArgs = composeFiles.map((f) => `-f "${f}"`).join(' ')
+
     try {
-      execSync(`docker compose -f "${COMPOSE_FILE}" down --timeout 5`, {
+      execSync(`docker compose ${fileArgs} down --timeout 5`, {
         stdio: 'pipe',
         env: {
           ...process.env,
@@ -93,6 +110,28 @@ export class SitlManager {
     } catch {
       // Container doesn't exist — that's fine
     }
+  }
+
+  /**
+   * Determine which compose --profile flags to pass based on the autopilot profile.
+   */
+  private resolveComposeProfiles(profile: AutopilotProfile): string[] {
+    if (profile.dockerImage.includes('px4-gz')) {
+      return ['gz']
+    }
+    return []
+  }
+
+  /**
+   * Determine which compose files to use. Adds multi-vehicle override if
+   * GC_E2E_SITL_MULTI is set.
+   */
+  private resolveComposeFiles(): string[] {
+    const files = [COMPOSE_FILE]
+    if (process.env.GC_E2E_SITL_MULTI) {
+      files.push(COMPOSE_MULTI_FILE)
+    }
+    return files
   }
 
   /**

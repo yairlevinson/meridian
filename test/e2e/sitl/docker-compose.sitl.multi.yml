@@ -1,0 +1,39 @@
+# Multi-vehicle override for SITL testing.
+#
+# Adds a second PX4 instance on offset ports.
+# Extend with more services for 3+ vehicles.
+#
+# Usage:
+#   docker compose \
+#     -f docker-compose.sitl.yml \
+#     -f docker-compose.sitl.multi.yml \
+#     up -d
+#
+# Port scheme per vehicle index i:
+#   MAVLink TCP: 5760 + i
+#   MAVLink UDP out: 14550 + i  (to host.docker.internal)
+#   Video RTP:   5601 + i
+
+services:
+  sitl-1:
+    image: ${SITL_IMAGE:-meridian-px4-sitl:latest}
+    container_name: meridian-e2e-sitl-1
+    ports:
+      - '5761:5760'
+    environment:
+      - PX4_HOME_LAT=${PX4_HOME_LAT:-42.3898}
+      - PX4_HOME_LON=${PX4_HOME_LON_1:--71.1466}
+      - PX4_HOME_ALT=${PX4_HOME_ALT:-14}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test: ['CMD', '/healthcheck.sh']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G

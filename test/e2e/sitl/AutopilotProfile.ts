@@ -89,6 +89,15 @@ export const PX4_COPTER: AutopilotProfile = {
 //   connectionType: 'tcp',
 // }
 
+// ── PX4 + Gazebo Harmonic ─────────────────────────────────────
+
+export const PX4_GAZEBO: AutopilotProfile = {
+  ...PX4_COPTER,
+  name: 'PX4 Copter SITL + Gazebo',
+  dockerImage: 'meridian-px4-gz:latest',
+  readyTimeoutMs: 180_000 // Gazebo startup can be slow
+}
+
 /** PX4 profile for connecting to an already-running external SITL (e.g. Gazebo) via UDP */
 export const PX4_EXTERNAL: AutopilotProfile = {
   ...PX4_COPTER,
@@ -102,6 +111,7 @@ export const PX4_EXTERNAL: AutopilotProfile = {
 
 const PROFILES: Record<string, AutopilotProfile> = {
   px4: PX4_COPTER,
+  'px4-gz': PX4_GAZEBO,
   'px4-external': PX4_EXTERNAL
   // ardupilot: ARDUPILOT_COPTER,
 }
