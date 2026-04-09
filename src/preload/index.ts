@@ -28,7 +28,7 @@ export interface Bridge {
   arm: (vehicleId: number) => Promise<void>
   disarm: (vehicleId: number) => Promise<void>
   sendMavCommand: (req: MavCommandRequest) => Promise<void>
-  setFlightMode: (vehicleId: number, modeName: string) => Promise<void>
+  setFlightMode: (vehicleId: number, modeName: string) => Promise<number | undefined>
   guidedTakeoff: (vehicleId: number, altitude: number) => Promise<void>
   guidedRTL: (vehicleId: number) => Promise<void>
   guidedLand: (vehicleId: number) => Promise<void>

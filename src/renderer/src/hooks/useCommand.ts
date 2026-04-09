@@ -5,7 +5,7 @@ import { useVehicleStore } from '../store/vehicleStore'
 export function useCommand(vehicleIdOverride?: number): {
   arm: () => Promise<void> | undefined
   disarm: () => Promise<void> | undefined
-  setFlightMode: (modeName: string) => Promise<void> | undefined
+  setFlightMode: (modeName: string) => Promise<number | undefined> | undefined
   guidedTakeoff: (altitude: number) => Promise<void> | undefined
   guidedRTL: () => Promise<void> | undefined
   guidedLand: () => Promise<void> | undefined

@@ -13,25 +13,30 @@ export function GuidedActions(): React.JSX.Element {
   const core = useTelemetry('core')
   const armed = core?.armed ?? false
   const flying = armed && core?.systemStatus === 4 // MAV_STATE_ACTIVE
-  const isAuto = core?.flightMode === 3
+  const modeName = core?.flightModeName ?? ''
+  const isAutoMission = modeName === 'Auto:Mission' || modeName === 'Auto'
   const waypointCount = useMissionStore((s) => s.editableWaypoints.length)
   const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const startMission = async (): Promise<void> => {
     setUploading(true)
+    setError(null)
     try {
       // Upload waypoints from store if any exist
       if (waypointCount > 0) {
         const result = await uploadMission()
         if (result && typeof result === 'object' && 'error' in result) {
-          console.warn(
-            '[GuidedActions] Mission upload failed:',
-            (result as { error: unknown }).error
-          )
+          setError('Mission upload failed')
           return
         }
       }
-      await setFlightMode('3')
+      const modeResult = await setFlightMode('Mission')
+      if (modeResult !== undefined && modeResult !== 0) {
+        setError('Failed to set Mission mode')
+      }
+    } catch {
+      setError('Failed to start mission')
     } finally {
       setUploading(false)
     }
@@ -55,9 +60,14 @@ export function GuidedActions(): React.JSX.Element {
 
   return (
     <div className={styles.root}>
+      {error && (
+        <div className={styles.error} onClick={() => setError(null)}>
+          {error}
+        </div>
+      )}
       {/* Navigation */}
       <div className={styles.group}>
-        {!isAuto && (
+        {!isAutoMission && (
           <button
             className={styles.btn}
             style={{ color: '#44cc44', borderColor: '#44cc44' }}

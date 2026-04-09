@@ -16,6 +16,9 @@ import { MavResult } from '@shared/ipc/MavCommandRequest'
 import { MissionType, type MissionItem } from '@shared/ipc/MissionTypes'
 import { common } from 'mavlink-mappings'
 import { createGcsProtocol } from '../mavlink/constants'
+import { createLogger } from '../logger'
+
+const log = createLogger('Vehicle')
 
 /**
  * Represents a single MAVLink vehicle.
@@ -36,6 +39,7 @@ export class Vehicle extends EventEmitter {
   readonly actuatorMetadata: ActuatorMetadataManager
   private _parametersRequested = false
   private _ftpSeq = 0
+  private _commandLink: WritableLink | null = null
 
   constructor(
     sysid: number,
@@ -74,6 +78,7 @@ export class Vehicle extends EventEmitter {
     })
 
     this.linkManager.on('primaryLinkChanged', (link: LinkInterface) => {
+      this._commandLink = link
       this.commandQueue.setLink(link)
       this.missionManager.setLink(link)
       this.missionManager.setTarget(sysid, 1)
@@ -92,6 +97,7 @@ export class Vehicle extends EventEmitter {
   addLink(link: LinkInterface): void {
     this.linkManager.addLink(link)
     if (this.linkManager.linkCount === 1) {
+      this._commandLink = link
       this.commandQueue.setLink(link)
       this.missionManager.setLink(link)
       this.missionManager.setTarget(this.sysid, 1)
@@ -107,6 +113,7 @@ export class Vehicle extends EventEmitter {
 
   /** Set a writable link for sending commands (used in UDP mode) */
   setCommandLink(link: WritableLink): void {
+    this._commandLink = link
     this.commandQueue.setLink(link)
     // PlanManager only calls writeBytes() on the link, so a plain WritableLink works fine.
     this.missionManager.setLink(link as LinkInterface)
@@ -247,6 +254,7 @@ export class Vehicle extends EventEmitter {
     // COMMAND_ACK (77) — route to queue or calibration, never both for cmd 241
     77: (v, msg) => {
       const ack = msg.data as { command: number; result: number }
+      log.debug('COMMAND_ACK cmd=%d result=%d', ack.command, ack.result)
       if (ack.command === 241 && v.calibrationManager.isCalibrating) {
         // Calibration owns PREFLIGHT_CALIBRATION ACKs when active
         v.calibrationManager.handleCommandAck(ack.command, ack.result)
@@ -344,6 +352,7 @@ export class Vehicle extends EventEmitter {
     253: (v, msg) => {
       const st = msg.data as { severity: number; text: string }
       const text = st.text.replace(/\0/g, '')
+      log.debug('STATUSTEXT sev=%d: %s', st.severity, text)
       v.emit('statusText', { severity: st.severity, text })
       v.calibrationManager.handleStatusText(text, st.severity)
     },
@@ -448,6 +457,19 @@ export class Vehicle extends EventEmitter {
       0,
       { p1: 0 } // 0 = disarm
     )
+  }
+
+  /** Send SET_MODE message (msg id 11) — used for PX4 which doesn't support DO_SET_MODE */
+  sendSetMode(baseMode: number, customMode: number): void {
+    const link = this._commandLink
+    if (!link) return
+    const msg = new common.SetMode()
+    msg.targetSystem = this.sysid
+    msg.baseMode = baseMode
+    msg.customMode = customMode
+    const protocol = createGcsProtocol()
+    link.writeBytes(protocol.serialize(msg, 0))
+    log.debug('sendSetMode: target=%d baseMode=%d customMode=%d', this.sysid, baseMode, customMode)
   }
 
   guidedTakeoff(altitude: number): Promise<MavResult> {
