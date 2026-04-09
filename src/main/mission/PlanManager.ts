@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import { common } from 'mavlink-mappings'
 import type { LinkInterface } from '../links/LinkInterface'
 import { createGcsProtocol } from '../mavlink/constants'
+import { createLogger } from '../logger'
 import { mavLog } from '../mavlink/trafficLog'
 import {
   MissionType,
@@ -9,6 +10,8 @@ import {
   MissionError,
   type MissionItem
 } from '@shared/ipc/MissionTypes'
+
+const log = createLogger('PlanManager')
 
 const ACK_TIMEOUT_MS = 1500
 const MAX_RETRY_COUNT = 5
@@ -63,6 +66,7 @@ export class PlanManager extends EventEmitter {
   /** Download mission items from vehicle */
   loadFromVehicle(): void {
     if (!this.link) return
+    log.log('loadFromVehicle: requesting mission list')
     this.state = MissionProtocolState.ReadingCount
     this.receivedItems = []
     this.retryCount = 0
@@ -121,6 +125,14 @@ export class PlanManager extends EventEmitter {
 
   /** Handle MISSION_COUNT from vehicle (response to REQUEST_LIST) */
   handleMissionCount(count: number): void {
+    // Only process if we actually requested a download — otherwise this is
+    // a response to another GCS (e.g. QGC connected via MAVLink forwarding).
+    if (this.state !== MissionProtocolState.ReadingCount) {
+      log.log('handleMissionCount: ignoring count=%d (state=%s)', count, this.state)
+      return
+    }
+    log.log('handleMissionCount: count=%d', count)
+
     this._clearAckTimer()
     this.expectedCount = count
     this.receivedItems = []
@@ -141,6 +153,11 @@ export class PlanManager extends EventEmitter {
 
   /** Handle MISSION_ITEM_INT from vehicle */
   handleMissionItemInt(item: MissionItem): void {
+    if (this.state !== MissionProtocolState.ReadingItems) {
+      log.log('handleMissionItemInt: ignoring seq=%d (state=%s)', item.seq, this.state)
+      return
+    }
+
     this._clearAckTimer()
     this.receivedItems.push(item)
 
@@ -163,6 +180,12 @@ export class PlanManager extends EventEmitter {
 
   /** Handle MISSION_REQUEST_INT from vehicle (during upload) */
   handleMissionRequest(seq: number): void {
+    if (
+      this.state !== MissionProtocolState.WritingCount &&
+      this.state !== MissionProtocolState.WritingItems
+    )
+      return
+
     this._clearAckTimer()
     this.state = MissionProtocolState.WritingItems
     this.lastWriteSeq = seq
@@ -209,6 +232,12 @@ export class PlanManager extends EventEmitter {
 
   /** Handle MISSION_ACK from vehicle */
   handleMissionAck(type: number): void {
+    if (this.state === MissionProtocolState.Idle) {
+      log.log('handleMissionAck: ignoring type=%d (state=Idle)', type)
+      return
+    }
+    log.log('handleMissionAck: type=%d state=%s', type, this.state)
+
     this._clearAckTimer()
     if (type === 0) {
       // ACCEPTED
@@ -270,7 +299,9 @@ export class PlanManager extends EventEmitter {
 
   private _handleTimeout(): void {
     this.retryCount++
+    log.log('timeout: state=%s retry=%d/%d', this.state, this.retryCount, MAX_RETRY_COUNT)
     if (this.retryCount > MAX_RETRY_COUNT) {
+      log.warn('mission protocol timed out in state=%s', this.state)
       this._error(MissionError.Timeout)
       return
     }
