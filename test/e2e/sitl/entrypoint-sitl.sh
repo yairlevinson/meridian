@@ -21,8 +21,10 @@ rm -f /tmp/px4_lock-* /tmp/px4-sock-*
 python3 /write-sitl-params.py "$PX4_DATA"
 python3 /write-sitl-params.py /px4
 
-# Set home position via PX4 environment variables
-export PX4_HOME="${PX4_HOME_LAT},${PX4_HOME_LON},${PX4_HOME_ALT},0"
+# SIH_LOC_LAT0/LON0 (degE7 INT32) are set via BSON parameters.
+# Unset PX4_HOME_LAT/LON so PX4's px4-rc.simulator doesn't override
+# them with truncated decimal values (e.g. 32.08 → 32).
+unset PX4_HOME_LAT PX4_HOME_LON PX4_HOME_ALT
 
 # MAVProxy bridges PX4's internal UDP 14550 → TCP 5760 for external clients.
 # --daemon runs in background; tcpin makes MAVProxy listen for connections.

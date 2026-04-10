@@ -23,9 +23,20 @@ SITL_PARAMS = {
     'SYS_AUTOCONFIG': ('int32', 0),
 
     # EKF tuning for SITL
-    'EKF2_MAG_TYPE': ('int32', 6),
-    'EKF2_HEAD_NOISE': ('double', 10.0),
-    'COM_ARM_EKF_YAW': ('double', 1.0),
+    'EKF2_MAG_TYPE': ('int32', 1),  # HEADING — mag for heading only, robust in SITL
+    # EKF2_GPS_DELAY=0: SIH has zero sensor delay (default 110ms is for real hardware).
+    # PX4 docs explicitly recommend this for SIH-as-SITL.
+    'EKF2_GPS_DELAY': ('double', 0.0),
+
+    # SIH home position (Tel Aviv) — SIH uses these params, not PX4_HOME env var.
+    # LAT0/LON0 are INT32 in degE7 format in PX4 v1.15.x.
+    'SIH_LOC_LAT0': ('int32', 320800000),   # 32.08° N
+    'SIH_LOC_LON0': ('int32', 347800000),   # 34.78° E
+    'SIH_LOC_H0': ('double', 20.0),
+
+    # Circuit breakers for SITL
+    'CBRK_SUPPLY_CHK': ('int32', 894281),  # disable battery check
+    'CBRK_IO_SAFETY': ('int32', 22027),    # disable safety switch (matches official airframe)
 
     # MAVLink: broadcast to GCS port
     'MAV_0_BROADCAST': ('int32', 1),

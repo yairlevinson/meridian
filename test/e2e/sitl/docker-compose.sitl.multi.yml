@@ -21,9 +21,9 @@ services:
     ports:
       - '5761:5760'
     environment:
-      - PX4_HOME_LAT=${PX4_HOME_LAT:-42.3898}
-      - PX4_HOME_LON=${PX4_HOME_LON_1:--71.1466}
-      - PX4_HOME_ALT=${PX4_HOME_ALT:-14}
+      - PX4_HOME_LAT=${PX4_HOME_LAT:-32.08}
+      - PX4_HOME_LON=${PX4_HOME_LON_1:-34.781}
+      - PX4_HOME_ALT=${PX4_HOME_ALT:-20}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     healthcheck:

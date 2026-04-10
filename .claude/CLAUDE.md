@@ -182,14 +182,16 @@ Requires a pre-built PX4: `cd $PX4_HOME && make px4_sitl gz_x500`
 
 ### Key SITL Parameters (written to parameters.bson)
 
-| Parameter         | Value    | Why                                                                                     |
-| ----------------- | -------- | --------------------------------------------------------------------------------------- |
-| `SYS_AUTOSTART`   | 10040    | SIH quadcopter airframe (sihsim_quadx) — required for headless SITL                     |
-| `EKF2_MAG_TYPE`   | 6 (Init) | Use mag for initial heading only; avoids continuous innovation checks that fail in SITL |
-| `EKF2_HEAD_NOISE` | 10.0     | Increases heading noise variance so innovation ratio stays below 0.5                    |
-| `MAV_0_BROADCAST` | 1        | PX4 proactively broadcasts to GCS port                                                  |
-| `SYS_AUTOCONFIG`  | 0        | Prevents rcS from resetting params on boot                                              |
-| `CAL_*`           | Identity | Sensor calibration for accel, gyro, mag, baro — required for preflight health           |
+| Parameter         | Value       | Why                                                                           |
+| ----------------- | ----------- | ----------------------------------------------------------------------------- |
+| `SYS_AUTOSTART`   | 10040       | SIH quadcopter airframe (sihsim_quadx) — required for headless SITL           |
+| `EKF2_MAG_TYPE`   | 1 (Heading) | Mag for heading only (not 3-axis); robust in SITL. v1.15.4 accepts 0/1/5      |
+| `EKF2_GPS_DELAY`  | 0           | SIH has zero sensor delay (default 110ms is for real hardware)                |
+| `MAV_0_BROADCAST` | 1           | PX4 proactively broadcasts to GCS port                                        |
+| `SYS_AUTOCONFIG`  | 0           | Prevents rcS from resetting params on boot                                    |
+| `CBRK_SUPPLY_CHK` | 894281      | Disable battery health check in SITL                                          |
+| `CBRK_IO_SAFETY`  | 22027       | Disable safety switch (matches official 10040 airframe)                       |
+| `CAL_*`           | Identity    | Sensor calibration for accel, gyro, mag, baro — required for preflight health |
 
 ### Known Issues
 

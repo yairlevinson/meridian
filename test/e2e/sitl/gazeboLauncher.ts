@@ -32,24 +32,29 @@ const WATCHDOG_STALL_MS = 30_000
  *
  * Bump PARAM_VERSION when changing this list to force re-generation.
  */
-const PARAM_VERSION = '5'
+const PARAM_VERSION = '6'
 const SITL_PARAMS: Record<string, { type: 'int32' | 'double'; value: number }> = {
-  // EKF2_MAG_TYPE=6 (Init): use mag for initial heading only, then stop fusing.
-  // Avoids continuous innovation checks that fail in SITL.
-  EKF2_MAG_TYPE: { type: 'int32', value: 6 },
-  // EKF2_HEAD_NOISE=10.0: dramatically increase heading noise so the
-  // innovation ratio drops well below 0.5 (default 0.3 → variance=0.09;
-  // at 10.0 → variance=100, ~1000x lower ratio).
-  EKF2_HEAD_NOISE: { type: 'double', value: 10.0 },
-  // COM_ARM_EKF_YAW=1.0: relax commander-level yaw consistency check
-  // (default 0.5) to tolerate larger heading estimation errors.
-  COM_ARM_EKF_YAW: { type: 'double', value: 1.0 },
+  // EKF2_MAG_TYPE=1 (HEADING): mag for heading only, not full 3-axis fusion.
+  // More robust in SITL than AUTO(0). v1.15.4 only accepts 0, 1, 5.
+  EKF2_MAG_TYPE: { type: 'int32', value: 1 },
+  // EKF2_GPS_DELAY=0: SIH has zero sensor delay (default 110ms is for real hardware).
+  // PX4 docs explicitly recommend this for SIH-as-SITL.
+  EKF2_GPS_DELAY: { type: 'double', value: 0.0 },
   // MAV_0_BROADCAST=1: force PX4's GCS MAVLink instance to proactively
   // broadcast to 127.255.255.255:14550. Without this, PX4 only sends
   // after receiving a packet from the GCS.
   MAV_0_BROADCAST: { type: 'int32', value: 1 },
   // SYS_AUTOCONFIG=0: prevent rcS from resetting all params on next boot.
-  SYS_AUTOCONFIG: { type: 'int32', value: 0 }
+  SYS_AUTOCONFIG: { type: 'int32', value: 0 },
+  // SIH home position (Tel Aviv) — SIH uses params, not PX4_HOME env var.
+  // LAT0/LON0 are INT32 in degE7 format in PX4 v1.15.x.
+  SIH_LOC_LAT0: { type: 'int32', value: 320800000 }, // 32.08° N
+  SIH_LOC_LON0: { type: 'int32', value: 347800000 }, // 34.78° E
+  SIH_LOC_H0: { type: 'double', value: 20.0 },
+  // CBRK_SUPPLY_CHK=894281: disable battery health check in SITL.
+  CBRK_SUPPLY_CHK: { type: 'int32', value: 894281 },
+  // CBRK_IO_SAFETY=22027: disable safety switch (matches official 10040 airframe).
+  CBRK_IO_SAFETY: { type: 'int32', value: 22027 }
 }
 
 export class GazeboLauncher {
@@ -166,9 +171,9 @@ export class GazeboLauncher {
       ...gzEnv,
       PX4_SIM_MODEL: model,
       PX4_SIM_SPEED_FACTOR: '1',
-      PX4_HOME_LAT: process.env.PX4_HOME_LAT || '47.397742',
-      PX4_HOME_LON: process.env.PX4_HOME_LON || '8.545594',
-      PX4_HOME_ALT: process.env.PX4_HOME_ALT || '488',
+      PX4_HOME_LAT: process.env.PX4_HOME_LAT || '32.08',
+      PX4_HOME_LON: process.env.PX4_HOME_LON || '34.78',
+      PX4_HOME_ALT: process.env.PX4_HOME_ALT || '20',
       PX4_GZ_MODEL: model.replace(/^gz_/, ''),
       // Run Gazebo without GUI — reduces CPU/memory usage and avoids
       // shared-memory SIGBUS crashes on macOS.
@@ -330,9 +335,9 @@ export class GazeboLauncher {
 
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
-      PX4_HOME_LAT: process.env.PX4_HOME_LAT || '47.397742',
-      PX4_HOME_LON: process.env.PX4_HOME_LON || '8.545594',
-      PX4_HOME_ALT: process.env.PX4_HOME_ALT || '488',
+      PX4_HOME_LAT: process.env.PX4_HOME_LAT || '32.08',
+      PX4_HOME_LON: process.env.PX4_HOME_LON || '34.78',
+      PX4_HOME_ALT: process.env.PX4_HOME_ALT || '20',
       HEADLESS: '1'
     }
 

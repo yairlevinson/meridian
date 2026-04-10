@@ -21,9 +21,9 @@ services:
     ports:
       - '${SITL_MAVLINK_PORT:-5760}:${SITL_CONTAINER_PORT:-5760}'
     environment:
-      - PX4_HOME_LAT=${PX4_HOME_LAT:-42.3898}
-      - PX4_HOME_LON=${PX4_HOME_LON:--71.1476}
-      - PX4_HOME_ALT=${PX4_HOME_ALT:-14}
+      - PX4_HOME_LAT=${PX4_HOME_LAT:-32.08}
+      - PX4_HOME_LON=${PX4_HOME_LON:-34.78}
+      - PX4_HOME_ALT=${PX4_HOME_ALT:-20}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     healthcheck:
@@ -47,9 +47,9 @@ services:
       - '${SITL_MAVLINK_PORT:-5760}:5760'
       - '${SITL_VIDEO_PORT:-5601}:5601'
     environment:
-      - PX4_HOME_LAT=${PX4_HOME_LAT:-42.3898}
-      - PX4_HOME_LON=${PX4_HOME_LON:--71.1476}
-      - PX4_HOME_ALT=${PX4_HOME_ALT:-14}
+      - PX4_HOME_LAT=${PX4_HOME_LAT:-32.08}
+      - PX4_HOME_LON=${PX4_HOME_LON:-34.78}
+      - PX4_HOME_ALT=${PX4_HOME_ALT:-20}
       - PX4_GZ_MODEL=${PX4_GZ_MODEL:-x500}
       - HEADLESS=1
       - GZ_VIDEO_ENABLED=${GZ_VIDEO_ENABLED:-0}
