@@ -4,9 +4,10 @@ import { useVehicleStore } from '../store/vehicleStore'
 /** Hook: typed command dispatchers via bridge, targeting active vehicle */
 export function useCommand(vehicleIdOverride?: number): {
   arm: () => Promise<void> | undefined
+  forceArm: () => Promise<void> | undefined
   disarm: () => Promise<void> | undefined
   setFlightMode: (modeName: string) => Promise<number | undefined> | undefined
-  guidedTakeoff: (altitude: number) => Promise<void> | undefined
+  guidedTakeoff: (altitude: number) => Promise<number | undefined> | undefined
   guidedRTL: () => Promise<void> | undefined
   guidedLand: () => Promise<void> | undefined
   guidedGoto: (lat: number, lon: number, alt: number) => Promise<void> | undefined
@@ -18,6 +19,10 @@ export function useCommand(vehicleIdOverride?: number): {
 
   const arm = useCallback(() => {
     return window.bridge?.arm(vid)
+  }, [vid])
+
+  const forceArm = useCallback(() => {
+    return window.bridge?.forceArm(vid)
   }, [vid])
 
   const disarm = useCallback(() => {
@@ -63,6 +68,7 @@ export function useCommand(vehicleIdOverride?: number): {
 
   return {
     arm,
+    forceArm,
     disarm,
     setFlightMode,
     guidedTakeoff,

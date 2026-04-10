@@ -42,17 +42,34 @@ export function GuidedActions(): React.JSX.Element {
     }
   }
 
+  const doTakeoff = async (): Promise<void> => {
+    setError(null)
+    try {
+      const result = await guidedTakeoff(10)
+      if (result !== undefined && result !== 0) {
+        setError('Takeoff failed')
+      }
+    } catch {
+      setError('Takeoff failed')
+    }
+  }
+
   if (!armed) {
     return (
       <div className={styles.root}>
+        {error && (
+          <div className={styles.error} onClick={() => setError(null)}>
+            {error}
+          </div>
+        )}
         <div className={styles.group}>
-          <button
+          <HoldButton
             className={styles.btn}
             style={{ color: '#4a9eff', borderColor: '#4a9eff' }}
-            onClick={() => guidedTakeoff(10)}
+            onConfirm={doTakeoff}
           >
             Takeoff
-          </button>
+          </HoldButton>
         </div>
       </div>
     )

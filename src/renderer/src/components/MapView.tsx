@@ -9,7 +9,7 @@ import { useOverlayMapLayers } from '../hooks/useOverlayMapLayers'
 import { useSettingsStore } from '../store/settingsStore'
 import { providers, getProviderNames } from '../map/providers/ProviderRegistry'
 
-const DEFAULT_CENTER: [number, number] = [34.8, 32.1]
+const DEFAULT_CENTER: [number, number] = [34.78, 32.08] // [lon, lat] Tel Aviv
 const DEFAULT_ZOOM = 14
 const DEFAULT_PROVIDER = 'google_satellite'
 
