@@ -14,14 +14,11 @@
 .powerBtn {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
+  justify-content: center;
+  padding: 4px 6px;
   background: rgba(0, 0, 0, 0.6);
   border: none;
   color: rgba(255, 255, 255, 0.6);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
   cursor: pointer;
   transition:
     background 0.15s,
@@ -40,20 +37,6 @@
 
 .powerOn:hover {
   background: rgba(0, 180, 70, 0.7);
-}
-
-.powerDot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  transition: all 0.2s;
-}
-
-.powerOn .powerDot {
-  background: #fff;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
 }
 
 /* Separator between power and inner controls */

@@ -132,6 +132,7 @@ export interface BoardInfo {
 /** Setup view page identifiers */
 export type SetupPage =
   | 'summary'
+  | 'general'
   | 'firmware'
   | 'sensors'
   | 'radio'

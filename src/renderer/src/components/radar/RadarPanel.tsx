@@ -51,8 +51,21 @@ export function RadarPanel(): React.JSX.Element | null {
         onClick={toggleRadar}
         title={enabled ? 'Disable Radar' : 'Enable Radar'}
       >
-        <span className={styles.powerDot} />
-        RADAR
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 12 L12 2" />
+          <path d="M12 12 A5 5 0 0 1 16.33 9.5" />
+          <path d="M12 12 A9 9 0 0 1 19.8 7.2" />
+        </svg>
       </button>
 
       {enabled && (

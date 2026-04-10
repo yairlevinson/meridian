@@ -16,6 +16,7 @@ import { MavConsoleView } from './console/MavConsoleView'
 import { MavInspectorView } from './inspector/MavInspectorView'
 import { RadarSettingsPage } from './radar/RadarSettingsPage'
 import { ForwardingSettingsPage } from './forwarding/ForwardingSettingsPage'
+import { GeneralSettingsPage } from './general/GeneralSettingsPage'
 import styles from './SetupView.module.css'
 
 function PageContent(): React.JSX.Element {
@@ -24,6 +25,8 @@ function PageContent(): React.JSX.Element {
   switch (activePage) {
     case 'summary':
       return <SummaryPage />
+    case 'general':
+      return <GeneralSettingsPage />
     case 'firmware':
       return <FirmwarePage />
     case 'parameters':

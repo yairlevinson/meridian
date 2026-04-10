@@ -1,0 +1,55 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  color: var(--text-primary);
+  margin-bottom: 16px;
+}
+
+.section {
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-dimmed);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  min-width: 100px;
+}
+
+.select {
+  padding: 6px 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.select:focus {
+  border-color: var(--accent-blue);
+  outline: none;
+}

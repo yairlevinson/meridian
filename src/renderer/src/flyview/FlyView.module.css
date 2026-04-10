@@ -248,6 +248,16 @@
   background: rgba(0, 0, 0, 0.85);
 }
 
+/* ── Attitude + Compass overlay ───────────────────────── */
+
+.attitudeCompass {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  z-index: 15;
+}
+
 /* ── Radar ──────────────────────────────────────────────── */
 
 .radarScopeOverlay {

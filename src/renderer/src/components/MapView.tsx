@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useAllVehiclePositions, useActiveVehicleId, useHomePosition } from '../hooks/useVehicle'
@@ -7,7 +7,7 @@ import { useMissionMapLayers } from '../hooks/useMissionMapLayers'
 import { useRadarMapLayers } from '../hooks/useRadarMapLayers'
 import { useOverlayMapLayers } from '../hooks/useOverlayMapLayers'
 import { useSettingsStore } from '../store/settingsStore'
-import { providers, getProviderNames } from '../map/providers/ProviderRegistry'
+import { providers } from '../map/providers/ProviderRegistry'
 
 const DEFAULT_CENTER: [number, number] = [34.78, 32.08] // [lon, lat] Tel Aviv
 const DEFAULT_ZOOM = 14
@@ -95,7 +95,6 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
   const waypoints = useMissionStore((s) => s.editableWaypoints)
   const plannedHome = useMissionStore((s) => s.plannedHome)
   const mapProvider = useSettingsStore((s) => s.settings.mapProvider) || DEFAULT_PROVIDER
-  const setSetting = useSettingsStore((s) => s.setSetting)
 
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
   useMissionMapLayers(mapInstance, editMode)
@@ -264,40 +263,9 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
     }
   }, [homePos, editMode])
 
-  const onProviderChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      setSetting('mapProvider', e.target.value)
-    },
-    [setSetting]
-  )
-
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} aria-label="Flight map" />
-      <select
-        value={mapProvider}
-        onChange={onProviderChange}
-        data-testid="map-provider-selector"
-        style={{
-          position: 'absolute',
-          top: 'calc(var(--perf-bar-height) + 8px)',
-          right: 8,
-          zIndex: 10,
-          padding: '4px 8px',
-          borderRadius: 4,
-          border: '1px solid rgba(255,255,255,0.3)',
-          background: 'rgba(0,0,0,0.7)',
-          color: 'white',
-          fontSize: 12,
-          cursor: 'pointer'
-        }}
-      >
-        {getProviderNames().map((name) => (
-          <option key={name} value={name}>
-            {providers[name]!.displayName}
-          </option>
-        ))}
-      </select>
     </div>
   )
 }

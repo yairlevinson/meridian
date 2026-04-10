@@ -8,6 +8,7 @@ interface SidebarItem {
 
 const items: SidebarItem[] = [
   { page: 'summary', label: 'Summary' },
+  { page: 'general', label: 'General' },
   { page: 'firmware', label: 'Firmware' },
   { page: 'sensors', label: 'Sensors' },
   { page: 'radio', label: 'Radio' },

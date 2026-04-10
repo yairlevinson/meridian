@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { AttitudeIndicator } from '../components/AttitudeIndicator'
-import { Compass } from '../components/Compass'
+import { AttitudeCompass } from '../components/AttitudeCompass'
 import { MapView } from '../components/MapView'
 import { VideoView } from '../components/VideoView'
 import { InstrumentPanel } from './InstrumentPanel'
@@ -231,6 +230,10 @@ export function FlyView(): React.JSX.Element {
           </button>
         )}
 
+        <div className={styles.attitudeCompass}>
+          <AttitudeCompass size={90} />
+        </div>
+
         <StatusTextOverlay />
         <OverlayPanel />
 
@@ -249,12 +252,6 @@ export function FlyView(): React.JSX.Element {
           <ArmedIndicator />
           {!armed && <PreFlightChecklist onComplete={() => arm()} />}
           {armed && <SystemHealthStrip />}
-
-          <div className="section-label">ATTITUDE</div>
-          <AttitudeIndicator size={140} />
-
-          <div className="section-label">COMPASS</div>
-          <Compass size={140} />
 
           <div className="section-label">INSTRUMENTS</div>
           <InstrumentPanel />
