@@ -154,11 +154,16 @@ export const PX4_AIRFRAME_GROUPS: AirframeGroup[] = [
     image: 'AirframeSimulation',
     airframes: [
       { id: 1001, name: 'HIL Quadcopter X' },
-      { id: 1100, name: 'SIH Quadcopter X' },
-      { id: 1101, name: 'SIH Plane AERT' },
-      { id: 1102, name: 'SIH Tailsitter Duo' },
-      { id: 1103, name: 'SIH Standard VTOL QuadPlane' },
-      { id: 1104, name: 'SIH Rover Ackermann' }
+      { id: 1100, name: 'SIH Quadcopter X (legacy)' },
+      { id: 1101, name: 'SIH Plane AERT (legacy)' },
+      { id: 1102, name: 'SIH Tailsitter Duo (legacy)' },
+      { id: 1103, name: 'SIH Standard VTOL QuadPlane (legacy)' },
+      { id: 1104, name: 'SIH Rover Ackermann (legacy)' },
+      { id: 10040, name: 'SIH Quadcopter X' },
+      { id: 10041, name: 'SIH Plane AERT' },
+      { id: 10042, name: 'SIH Tailsitter Duo' },
+      { id: 10043, name: 'SIH Standard VTOL QuadPlane' },
+      { id: 10044, name: 'SIH Rover Ackermann' }
     ]
   },
   {
