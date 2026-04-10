@@ -81,6 +81,7 @@ interface MapViewProps {
 export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Element {
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<Map<number, maplibregl.Marker>>(new Map())
+  const markerHdgRef = useRef<Map<number, number>>(new Map())
   const homeMarkerRef = useRef<maplibregl.Marker | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
@@ -124,6 +125,7 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
       mapRef.current = null
       setMapInstance(null)
       markers.clear()
+      markerHdgRef.current.clear()
       initializedRef.current = false
       hasCenteredRef.current = false
       hasIncludedWaypointsRef.current = false
@@ -162,6 +164,14 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
       const lngLat: [number, number] = [lon, lat]
       const isActive = id === activeVehicleId
 
+      // Compute continuous rotation (shortest path, avoids 0↔359 jumps)
+      const prevHdg = markerHdgRef.current.get(id) ?? hdg
+      let delta = hdg - (((prevHdg % 360) + 360) % 360)
+      if (delta > 180) delta -= 360
+      if (delta < -180) delta += 360
+      const smoothHdg = prevHdg + delta
+      markerHdgRef.current.set(id, smoothHdg)
+
       let marker = currentMarkers.get(id)
       if (marker) {
         marker.setLngLat(lngLat)
@@ -173,14 +183,14 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
         if (svg) {
           svg.setAttribute('width', String(size))
           svg.setAttribute('height', String(size))
-          svg.style.transform = `rotate(${hdg}deg)`
+          svg.style.transform = `rotate(${smoothHdg}deg)`
           const path = svg.querySelector('path')
           if (path) {
             path.setAttribute('stroke', isActive ? 'white' : 'rgba(255,255,255,0.6)')
           }
         }
       } else {
-        const el = createMarkerEl(id, isActive, hdg)
+        const el = createMarkerEl(id, isActive, smoothHdg)
         marker = new maplibregl.Marker({ element: el }).setLngLat(lngLat).addTo(map)
         currentMarkers.set(id, marker)
       }
@@ -190,6 +200,7 @@ export function MapView({ editMode = false }: MapViewProps = {}): React.JSX.Elem
       if (!seenIds.has(id)) {
         marker.remove()
         currentMarkers.delete(id)
+        markerHdgRef.current.delete(id)
       }
     }
 

@@ -382,6 +382,16 @@ export class VehicleState {
   }
 
   private _handleGlobalPositionInt(pos: common.GlobalPositionInt): void {
+    // Derive heading from ATTITUDE.yaw (EKF output, high-rate, smooth) like QGC,
+    // rather than GLOBAL_POSITION_INT.hdg which can jitter at lower update rates.
+    let hdg = this.state.gps.hdg
+    if (this.state.attitude.seq > 0) {
+      hdg = (this.state.attitude.yaw * 180) / Math.PI
+      if (hdg < 0) hdg += 360
+    } else if (pos.hdg !== 65535) {
+      hdg = pos.hdg / 100
+    }
+
     this.state.gps = {
       lat: pos.lat / 1e7,
       lon: pos.lon / 1e7,
@@ -390,7 +400,7 @@ export class VehicleState {
       vx: pos.vx / 100,
       vy: pos.vy / 100,
       vz: pos.vz / 100,
-      hdg: pos.hdg / 100,
+      hdg,
       seq: this.state.gps.seq + 1
     }
     this.markDirty('gps')
@@ -416,7 +426,18 @@ export class VehicleState {
     const lon = homeLon + pos.y / (111320 * Math.cos((homeLat * Math.PI) / 180))
     const alt = homeAlt - pos.z // NED: z is down
 
-    const hdg = (Math.atan2(pos.vy, pos.vx) * 180) / Math.PI
+    // Derive heading from ATTITUDE.yaw (vehicle nose) like QGC, not from
+    // velocity atan2(vy,vx) which is course-over-ground and jitters during turns.
+    let hdg = this.state.gps.hdg
+    if (this.state.attitude.seq > 0) {
+      hdg = (this.state.attitude.yaw * 180) / Math.PI
+      if (hdg < 0) hdg += 360
+    } else {
+      // Fallback to velocity-derived heading when no attitude data yet
+      hdg = (Math.atan2(pos.vy, pos.vx) * 180) / Math.PI
+      if (hdg < 0) hdg += 360
+    }
+
     this.state.gps = {
       lat,
       lon,
@@ -425,7 +446,7 @@ export class VehicleState {
       vx: pos.vx,
       vy: pos.vy,
       vz: pos.vz,
-      hdg: hdg < 0 ? hdg + 360 : hdg,
+      hdg,
       seq: this.state.gps.seq + 1
     }
     this.markDirty('gps')
