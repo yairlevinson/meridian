@@ -5,6 +5,7 @@
 export enum IpcChannels {
   // Vehicle commands
   VehicleArm = 'vehicle:arm',
+  VehicleForceArm = 'vehicle:forceArm',
   VehicleDisarm = 'vehicle:disarm',
   VehicleSendMavCommand = 'vehicle:sendMavCommand',
   VehicleSetFlightMode = 'vehicle:setFlightMode',
@@ -13,6 +14,7 @@ export enum IpcChannels {
   VehicleGuidedLand = 'vehicle:guidedModeLand',
   VehicleGuidedGoto = 'vehicle:guidedModeGotoLocation',
   VehicleGuidedPause = 'vehicle:guidedModePause',
+  VehicleMissionStart = 'vehicle:missionStart',
   VehicleEmergencyStop = 'vehicle:emergencyStop',
 
   // Links

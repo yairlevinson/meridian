@@ -17,6 +17,7 @@ import { MissionType, type MissionItem } from '@shared/ipc/MissionTypes'
 import { common } from 'mavlink-mappings'
 import { createGcsProtocol } from '../mavlink/constants'
 import { createLogger } from '../logger'
+import { getActionPlan, type AutopilotType, type ActionStep } from './commandSemantics'
 
 const log = createLogger('Vehicle')
 
@@ -40,6 +41,10 @@ export class Vehicle extends EventEmitter {
   private _parametersRequested = false
   private _ftpSeq = 0
   private _commandLink: WritableLink | null = null
+  _chunkedStatusTexts: Map<
+    number,
+    { severity: number; chunks: string[]; timer: ReturnType<typeof setTimeout> }
+  > | null = null
 
   constructor(
     sysid: number,
@@ -348,13 +353,48 @@ export class Vehicle extends EventEmitter {
       )
     },
 
-    // STATUSTEXT (253)
+    // STATUSTEXT (253) — with chunked message reassembly
     253: (v, msg) => {
-      const st = msg.data as { severity: number; text: string }
+      const st = msg.data as { severity: number; text: string; id?: number; chunkSeq?: number }
       const text = st.text.replace(/\0/g, '')
-      log.debug('STATUSTEXT sev=%d: %s', st.severity, text)
-      v.emit('statusText', { severity: st.severity, text })
-      v.calibrationManager.handleStatusText(text, st.severity)
+      const chunkId = st.id ?? 0
+
+      if (chunkId === 0) {
+        // Non-chunked message — emit immediately
+        log.debug('STATUSTEXT sev=%d: %s', st.severity, text)
+        v.emit('statusText', { severity: st.severity, text })
+        v.calibrationManager.handleStatusText(text, st.severity)
+      } else {
+        // Chunked message — reassemble
+        if (!v._chunkedStatusTexts) v._chunkedStatusTexts = new Map()
+        const existing = v._chunkedStatusTexts.get(chunkId)
+        if (existing) {
+          existing.chunks.push(text)
+          clearTimeout(existing.timer)
+        } else {
+          v._chunkedStatusTexts.set(chunkId, {
+            severity: st.severity,
+            chunks: [text],
+            timer: 0 as unknown as ReturnType<typeof setTimeout>
+          })
+        }
+        const entry = v._chunkedStatusTexts.get(chunkId)!
+        // If text is shorter than 50 chars (has null terminator), it's the last chunk
+        const isLast = st.text.length < 50 || st.text.includes('\0')
+        const flush = (): void => {
+          const fullText = entry.chunks.join('')
+          log.debug('STATUSTEXT sev=%d: %s', entry.severity, fullText)
+          v.emit('statusText', { severity: entry.severity, text: fullText })
+          v.calibrationManager.handleStatusText(fullText, entry.severity)
+          v._chunkedStatusTexts!.delete(chunkId)
+        }
+        if (isLast) {
+          flush()
+        } else {
+          // Timeout: flush after 1s if no more chunks arrive
+          entry.timer = setTimeout(flush, 1000)
+        }
+      }
     },
 
     // CAMERA_INFORMATION (259)
@@ -439,24 +479,56 @@ export class Vehicle extends EventEmitter {
     return this.state.getDelta()
   }
 
+  // ── Autopilot detection ─────────────────────────────────────────
+
+  /** Detect autopilot family from HEARTBEAT data */
+  private get autopilotType(): AutopilotType {
+    return this.state.getSnapshot().core.autopilot === 12 ? 'px4' : 'ardupilot'
+  }
+
+  // ── Action plan executor ──────────────────────────────────────
+
+  /**
+   * Execute an action plan from CommandSemantics.
+   * Steps execute sequentially — each command waits for ACK before proceeding.
+   * Returns the result of the last step (or first failure).
+   */
+  private async executePlan(steps: ActionStep[]): Promise<MavResult> {
+    for (const step of steps) {
+      let result: MavResult
+      switch (step.type) {
+        case 'command':
+          result = await this.commandQueue.sendCommand(step.command, this.sysid, 0, step.params)
+          if (result !== MavResult.ACCEPTED) return result
+          break
+
+        case 'mode':
+          this.sendSetMode(step.baseMode, step.customMode)
+          result = MavResult.ACCEPTED
+          break
+
+        case 'arm':
+          result = await this.commandQueue.sendCommand(400, this.sysid, 0, { p1: 1 })
+          if (result !== MavResult.ACCEPTED) return result
+          break
+      }
+    }
+    return MavResult.ACCEPTED
+  }
+
   // ── Convenience command methods ─────────────────────────────────
 
   arm(): Promise<MavResult> {
-    return this.commandQueue.sendCommand(
-      400, // MAV_CMD_COMPONENT_ARM_DISARM
-      this.sysid,
-      0,
-      { p1: 1 } // 1 = arm
-    )
+    return this.executePlan(getActionPlan(this.autopilotType, 'arm'))
+  }
+
+  forceArm(): Promise<MavResult> {
+    log.debug('forceArm: bypassing preflight checks')
+    return this.executePlan(getActionPlan(this.autopilotType, 'forceArm'))
   }
 
   disarm(): Promise<MavResult> {
-    return this.commandQueue.sendCommand(
-      400,
-      this.sysid,
-      0,
-      { p1: 0 } // 0 = disarm
-    )
+    return this.executePlan(getActionPlan(this.autopilotType, 'disarm'))
   }
 
   /** Send SET_MODE message (msg id 11) — used for PX4 which doesn't support DO_SET_MODE */
@@ -472,56 +544,51 @@ export class Vehicle extends EventEmitter {
     log.debug('sendSetMode: target=%d baseMode=%d customMode=%d', this.sysid, baseMode, customMode)
   }
 
-  guidedTakeoff(altitude: number): Promise<MavResult> {
-    return this.commandQueue.sendCommand(
-      22, // MAV_CMD_NAV_TAKEOFF
-      this.sysid,
-      0,
-      { p7: altitude }
+  async guidedTakeoff(altitude: number): Promise<MavResult> {
+    const snapshot = this.state.getSnapshot()
+    const currentAltMsl = snapshot.gps.alt
+    if (!currentAltMsl || currentAltMsl === 0) {
+      log.warn('guidedTakeoff: no GPS altitude available')
+    }
+    log.debug(
+      'guidedTakeoff %s: relAlt=%d currentMSL=%d',
+      this.autopilotType,
+      altitude,
+      currentAltMsl
+    )
+    return this.executePlan(
+      getActionPlan(this.autopilotType, 'takeoff', { altitude, currentAltMsl })
     )
   }
 
   guidedRTL(): Promise<MavResult> {
-    return this.commandQueue.sendCommand(
-      20, // MAV_CMD_NAV_RETURN_TO_LAUNCH
-      this.sysid,
-      0
-    )
+    log.debug('guidedRTL %s', this.autopilotType)
+    return this.executePlan(getActionPlan(this.autopilotType, 'rtl'))
   }
 
   guidedLand(): Promise<MavResult> {
-    return this.commandQueue.sendCommand(
-      21, // MAV_CMD_NAV_LAND
-      this.sysid,
-      0
-    )
+    log.debug('guidedLand %s', this.autopilotType)
+    return this.executePlan(getActionPlan(this.autopilotType, 'land'))
   }
 
   guidedGoto(lat: number, lon: number, alt: number): Promise<MavResult> {
-    return this.commandQueue.sendCommand(
-      192, // MAV_CMD_DO_REPOSITION
-      this.sysid,
-      0,
-      { p1: -1, p2: 1, p4: NaN, p5: lat, p6: lon, p7: alt }
-    )
+    log.debug('guidedGoto %s: lat=%f lon=%f alt=%f', this.autopilotType, lat, lon, alt)
+    return this.executePlan(getActionPlan(this.autopilotType, 'goto', { lat, lon, alt }))
   }
 
   guidedPause(): Promise<MavResult> {
-    return this.commandQueue.sendCommand(
-      252, // MAV_CMD_DO_PAUSE_CONTINUE
-      this.sysid,
-      0,
-      { p1: 0 } // 0 = pause
-    )
+    log.debug('guidedPause %s', this.autopilotType)
+    return this.executePlan(getActionPlan(this.autopilotType, 'pause'))
+  }
+
+  missionStart(): Promise<MavResult> {
+    log.debug('missionStart %s', this.autopilotType)
+    return this.executePlan(getActionPlan(this.autopilotType, 'missionStart'))
   }
 
   emergencyStop(): Promise<MavResult> {
-    return this.commandQueue.sendCommand(
-      400, // MAV_CMD_COMPONENT_ARM_DISARM
-      this.sysid,
-      0,
-      { p1: 0, p2: 21196 } // 0 = disarm, 21196 = force/emergency
-    )
+    log.debug('emergencyStop')
+    return this.executePlan(getActionPlan(this.autopilotType, 'emergencyStop'))
   }
 
   private consoleProtocol = createGcsProtocol()

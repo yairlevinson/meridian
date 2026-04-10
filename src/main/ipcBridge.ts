@@ -258,6 +258,10 @@ export function startIpcBridge(
       handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.arm()
     },
     {
+      channel: IpcChannels.VehicleForceArm,
+      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.forceArm()
+    },
+    {
       channel: IpcChannels.VehicleDisarm,
       handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.disarm()
     },
@@ -325,6 +329,10 @@ export function startIpcBridge(
     {
       channel: IpcChannels.VehicleGuidedPause,
       handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.guidedPause()
+    },
+    {
+      channel: IpcChannels.VehicleMissionStart,
+      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.missionStart()
     },
     {
       channel: IpcChannels.VehicleEmergencyStop,

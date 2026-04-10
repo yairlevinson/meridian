@@ -26,14 +26,16 @@ export interface Bridge {
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
   arm: (vehicleId: number) => Promise<void>
+  forceArm: (vehicleId: number) => Promise<void>
   disarm: (vehicleId: number) => Promise<void>
   sendMavCommand: (req: MavCommandRequest) => Promise<void>
   setFlightMode: (vehicleId: number, modeName: string) => Promise<number | undefined>
-  guidedTakeoff: (vehicleId: number, altitude: number) => Promise<void>
+  guidedTakeoff: (vehicleId: number, altitude: number) => Promise<number | undefined>
   guidedRTL: (vehicleId: number) => Promise<void>
   guidedLand: (vehicleId: number) => Promise<void>
   guidedGoto: (vehicleId: number, lat: number, lon: number, alt: number) => Promise<void>
   guidedPause: (vehicleId: number) => Promise<void>
+  missionStart: (vehicleId: number) => Promise<void>
   emergencyStop: (vehicleId: number) => Promise<void>
   onStatusText: (
     cb: (payload: { vehicleId: number; severity: number; text: string }) => void
@@ -225,6 +227,7 @@ const bridge: Bridge = {
     }
   },
   arm: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleArm, vehicleId),
+  forceArm: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleForceArm, vehicleId),
   disarm: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleDisarm, vehicleId),
   sendMavCommand: (req) => ipcRenderer.invoke(IpcChannels.VehicleSendMavCommand, req),
   setFlightMode: (vehicleId, modeName) =>
@@ -236,6 +239,7 @@ const bridge: Bridge = {
   guidedGoto: (vehicleId, lat, lon, alt) =>
     ipcRenderer.invoke(IpcChannels.VehicleGuidedGoto, { vehicleId, lat, lon, alt }),
   guidedPause: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleGuidedPause, vehicleId),
+  missionStart: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleMissionStart, vehicleId),
   emergencyStop: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleEmergencyStop, vehicleId),
   onStatusText: (cb) => {
     const handler = (
