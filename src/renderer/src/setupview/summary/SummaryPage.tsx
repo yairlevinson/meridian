@@ -35,17 +35,7 @@ const AUTOPILOT_NAMES: Record<number, string> = {
   12: 'PX4'
 }
 
-/* ── GPS fix type ───────────────────────────── */
-
-const GPS_FIX_NAMES: Record<number, string> = {
-  0: 'No GPS',
-  1: 'No Fix',
-  2: '2D Fix',
-  3: '3D Fix',
-  4: 'DGPS',
-  5: 'RTK Float',
-  6: 'RTK Fixed'
-}
+import { GPS_FIX_NAMES } from '../../lib/gps'
 
 function gpsFixColor(fixType: number): string {
   if (fixType >= 5) return 'green'
