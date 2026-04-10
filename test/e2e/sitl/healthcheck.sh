@@ -1,5 +1,6 @@
 #!/bin/bash
-# Docker healthcheck: verify MAVProxy TCP port is accepting connections.
-# The SitlManager waits for a MAVLink HEARTBEAT over this connection,
-# but a basic TCP check is sufficient for Docker's health status.
-nc -z localhost "${SITL_CONTAINER_PORT:-5760}" || exit 1
+# Docker healthcheck: verify PX4 is running.
+# NOTE: Do NOT use "nc -z localhost 5760" — the TCP bridge only
+# supports one client at a time, and healthcheck connections can
+# disrupt the real MAVLink client.
+pgrep -f "bin/px4" > /dev/null || exit 1
