@@ -85,40 +85,40 @@ export function GuidedActions(): React.JSX.Element {
       {/* Navigation */}
       <div className={styles.group}>
         {!isAutoMission && (
-          <button
+          <HoldButton
             className={styles.btn}
             style={{ color: '#44cc44', borderColor: '#44cc44' }}
-            onClick={startMission}
+            onConfirm={startMission}
             disabled={uploading}
           >
             {uploading ? 'Uploading...' : 'Mission'}
-          </button>
+          </HoldButton>
         )}
-        <button
+        <HoldButton
           className={styles.btn}
           style={{ color: '#aaaaaa', borderColor: '#aaaaaa' }}
-          onClick={() => guidedPause()}
+          onConfirm={() => guidedPause()}
         >
           Pause
-        </button>
+        </HoldButton>
       </div>
 
       {/* Emergency */}
       <div className={styles.group}>
-        <button
+        <HoldButton
           className={styles.btnEmergency}
           style={{ color: '#ffaa00', borderColor: '#ffaa00' }}
-          onClick={() => guidedRTL()}
+          onConfirm={() => guidedRTL()}
         >
           RTL
-        </button>
-        <button
+        </HoldButton>
+        <HoldButton
           className={styles.btnEmergency}
           style={{ color: '#ff5252', borderColor: '#ff5252' }}
-          onClick={() => guidedLand()}
+          onConfirm={() => guidedLand()}
         >
           Land
-        </button>
+        </HoldButton>
       </div>
 
       {flying && (

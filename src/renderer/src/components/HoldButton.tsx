@@ -5,6 +5,7 @@ interface HoldButtonProps {
   holdDurationMs?: number
   className?: string
   style?: React.CSSProperties
+  disabled?: boolean
   children: React.ReactNode
 }
 
@@ -17,6 +18,7 @@ export function HoldButton({
   holdDurationMs = 1500,
   className,
   style,
+  disabled,
   children
 }: HoldButtonProps): React.JSX.Element {
   const [progress, setProgress] = useState(0)
@@ -38,11 +40,12 @@ export function HoldButton({
   }, [holdDurationMs, onConfirm])
 
   const handlePointerDown = useCallback(() => {
+    if (disabled) return
     confirmedRef.current = false
     startTimeRef.current = Date.now()
     setProgress(0)
     rafRef.current = requestAnimationFrame(tick)
-  }, [tick])
+  }, [tick, disabled])
 
   const handlePointerUp = useCallback(() => {
     startTimeRef.current = null
@@ -62,6 +65,7 @@ export function HoldButton({
         overflow: 'hidden',
         touchAction: 'none'
       }}
+      disabled={disabled}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
