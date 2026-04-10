@@ -39,6 +39,8 @@
   --plan-sidebar-width: 260px;
   --topbar-height: 32px;
   --perf-bar-height: 22px;
+  --floating-actions-bottom: 24px;
+  --floating-actions-height: 64px;
 
   /* Font */
   --font-mono: monospace;

@@ -1,0 +1,66 @@
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(13, 17, 23, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+  cursor: default;
+}
+
+.satCount {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  color: #e8eef4;
+  background: rgba(13, 17, 23, 0.9);
+  border-radius: 4px;
+  padding: 0 3px;
+  line-height: 14px;
+}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(13, 17, 23, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+  z-index: 20;
+}
+
+.root:hover .tooltip {
+  display: block;
+}
+
+.tipRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 20px;
+}
+
+.tipLabel {
+  color: #889;
+}
+
+.tipValue {
+  font-weight: 600;
+}

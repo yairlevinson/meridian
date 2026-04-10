@@ -32,3 +32,7 @@
   color: var(--accent-blue);
   border-bottom-color: var(--accent-blue);
 }
+
+.spacer {
+  flex: 1;
+}

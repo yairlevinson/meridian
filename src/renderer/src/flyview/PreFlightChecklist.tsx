@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useTelemetry } from '../hooks/useVehicle'
 import styles from './PreFlightChecklist.module.css'
 
@@ -30,13 +30,6 @@ interface CheckItem {
   label: string
   status: CheckStatus
   message?: string
-  manual: boolean
-}
-
-interface CheckGroup {
-  id: string
-  title: string
-  items: CheckItem[]
 }
 
 function useTelemetryChecks(): CheckItem[] {
@@ -61,8 +54,7 @@ function useTelemetryChecks(): CheckItem[] {
         ? gpsOk
           ? `3D fix, ${satCount} sats`
           : `Fix: ${gpsRaw.fixType}, Sats: ${satCount} (need ${MIN_SATELLITES}+)`
-        : 'Waiting for GPS data',
-      manual: false
+        : 'Waiting for GPS data'
     })
 
     // Battery
@@ -77,8 +69,7 @@ function useTelemetryChecks(): CheckItem[] {
           ? batOk
             ? `${bat.remaining}% (${bat.voltage.toFixed(1)}V)`
             : `${bat.remaining}% — below ${MIN_BATTERY_PERCENT}%`
-          : 'Waiting for battery data',
-      manual: false
+          : 'Waiting for battery data'
     })
 
     // Sensor health
@@ -102,8 +93,7 @@ function useTelemetryChecks(): CheckItem[] {
         ? sensorsOk
           ? 'All sensors healthy'
           : `Unhealthy: ${unhealthyNames.join(', ')}`
-        : 'Waiting for sensor data',
-      manual: false
+        : 'Waiting for sensor data'
     })
 
     // Communication
@@ -112,8 +102,7 @@ function useTelemetryChecks(): CheckItem[] {
       id: 'comms',
       label: 'Communication',
       status: core ? (commOk ? 'passed' : 'failed') : 'pending',
-      message: core ? (commOk ? 'Link active' : 'Communication lost') : 'Waiting for heartbeat',
-      manual: false
+      message: core ? (commOk ? 'Link active' : 'Communication lost') : 'Waiting for heartbeat'
     })
 
     // RC input
@@ -126,70 +115,24 @@ function useTelemetryChecks(): CheckItem[] {
         ? rcOk
           ? `${rc.channelCount} channels`
           : 'No RC input detected'
-        : 'Waiting for RC data',
-      manual: false
+        : 'Waiting for RC data'
     })
 
     return checks
   }, [core, gpsRaw, battery, sysStatus, rc])
 }
 
-const MANUAL_CHECKS: Array<{ id: string; label: string; message: string }> = [
-  { id: 'hardware', label: 'Hardware', message: 'Props mounted and secured? Battery fastened?' },
-  { id: 'mission', label: 'Mission', message: 'Mission valid? Waypoints correct?' },
-  { id: 'area', label: 'Flight Area', message: 'Launch area clear of obstacles and people?' },
-  { id: 'weather', label: 'Weather', message: 'Wind and conditions OK for flight?' }
-]
-
 export function PreFlightChecklist({
   onComplete
 }: {
   onComplete: (passed: boolean) => void
 }): React.JSX.Element {
-  const telemetryChecks = useTelemetryChecks()
-  const [manualChecked, setManualChecked] = useState<Set<string>>(new Set())
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const checks = useTelemetryChecks()
 
-  const toggleManual = useCallback((id: string) => {
-    setManualChecked((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
-
-  const toggleCollapse = useCallback((groupId: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(groupId)) next.delete(groupId)
-      else next.add(groupId)
-      return next
-    })
-  }, [])
-
-  const manualItems: CheckItem[] = MANUAL_CHECKS.map((mc) => ({
-    id: mc.id,
-    label: mc.label,
-    status: manualChecked.has(mc.id) ? 'passed' : 'pending',
-    message: mc.message,
-    manual: true
-  }))
-
-  const groups: CheckGroup[] = [
-    { id: 'system', title: 'System Checks', items: telemetryChecks },
-    { id: 'manual', title: 'Manual Checks', items: manualItems }
-  ]
-
-  const allChecks = [...telemetryChecks, ...manualItems]
-  const passedCount = allChecks.filter((c) => c.status === 'passed').length
-  const failedCount = allChecks.filter((c) => c.status === 'failed').length
-  const totalCount = allChecks.length
+  const passedCount = checks.filter((c) => c.status === 'passed').length
+  const failedCount = checks.filter((c) => c.status === 'failed').length
+  const totalCount = checks.length
   const allPassed = passedCount === totalCount
-
-  const handleReset = useCallback(() => {
-    setManualChecked(new Set())
-  }, [])
 
   return (
     <div className={styles.root}>
@@ -201,65 +144,27 @@ export function PreFlightChecklist({
         </span>
       </div>
 
-      {groups.map((group) => {
-        const groupPassed = group.items.every((i) => i.status === 'passed')
-        const groupFailed = group.items.some((i) => i.status === 'failed')
-        const isCollapsed = collapsed.has(group.id)
-
-        return (
-          <div key={group.id} className={styles.group}>
-            <button className={styles.groupHeader} onClick={() => toggleCollapse(group.id)}>
-              <span className={styles.collapseIcon}>{isCollapsed ? '\u25B6' : '\u25BC'}</span>
-              <span className={styles.groupTitle}>{group.title}</span>
-              <span
-                className={`${styles.groupBadge} ${groupPassed ? styles.badgePassed : groupFailed ? styles.badgeFailed : styles.badgePending}`}
-              >
-                {groupPassed ? '\u2713' : groupFailed ? '\u2717' : '\u2022\u2022\u2022'}
-              </span>
-            </button>
-            {!isCollapsed && (
-              <div className={styles.items}>
-                {group.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`${styles.item} ${styles[item.status]}`}
-                    onClick={item.manual ? () => toggleManual(item.id) : undefined}
-                    role={item.manual ? 'button' : undefined}
-                    tabIndex={item.manual ? 0 : undefined}
-                  >
-                    <span className={styles.indicator}>
-                      {item.status === 'passed'
-                        ? '\u2713'
-                        : item.status === 'failed'
-                          ? '\u2717'
-                          : item.manual
-                            ? '\u25CB'
-                            : '\u2022'}
-                    </span>
-                    <div className={styles.itemContent}>
-                      <span className={styles.itemLabel}>{item.label}</span>
-                      {item.message && <span className={styles.itemMessage}>{item.message}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+      <div className={styles.items}>
+        {checks.map((item) => (
+          <div key={item.id} className={`${styles.item} ${styles[item.status]}`}>
+            <span className={styles.indicator}>
+              {item.status === 'passed' ? '\u2713' : item.status === 'failed' ? '\u2717' : '\u2022'}
+            </span>
+            <div className={styles.itemContent}>
+              <span className={styles.itemLabel}>{item.label}</span>
+              {item.message && <span className={styles.itemMessage}>{item.message}</span>}
+            </div>
           </div>
-        )
-      })}
-
-      <div className={styles.footer}>
-        <button className={styles.resetBtn} onClick={handleReset}>
-          Reset
-        </button>
-        <button
-          className={`${styles.armBtn} ${allPassed ? styles.armReady : ''}`}
-          disabled={!allPassed}
-          onClick={() => onComplete(true)}
-        >
-          {allPassed ? 'Ready to Arm' : `${totalCount - passedCount} checks remaining`}
-        </button>
+        ))}
       </div>
+
+      <button
+        className={`${styles.armBtn} ${allPassed ? styles.armReady : ''}`}
+        disabled={!allPassed}
+        onClick={() => onComplete(true)}
+      >
+        {allPassed ? 'Ready to Arm' : `${totalCount - passedCount} checks remaining`}
+      </button>
     </div>
   )
 }

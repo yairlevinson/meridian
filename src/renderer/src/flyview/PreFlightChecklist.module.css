@@ -35,78 +35,25 @@
   font-size: 10px;
 }
 
-/* ── Group ── */
-
-.group {
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.groupHeader {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 5px 8px;
-  background: var(--bg-input);
-  border: none;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  color: var(--text-primary);
-}
-
-.collapseIcon {
-  font-size: 8px;
-  width: 10px;
-  color: var(--text-secondary);
-}
-
-.groupTitle {
-  flex: 1;
-  text-align: left;
-  font-weight: 600;
-}
-
-.groupBadge {
-  font-size: 11px;
-  padding: 0 4px;
-}
-
-.badgePassed {
-  color: var(--accent-green);
-}
-
-.badgeFailed {
-  color: var(--accent-red);
-}
-
-.badgePending {
-  color: var(--text-secondary);
-}
-
 /* ── Items ── */
 
 .items {
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .item {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  padding: 4px 8px 4px 12px;
+  padding: 4px 8px;
+}
+
+.item + .item {
   border-top: 1px solid var(--border-default);
-}
-
-.item[role='button'] {
-  cursor: pointer;
-}
-
-.item[role='button']:hover {
-  background: var(--bg-input);
 }
 
 .indicator {
@@ -145,27 +92,10 @@
   word-break: break-word;
 }
 
-/* ── Footer ── */
-
-.footer {
-  display: flex;
-  gap: 4px;
-  margin-top: 2px;
-}
-
-.resetBtn {
-  background: var(--bg-input);
-  border: 1px solid var(--border-default);
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-}
+/* ── Arm button ── */
 
 .armBtn {
-  flex: 1;
+  width: 100%;
   background: var(--bg-input);
   border: 1px solid var(--border-default);
   border-radius: 4px;

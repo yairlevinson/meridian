@@ -1,6 +1,6 @@
 .root {
   position: absolute;
-  bottom: 40px;
+  bottom: calc(var(--floating-actions-bottom) + var(--floating-actions-height) + 8px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;

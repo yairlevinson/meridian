@@ -33,6 +33,7 @@ export function AttitudeCompass({ size = 120 }: AttitudeCompassProps): React.JSX
 
   return (
     <div className={styles.root}>
+      <div className={styles.chassis} />
       {/* Attitude indicator */}
       <svg
         width={size}
@@ -99,9 +100,11 @@ export function AttitudeCompass({ size = 120 }: AttitudeCompassProps): React.JSX
         <circle cx="0" cy="0" r="98" fill="none" stroke="#444" strokeWidth="2" />
       </svg>
 
-      {/* Heading readout between instruments */}
-      <div className={styles.headingReadout}>
-        {heading !== null ? `${heading.toFixed(0)}\u00B0` : 'OFF'}
+      {/* Connector strip between instruments */}
+      <div className={styles.connector}>
+        <div className={styles.headingReadout}>
+          {heading !== null ? `${heading.toFixed(0)}\u00B0` : 'OFF'}
+        </div>
       </div>
 
       {/* Compass */}

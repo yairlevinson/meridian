@@ -3,6 +3,7 @@ import { FlyView } from './flyview/FlyView'
 import { PlanView } from './planview/PlanView'
 import { SetupView } from './setupview/SetupView'
 import { PopoutView } from './flyview/PopoutView'
+import { StatusIcons } from './flyview/StatusIcons'
 import styles from './App.module.css'
 
 type ViewMode = 'fly' | 'plan' | 'setup'
@@ -61,6 +62,8 @@ function ViewSwitcher({
       >
         <span aria-hidden="true">&#x2699;</span> SETUP
       </button>
+      <div className={styles.spacer} />
+      <StatusIcons />
     </div>
   )
 }

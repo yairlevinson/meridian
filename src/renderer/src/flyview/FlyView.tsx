@@ -2,34 +2,22 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { AttitudeCompass } from '../components/AttitudeCompass'
 import { MapView } from '../components/MapView'
 import { VideoView } from '../components/VideoView'
-import { InstrumentPanel } from './InstrumentPanel'
-import { GpsStatus } from './GpsStatus'
-import { BatteryStatus } from './BatteryStatus'
-import { FlightModeButton } from './FlightModeButton'
-import { ArmedIndicator } from './ArmedIndicator'
-import { PreFlightChecklist } from './PreFlightChecklist'
-import { GuidedActions } from './GuidedActions'
-import { LinkQuality } from './LinkQuality'
+import { FloatingInstruments } from './FloatingInstruments'
+import { FloatingActions } from './FloatingActions'
 import { StatusTextOverlay } from './StatusTextOverlay'
 import { VideoOverlay } from './VideoOverlay'
-import { VehicleSelector } from './VehicleSelector'
-import { CameraPanel } from './CameraPanel'
-import { SystemHealthStrip } from './SystemHealthStrip'
-import { PerfOverlay } from '../perf/PerfOverlay'
 import { RadarScope } from '../components/radar/RadarScope'
 import { RadarPanel } from '../components/radar/RadarPanel'
 import { OverlayPanel } from '../components/OverlayPanel'
 import { useRadarStore } from '../store/radarStore'
 import { useTelemetry } from '../hooks/useVehicle'
-import { useCommand } from '../hooks/useCommand'
 import styles from './FlyView.module.css'
 
 type MainView = 'map' | 'video'
 
 export function FlyView(): React.JSX.Element {
   const core = useTelemetry('core')
-  const armed = core?.armed ?? false
-  const { arm } = useCommand()
+  const vehicleConnected = core != null && !core.communicationLost
   const radarEnabled = useRadarStore((s) => s.state?.enabled ?? false)
   const scopeView = useRadarStore((s) => s.scopeView)
   const showRadarScope = radarEnabled && scopeView === 'radar'
@@ -230,10 +218,14 @@ export function FlyView(): React.JSX.Element {
           </button>
         )}
 
-        <div className={styles.attitudeCompass}>
-          <AttitudeCompass size={90} />
-        </div>
+        {vehicleConnected && (
+          <div className={styles.attitudeCompass}>
+            <AttitudeCompass size={90} />
+          </div>
+        )}
 
+        <FloatingInstruments />
+        <FloatingActions />
         <StatusTextOverlay />
         <OverlayPanel />
 
@@ -244,36 +236,6 @@ export function FlyView(): React.JSX.Element {
           </div>
         )}
       </div>
-
-      <div className={styles.sidebar}>
-        <div className={styles.sidebarScroll}>
-          <VehicleSelector />
-          <FlightModeButton />
-          <ArmedIndicator />
-          {!armed && <PreFlightChecklist onComplete={() => arm()} />}
-          {armed && <SystemHealthStrip />}
-
-          <div className="section-label">INSTRUMENTS</div>
-          <InstrumentPanel />
-
-          <div className="section-label">GPS</div>
-          <GpsStatus />
-
-          <div className="section-label">BATTERY</div>
-          <BatteryStatus />
-
-          <div className="section-label">RADIO</div>
-          <LinkQuality />
-
-          <CameraPanel />
-        </div>
-
-        <div className={styles.guidedActionsArea}>
-          <GuidedActions />
-        </div>
-      </div>
-
-      <PerfOverlay />
     </div>
   )
 }
