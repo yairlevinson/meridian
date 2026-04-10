@@ -207,6 +207,7 @@ const MSG_HEARTBEAT = 0
 const MSG_SYS_STATUS = 1
 const MSG_GPS_RAW_INT = 24
 const MSG_ATTITUDE = 30
+const MSG_ATTITUDE_QUATERNION = 31
 const MSG_GLOBAL_POSITION_INT = 33
 const MSG_RC_CHANNELS_RAW = 35
 const MSG_SERVO_OUTPUT_RAW = 36
@@ -269,6 +270,9 @@ export class VehicleState {
         break
       case MSG_ATTITUDE:
         this._handleAttitude(data as common.Attitude)
+        break
+      case MSG_ATTITUDE_QUATERNION:
+        this._handleAttitudeQuaternion(data as common.AttitudeQuaternion)
         break
       case MSG_GLOBAL_POSITION_INT:
         this._handleGlobalPositionInt(data as common.GlobalPositionInt)
@@ -368,7 +372,12 @@ export class VehicleState {
     this.markDirty('gpsRaw')
   }
 
+  /** Track whether we receive ATTITUDE_QUATERNION — if so, prefer it over ATTITUDE (like QGC). */
+  private _receivingAttitudeQuaternion = false
+
   private _handleAttitude(att: common.Attitude): void {
+    // If we're receiving ATTITUDE_QUATERNION, ignore ATTITUDE (QGC does the same)
+    if (this._receivingAttitudeQuaternion) return
     this.state.attitude = {
       roll: att.roll,
       pitch: att.pitch,
@@ -381,7 +390,34 @@ export class VehicleState {
     this.markDirty('attitude')
   }
 
+  private _handleAttitudeQuaternion(att: common.AttitudeQuaternion): void {
+    this._receivingAttitudeQuaternion = true
+    // Convert quaternion to Euler angles (matches QGC mavlink_quaternion_to_euler)
+    const q1 = att.q1,
+      q2 = att.q2,
+      q3 = att.q3,
+      q4 = att.q4
+    const roll = Math.atan2(2 * (q1 * q2 + q3 * q4), 1 - 2 * (q2 * q2 + q3 * q3))
+    const sinp = 2 * (q1 * q3 - q4 * q2)
+    const pitch = Math.abs(sinp) >= 1 ? Math.sign(sinp) * (Math.PI / 2) : Math.asin(sinp)
+    const yaw = Math.atan2(2 * (q1 * q4 + q2 * q3), 1 - 2 * (q3 * q3 + q4 * q4))
+
+    this.state.attitude = {
+      roll,
+      pitch,
+      yaw,
+      rollSpeed: att.rollspeed,
+      pitchSpeed: att.pitchspeed,
+      yawSpeed: att.yawspeed,
+      seq: this.state.attitude.seq + 1
+    }
+    this.markDirty('attitude')
+  }
+
+  private _hasGlobalPosition = false
+
   private _handleGlobalPositionInt(pos: common.GlobalPositionInt): void {
+    this._hasGlobalPosition = true
     // Derive heading from ATTITUDE.yaw (EKF output, high-rate, smooth) like QGC,
     // rather than GLOBAL_POSITION_INT.hdg which can jitter at lower update rates.
     let hdg = this.state.gps.hdg
@@ -412,8 +448,8 @@ export class VehicleState {
    * Only updates gps if GLOBAL_POSITION_INT hasn't provided data yet.
    */
   private _handleLocalPositionNed(pos: common.LocalPositionNed): void {
-    // Only use local position as fallback when no global position is available
-    if (this.state.gps.seq > 0 && this.state.gps.lat !== 0) return
+    // Only use local position as fallback when GLOBAL_POSITION_INT isn't available
+    if (this._hasGlobalPosition) return
 
     const homeLat = this.state.home.lat
     const homeLon = this.state.home.lon

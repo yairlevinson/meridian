@@ -23,7 +23,7 @@ SITL_PARAMS = {
     'SYS_AUTOCONFIG': ('int32', 0),
 
     # EKF tuning for SITL
-    'EKF2_MAG_TYPE': ('int32', 1),  # HEADING — mag for heading only, robust in SITL
+    'EKF2_MAG_TYPE': ('int32', 5),  # NONE — disable mag; SIH mag causes TIMEOUT spam
     # EKF2_GPS_DELAY=0: SIH has zero sensor delay (default 110ms is for real hardware).
     # PX4 docs explicitly recommend this for SIH-as-SITL.
     'EKF2_GPS_DELAY': ('double', 0.0),

@@ -32,11 +32,12 @@ const WATCHDOG_STALL_MS = 30_000
  *
  * Bump PARAM_VERSION when changing this list to force re-generation.
  */
-const PARAM_VERSION = '6'
+const PARAM_VERSION = '7'
 const SITL_PARAMS: Record<string, { type: 'int32' | 'double'; value: number }> = {
-  // EKF2_MAG_TYPE=1 (HEADING): mag for heading only, not full 3-axis fusion.
-  // More robust in SITL than AUTO(0). v1.15.4 only accepts 0, 1, 5.
-  EKF2_MAG_TYPE: { type: 'int32', value: 1 },
+  // EKF2_MAG_TYPE=5 (NONE): disable magnetometer entirely.
+  // SIH doesn't reliably simulate a mag — using type 1 (heading) causes
+  // "MAG #0 failed: TIMEOUT" spam. v1.15.4 only accepts 0, 1, 5.
+  EKF2_MAG_TYPE: { type: 'int32', value: 5 },
   // EKF2_GPS_DELAY=0: SIH has zero sensor delay (default 110ms is for real hardware).
   // PX4 docs explicitly recommend this for SIH-as-SITL.
   EKF2_GPS_DELAY: { type: 'double', value: 0.0 },

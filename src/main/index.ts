@@ -155,6 +155,8 @@ function requestStreams(writeFn: (buf: Buffer) => void, targetSysId: number, lab
   const px4Messages = [
     { msgId: common.GlobalPositionInt.MSG_ID, rate: 4 },
     { msgId: common.Attitude.MSG_ID, rate: 10 },
+    { msgId: common.AttitudeQuaternion.MSG_ID, rate: 10 }, // PX4 SIH sends this instead of ATTITUDE
+    { msgId: common.LocalPositionNed.MSG_ID, rate: 4 }, // fallback when no GLOBAL_POSITION_INT
     { msgId: common.VfrHud.MSG_ID, rate: 4 },
     { msgId: common.SysStatus.MSG_ID, rate: 2 },
     { msgId: common.GpsRawInt.MSG_ID, rate: 2 },
