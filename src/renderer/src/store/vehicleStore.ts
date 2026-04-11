@@ -53,6 +53,11 @@ export const useVehicleStore = create<VehicleStore>((set) => ({
   setActiveVehicle: (vehicleId) => set({ activeVehicleId: vehicleId })
 }))
 
+// Expose store on window for E2E tests (same pattern as missionStore)
+if (typeof window !== 'undefined') {
+  ;(window as unknown as Record<string, unknown>).__vehicleStore = useVehicleStore
+}
+
 // Wire the IPC listeners once at module load, deferred to next tick
 // so React has time to mount before any store updates arrive.
 if (typeof window !== 'undefined' && window.bridge) {

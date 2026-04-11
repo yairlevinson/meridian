@@ -13,6 +13,7 @@ import {
   waitAltitude,
   waitAltitudeBelow,
   getPosition,
+  getFlightMode,
   armVehicle,
   ensureDisarmed,
   setMode,
@@ -162,12 +163,9 @@ test.describe.serial('PX4 SITL Mission', () => {
 
     // Monitor mission progress — wait for the vehicle to reach at least waypoint 2
     await expect(async () => {
-      const pos = await getPosition(page)
-      // Waypoint 2 is offset in both lat and lon from home
-      // If we see significant movement in both axes, mission is progressing
-      const body = await page.textContent('body')
+      const mode = await getFlightMode(page)
       // Check that we're still in Auto:Mission or transitioning
-      expect(body).toMatch(/Auto:(Mission|RTL|Land|Loiter)/)
+      expect(mode).toMatch(/Auto:(Mission|RTL|Land|Loiter)/)
     }).toPass({ timeout: SITL_TIMEOUTS.missionComplete })
   })
 

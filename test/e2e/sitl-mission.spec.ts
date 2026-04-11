@@ -11,7 +11,7 @@ import { test, expect, useSitl } from './fixtures/vehicleFixture'
 async function waitConnected(page: import('@playwright/test').Page): Promise<void> {
   await expect(async () => {
     const text = await page.textContent('body')
-    expect(text).toContain('CONNECTED')
+    expect(text).toContain('Connected')
   }).toPass({ timeout: useSitl ? 30_000 : 10_000 })
 }
 
@@ -27,14 +27,15 @@ test.describe('Mission execution', () => {
     syntheticVehicle!.startStreaming({ lat: 42.3898, lon: -71.1476, alt: 14 })
     await waitConnected(page)
 
-    // Wait for GPS coordinates to appear in the telemetry sidebar
+    // Wait for GPS data to be available via vehicle store
     await expect(async () => {
-      const text = await page.textContent('body')
-      const latMatch = text?.match(/Lat:\s*([\d.-]+)/)
-      expect(latMatch).toBeTruthy()
-      const lat = parseFloat(latMatch![1])
-      expect(lat).toBeGreaterThan(42.0)
-      expect(lat).toBeLessThan(43.0)
+      const gps = await page.evaluate(() => {
+        const store = (window as any).__vehicleStore
+        return store?.getState()?.vehicles?.[1]?.gps
+      })
+      expect(gps).toBeTruthy()
+      expect(gps.lat).toBeGreaterThan(42.0)
+      expect(gps.lat).toBeLessThan(43.0)
     }).toPass({ timeout: 10_000 })
 
     // Wait for the vehicle marker to appear on the map

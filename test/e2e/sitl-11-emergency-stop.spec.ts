@@ -44,8 +44,8 @@ test.describe.serial('PX4 SITL Emergency Stop', () => {
 
     // Verify vehicle is armed and flying
     const bodyBefore = await page.textContent('body')
-    expect(bodyBefore).toContain('ARMED')
-    expect(bodyBefore).not.toContain('DISARMED')
+    expect(bodyBefore).toContain('Armed')
+    expect(bodyBefore).not.toContain('Disarmed')
 
     // Send emergency stop — forced disarm with p2=21196
     await page.evaluate(() => window.bridge.emergencyStop(1))
@@ -54,6 +54,6 @@ test.describe.serial('PX4 SITL Emergency Stop', () => {
     await waitDisarmed(page)
 
     const bodyAfter = await page.textContent('body')
-    expect(bodyAfter).toContain('DISARMED')
+    expect(bodyAfter).toContain('Disarmed')
   })
 })

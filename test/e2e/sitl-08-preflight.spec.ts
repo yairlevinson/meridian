@@ -1,70 +1,57 @@
 /**
- * SITL E2E: Pre-flight checklist validation.
- * Verifies that PX4 sensor data correctly populates the checklist items.
+ * SITL E2E: Pre-flight sensor validation.
+ * Verifies that PX4 sensor data is available and healthy via the vehicle store.
  *
- * The PreFlightChecklist only renders when the vehicle is DISARMED.
- * Since the PX4 process is shared across test suites, we force-disarm first.
+ * The PreFlightChecklist component is no longer rendered in FlyView (replaced by
+ * floating panels). These tests validate the underlying telemetry data that
+ * the checklist logic depends on.
  */
 
 import { test, expect, useSitl } from './fixtures/vehicleFixture'
-import { waitConnected, waitGpsFix, ensureDisarmed, SITL_TIMEOUTS } from './helpers/sitlHelpers'
+import { waitGpsFix, ensureDisarmed } from './helpers/sitlHelpers'
 
 test.skip(!useSitl, 'SITL-only tests')
 
 test.describe.serial('PX4 SITL Pre-flight Checks', () => {
-  test('pre-flight checklist is visible', async ({ page }) => {
-    await ensureDisarmed(page)
-    const checklist = page.locator('text=Pre-Flight Checklist')
-    await expect(checklist).toBeVisible({ timeout: 10_000 })
-  })
-
-  test('GPS check passes after fix', async ({ page }) => {
+  test('GPS check: 3D fix shown in StatusIcons', async ({ page }) => {
     await ensureDisarmed(page)
     await waitGpsFix(page)
 
-    await expect(async () => {
-      const body = await page.textContent('body')
-      // GPS Lock item should show 3D fix info
-      expect(body).toMatch(/3D/)
-    }).toPass({ timeout: 10_000 })
+    const body = await page.textContent('body')
+    expect(body).toContain('3D Fix')
   })
 
-  test('battery check passes', async ({ page }) => {
+  test('battery data available', async ({ page }) => {
     await ensureDisarmed(page)
 
     await expect(async () => {
       const body = await page.textContent('body')
-      // Battery item should show percentage
+      // StatusIcons BatteryIcon shows percentage
       expect(body).toMatch(/\d+%/)
     }).toPass({ timeout: 15_000 })
   })
 
-  test('sensors check passes', async ({ page }) => {
+  test('sensor health available via store', async ({ page }) => {
     await ensureDisarmed(page)
 
     await expect(async () => {
-      const body = await page.textContent('body')
-      expect(body).toMatch(/[Hh]ealthy/)
+      const sysStatus = await page.evaluate(() => {
+        const store = (window as any).__vehicleStore
+        return store?.getState()?.vehicles?.[1]?.sysStatus
+      })
+      expect(sysStatus).toBeDefined()
+      // At least some sensors should be enabled
+      expect(sysStatus.onboardControlSensorsEnabled).toBeGreaterThan(0)
     }).toPass({ timeout: 15_000 })
   })
 
-  test('communication check passes', async ({ page }) => {
+  test('communication link active', async ({ page }) => {
     await ensureDisarmed(page)
 
     await expect(async () => {
       const body = await page.textContent('body')
-      expect(body).toMatch(/[Ll]ink\s*(active|ok)/i)
-    }).toPass({ timeout: 10_000 })
-  })
-
-  test('system checks section shows pass count', async ({ page }) => {
-    await ensureDisarmed(page)
-    await waitGpsFix(page)
-
-    await expect(async () => {
-      const body = await page.textContent('body')
-      // Match pattern like "4/5" or "5/5" in checklist header
-      expect(body).toMatch(/\d+\/\d+/)
+      // ConnectionIndicator shows "Connected" when link is active
+      expect(body).toContain('Connected')
     }).toPass({ timeout: 10_000 })
   })
 })

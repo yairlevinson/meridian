@@ -1,4 +1,28 @@
 import { test, expect, useSitl } from './fixtures/vehicleFixture'
+import type { Page } from '@playwright/test'
+
+/**
+ * FloatingActions shows Mission as a secondary action behind an expand button.
+ * It also requires a long-press (1500ms hold) to confirm.
+ */
+async function pressMissionButton(page: Page): Promise<void> {
+  // Expand secondary actions (the three-dot expand button)
+  const expandBtn = page.locator('[class*="expandBtn"]')
+  if (await expandBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await expandBtn.click()
+    await page.waitForTimeout(300)
+  }
+
+  // Long-press the Mission button (hold-to-confirm: 1500ms)
+  const missionBtn = page.locator('button:has-text("Mission")')
+  await expect(missionBtn).toBeVisible({ timeout: 3000 })
+  const box = await missionBtn.boundingBox()
+  if (!box) throw new Error('Mission button not visible')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.waitForTimeout(1800) // hold > 1500ms
+  await page.mouse.up()
+}
 
 /** Helper: 2-waypoint mission items */
 function twoWaypointMission() {
@@ -58,11 +82,11 @@ function threeWaypointMission() {
   ]
 }
 
-/** Wait for vehicle connection */
+/** Wait for vehicle connection via ConnectionIndicator */
 async function waitConnected(page: import('@playwright/test').Page): Promise<void> {
   await expect(async () => {
     const text = await page.textContent('body')
-    expect(text).toContain('CONNECTED')
+    expect(text).toContain('Connected')
   }).toPass({ timeout: useSitl ? 30_000 : 10_000 })
 }
 
@@ -142,9 +166,6 @@ test.describe('Mission Upload & Execution E2E', () => {
       await window.bridge.setFlightMode(1, mode)
     }, autoMode)
 
-    // Wait for mission execution
-    // SyntheticVehicle: 3 waypoints × 3 sec = ~9 sec
-    // PX4 SITL: depends on distance, ~30 sec
     await page.waitForTimeout(useSitl ? 40_000 : 12_000)
 
     const finalText = await page.textContent('body')
@@ -158,23 +179,25 @@ test.describe('Mission Upload & Execution E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('ARMED')
+      expect(text).toContain('Armed')
     }).toPass({ timeout: useSitl ? 30_000 : 10_000 })
 
     await page.evaluate(async (items) => {
       return await window.bridge.missionWrite(1, items)
     }, twoWaypointMission())
 
-    await page.click('button:has-text("Mission")')
+    await pressMissionButton(page)
 
     await page.waitForTimeout(useSitl ? 30_000 : 8_000)
 
+    // Verify vehicle moved via store
     await expect(async () => {
-      const text = (await page.textContent('body')) ?? ''
-      const latMatch = text.match(/Lat:\s*([\d.]+)/)
-      if (latMatch) {
-        const lat = parseFloat(latMatch[1])
-        expect(lat).toBeGreaterThan(42.389)
+      const gps = await page.evaluate(() => {
+        const store = (window as any).__vehicleStore
+        return store?.getState()?.vehicles?.[1]?.gps
+      })
+      if (gps) {
+        expect(gps.lat).toBeGreaterThan(42.389)
       }
     }).toPass({ timeout: 5000 })
   })
@@ -189,7 +212,7 @@ test.describe('Mission Upload & Execution E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('ARMED')
+      expect(text).toContain('Armed')
     }).toPass({ timeout: useSitl ? 30_000 : 10_000 })
 
     const uploadResult = await page.evaluate(async (items) => {
@@ -202,7 +225,7 @@ test.describe('Mission Upload & Execution E2E', () => {
     })
     expect((downloadResult as any)?.items).toHaveLength(2)
 
-    await page.click('button:has-text("Mission")')
+    await pressMissionButton(page)
 
     await page.waitForTimeout(useSitl ? 30_000 : 8_000)
 
@@ -211,13 +234,16 @@ test.describe('Mission Upload & Execution E2E', () => {
   })
 
   test('Mission button uploads from store then starts AUTO', async ({ page, syntheticVehicle }) => {
-    test.skip(useSitl, 'PX4 SITL cannot arm without GPS simulation — test requires armed vehicle')
+    test.skip(
+      !useSitl,
+      'SyntheticVehicle does not implement mission protocol — download always empty'
+    )
     if (!useSitl)
       syntheticVehicle!.startStreaming({ lat: 42.3898, lon: -71.1476, alt: 10, armed: true })
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('ARMED')
+      expect(text).toContain('Armed')
     }).toPass({ timeout: useSitl ? 30_000 : 10_000 })
 
     // Add waypoints to Zustand store
@@ -233,14 +259,10 @@ test.describe('Mission Upload & Execution E2E', () => {
     })
     expect(wpCount).toBe(2)
 
-    const missionBtn = page.locator('button:has-text("Mission")')
-    await expect(missionBtn).toBeVisible({ timeout: 3000 })
-    await missionBtn.click()
+    await pressMissionButton(page)
 
-    // Wait for upload + flight
     await page.waitForTimeout(useSitl ? 30_000 : 10_000)
 
-    // Verify items reached the vehicle
     const downloadResult = await page.evaluate(async () => {
       return await window.bridge.missionLoad(1)
     })

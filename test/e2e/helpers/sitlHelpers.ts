@@ -1,14 +1,10 @@
 /**
  * Shared helper functions for PX4 SITL E2E tests.
  *
- * All wait* functions use Playwright's expect().toPass() polling pattern
- * against the rendered UI, which validates the full pipeline (MAVLink ->
- * main process -> IPC delta -> Zustand store -> React render).
- *
- * Important PX4 SITL constraint: Manual/Stabilized/AltCtl modes require RC
- * input. Without a virtual RC (which SITL doesn't provide), PX4 reverts
- * these modes back to Auto:Loiter immediately. Only Auto:* modes work
- * reliably in SITL without RC.
+ * All wait* functions use Playwright's expect().toPass() polling pattern.
+ * UI-based checks validate the full pipeline (MAVLink -> main process ->
+ * IPC delta -> Zustand store -> React render). Store-based checks are used
+ * when the relevant data is no longer rendered in the floating UI.
  */
 
 import { expect, type Page } from '@playwright/test'
@@ -42,63 +38,62 @@ export const SITL_TIMEOUTS = {
 
 // ── Connection & telemetry waits ────────────────────────────────────
 
-/** Wait for the telemetry bar to show CONNECTED. */
+/** Wait for ConnectionIndicator to show "Connected" (rendered in tooltip DOM). */
 export async function waitConnected(page: Page): Promise<void> {
   await expect(async () => {
-    const text = await page.locator('[data-testid="conn-status"]').textContent()
-    expect(text).toBe('CONNECTED')
+    const body = await page.textContent('body')
+    expect(body).toContain('Connected')
   }).toPass({ timeout: SITL_TIMEOUTS.connection })
 }
 
-/** Wait for GPS 3D fix (non-zero lat/lon in telemetry bar). */
+/** Wait for GPS 3D fix (shown in StatusIcons GPS tooltip). */
 export async function waitGpsFix(page: Page): Promise<void> {
   await expect(async () => {
     const body = await page.textContent('body')
-    const latMatch = body?.match(/Lat:\s*([\d.-]+)/)
-    expect(latMatch).toBeTruthy()
-    const lat = parseFloat(latMatch![1])
-    expect(lat).not.toBe(0)
+    expect(body).toContain('3D Fix')
   }).toPass({ timeout: SITL_TIMEOUTS.gpsFix })
 }
 
-/** Wait for DISARMED state in telemetry bar. */
+/** Wait for "Disarmed" state in ConnectionIndicator. */
 export async function waitDisarmed(page: Page): Promise<void> {
   await expect(async () => {
     const body = await page.textContent('body')
-    expect(body).toContain('DISARMED')
+    expect(body).toContain('Disarmed')
   }).toPass({ timeout: SITL_TIMEOUTS.disarm })
 }
 
-/** Wait for ARMED state in telemetry bar (must NOT contain DISARMED). */
+/** Wait for "Armed" state in ConnectionIndicator (must NOT contain "Disarmed"). */
 export async function waitArmed(page: Page): Promise<void> {
   await expect(async () => {
     const body = await page.textContent('body')
-    // "ARMED" appears in both "ARMED" and "DISARMED" — check specifically
-    expect(body).not.toContain('DISARMED')
-    expect(body).toContain('ARMED')
+    // "Armed" is a substring of "Disarmed" — exclude Disarmed first
+    expect(body).not.toContain('Disarmed')
+    expect(body).toContain('Armed')
   }).toPass({ timeout: SITL_TIMEOUTS.armReady })
 }
 
-/** Wait for a specific PX4 flight mode name to appear in the UI. */
+/** Wait for a specific PX4 flight mode name via vehicle store. */
 export async function waitFlightMode(page: Page, modeName: string): Promise<void> {
   await expect(async () => {
-    const body = await page.textContent('body')
-    expect(body).toContain(modeName)
+    const mode = await page.evaluate(() => {
+      const store = (window as any).__vehicleStore
+      return store?.getState()?.vehicles?.[1]?.core?.flightModeName as string | undefined
+    })
+    expect(mode).toContain(modeName)
   }).toPass({ timeout: SITL_TIMEOUTS.modeTransition })
 }
 
-/** Wait for altitude display to reach at least `minAlt` meters (relative/AGL). */
+/** Wait for altitude display to reach at least `minAlt` meters (FloatingInstruments ALT). */
 export async function waitAltitude(page: Page, minAlt: number): Promise<void> {
   await expect(async () => {
     const body = await page.textContent('body')
-    // Use the instruments panel ALT field (relative altitude), not GPS Alt: (MSL)
     const altMatch = body?.match(/ALT\s*([\d.-]+)\s*m/)
     expect(altMatch).toBeTruthy()
     expect(parseFloat(altMatch![1])).toBeGreaterThanOrEqual(minAlt)
   }).toPass({ timeout: SITL_TIMEOUTS.takeoffComplete })
 }
 
-/** Wait for altitude to drop below `maxAlt` meters (relative/AGL, for landing checks). */
+/** Wait for altitude to drop below `maxAlt` meters (FloatingInstruments ALT). */
 export async function waitAltitudeBelow(page: Page, maxAlt: number): Promise<void> {
   await expect(async () => {
     const body = await page.textContent('body')
@@ -112,9 +107,6 @@ export async function waitAltitudeBelow(page: Page, maxAlt: number): Promise<voi
  * Poll until PX4 is ready to accept arm commands again.
  * Replaces fixed post-disarm sleeps — exits as soon as PX4 accepts an arm,
  * then immediately disarms so the caller gets a clean disarmed state.
- *
- * Note: GazeboLauncher pre-configures EKF2_MAG_TYPE=6 (Init) + relaxed checks on
- * first run so the heading estimate converges reliably in SITL.
  */
 export async function waitArmReady(page: Page): Promise<void> {
   await expect(async () => {
@@ -129,7 +121,7 @@ export async function waitArmReady(page: Page): Promise<void> {
   try {
     await expect(async () => {
       const body = await page.textContent('body')
-      expect(body).toContain('DISARMED')
+      expect(body).toContain('Disarmed')
     }).toPass({ timeout: 3_000 })
   } catch {
     await page.evaluate(() => window.bridge.guidedRTL(1))
@@ -164,10 +156,7 @@ export async function setMode(page: Page, customMode: number): Promise<number> {
 
 // ── Compound actions ────────────────────────────────────────────────
 
-/** Arm the vehicle via IPC bridge and wait for ARMED state.
- *  Uses polling instead of fixed sleeps — resets mode to Auto:Loiter,
- *  attempts arm, and checks result. Exits as soon as arm succeeds.
- *  If PX4 keeps rejecting due to preflight failures, relaxes checks and retries. */
+/** Arm the vehicle via IPC bridge and wait for Armed state. */
 export async function armVehicle(page: Page): Promise<void> {
   const { AUTO_LOITER } = PX4_MODES
 
@@ -176,8 +165,8 @@ export async function armVehicle(page: Page): Promise<void> {
     await page.evaluate(() => window.bridge.disarm(1)).catch(() => {})
     await page.evaluate(() => window.bridge.arm(1))
     const body = await page.textContent('body')
-    expect(body).not.toContain('DISARMED')
-    expect(body).toContain('ARMED')
+    expect(body).not.toContain('Disarmed')
+    expect(body).toContain('Armed')
   }
 
   try {
@@ -186,8 +175,6 @@ export async function armVehicle(page: Page): Promise<void> {
       intervals: [2_000, 5_000, 5_000, 10_000]
     })
   } catch {
-    // If normal arm keeps failing, retry with longer intervals — EKF may
-    // need more time to converge after mode transitions or landing.
     console.log('[armVehicle] Normal arm failed, retrying with longer intervals')
     await expect(tryArm).toPass({
       timeout: 60_000,
@@ -197,11 +184,8 @@ export async function armVehicle(page: Page): Promise<void> {
 }
 
 /**
- * Disarm the vehicle. PX4 SITL auto-takes off in Auto:Loiter after arming
- * (no RC to hold on ground), so normal disarm is rejected mid-flight.
- *
- * Strategy: RTL -> wait for landing -> auto-disarm. This avoids emergencyStop
- * which corrupts PX4 state and prevents subsequent arming.
+ * Disarm the vehicle. PX4 SITL auto-takes off in Auto:Loiter after arming,
+ * so normal disarm is rejected mid-flight. Strategy: RTL -> land -> auto-disarm.
  */
 export async function disarmVehicle(page: Page): Promise<void> {
   // Try normal disarm first (works if on ground)
@@ -209,14 +193,13 @@ export async function disarmVehicle(page: Page): Promise<void> {
   try {
     await expect(async () => {
       const body = await page.textContent('body')
-      expect(body).toContain('DISARMED')
+      expect(body).toContain('Disarmed')
     }).toPass({ timeout: 5_000 })
     return
   } catch {
     // Normal disarm rejected (in flight) — use RTL to land cleanly
   }
 
-  // RTL brings the vehicle back and PX4 auto-disarms after landing.
   await page.evaluate(() => window.bridge.guidedRTL(1))
   try {
     await waitAltitudeBelow(page, 2)
@@ -230,13 +213,11 @@ export async function disarmVehicle(page: Page): Promise<void> {
   await waitDisarmed(page)
 }
 
-/** Ensure the vehicle is disarmed and on the ground (cleanup for cross-suite state). */
+/** Ensure the vehicle is disarmed and on the ground. */
 export async function ensureDisarmed(page: Page): Promise<void> {
   await waitConnected(page)
   const body = await page.textContent('body')
-  if (body?.includes('DISARMED')) return
-
-  // Vehicle is armed — use disarmVehicle which handles all cases
+  if (body?.includes('Disarmed')) return
   await disarmVehicle(page)
 }
 
@@ -248,8 +229,7 @@ export async function waitParameters(page: Page, minCount = 100): Promise<void> 
   }).toPass({ timeout: SITL_TIMEOUTS.paramDownload })
 }
 
-/** Full pre-flight sequence: wait for connection, GPS fix, then arm.
- *  armVehicle polls until PX4 accepts, so a separate waitArmReady is unnecessary. */
+/** Full pre-flight sequence: wait for connection, GPS fix, then arm. */
 export async function fullPreFlight(page: Page): Promise<void> {
   await waitConnected(page)
   await waitGpsFix(page)
@@ -258,11 +238,19 @@ export async function fullPreFlight(page: Page): Promise<void> {
 
 // ── Data extraction ─────────────────────────────────────────────────
 
-/** Parse current lat/lon/alt from the telemetry bar text. */
+/** Get current vehicle position via IPC bridge. */
 export async function getPosition(page: Page): Promise<{ lat: number; lon: number; alt: number }> {
-  const body = (await page.textContent('body')) || ''
-  const lat = parseFloat(body.match(/Lat:\s*([\d.-]+)/)?.[1] || '0')
-  const lon = parseFloat(body.match(/Lon:\s*([\d.-]+)/)?.[1] || '0')
-  const alt = parseFloat(body.match(/Alt:\s*([\d.-]+)/)?.[1] || '0')
-  return { lat, lon, alt }
+  return page.evaluate(async () => {
+    const state = (await window.bridge.getVehicleState(1)) as Record<string, any> | null
+    const gps = state?.gps
+    return gps ? { lat: gps.lat, lon: gps.lon, alt: gps.alt } : { lat: 0, lon: 0, alt: 0 }
+  })
+}
+
+/** Get current flight mode name via IPC bridge. */
+export async function getFlightMode(page: Page): Promise<string> {
+  return page.evaluate(async () => {
+    const state = (await window.bridge.getVehicleState(1)) as Record<string, any> | null
+    return (state?.core?.flightModeName as string) ?? ''
+  })
 }

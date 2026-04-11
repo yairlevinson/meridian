@@ -17,6 +17,7 @@ import {
   waitAltitudeBelow,
   waitDisarmed,
   getPosition,
+  getFlightMode,
   setMode,
   PX4_MODES,
   SITL_TIMEOUTS
@@ -132,9 +133,9 @@ test.describe.serial('PX4 SITL Mission Pause/Resume', () => {
 
     // Should transition to Auto:Loiter (PX4 hold mode after DO_REPOSITION)
     await expect(async () => {
-      const body = await page.textContent('body')
+      const mode = await getFlightMode(page)
       // PX4 enters Loiter or Hold after DO_REPOSITION
-      expect(body).toMatch(/Auto:Loiter|PosCtl/)
+      expect(mode).toMatch(/Auto:Loiter|PosCtl/)
     }).toPass({ timeout: SITL_TIMEOUTS.modeTransition })
 
     // Verify position holds: measure drift over 5 seconds

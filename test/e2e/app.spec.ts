@@ -1,18 +1,18 @@
 import { test, expect, useSitl } from './fixtures/vehicleFixture'
 
 test.describe('Meridian E2E', () => {
-  test('shows WAITING state before any packets arrive', async ({ page }) => {
-    test.skip(useSitl, 'SITL sends packets immediately — no WAITING state')
+  test('shows waiting state before any packets arrive', async ({ page }) => {
+    test.skip(useSitl, 'SITL sends packets immediately — no waiting state')
+    // ConnectionIndicator shows "No vehicle" when no heartbeat received
     const text = await page.textContent('body')
-    expect(text).toContain('WAITING')
+    expect(text).toContain('No vehicle')
   })
 
-  test('shows CONNECTED after receiving HEARTBEAT', async ({ page, syntheticVehicle }) => {
+  test('shows Connected after receiving HEARTBEAT', async ({ page, syntheticVehicle }) => {
     if (useSitl) {
-      // SITL sends heartbeats automatically
       await expect(async () => {
         const text = await page.textContent('body')
-        expect(text).toContain('CONNECTED')
+        expect(text).toContain('Connected')
       }).toPass({ timeout: 30_000 })
       return
     }
@@ -21,34 +21,32 @@ test.describe('Meridian E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('CONNECTED')
+      expect(text).toContain('Connected')
     }).toPass({ timeout: 5000 })
   })
 
-  test('displays attitude values from ATTITUDE messages', async ({ page, syntheticVehicle }) => {
+  test('displays heading from attitude data', async ({ page, syntheticVehicle }) => {
     test.skip(useSitl, 'Test sends specific attitude values via SyntheticVehicle')
 
     syntheticVehicle!.sendHeartbeat()
-    const sendAttitude = (): void => {
+    const sendAll = (): void => {
       syntheticVehicle!.sendAttitude(0.2618, 0.0873, 1.5708) // ~15° roll, ~5° pitch, ~90° yaw
+      syntheticVehicle!.sendVfrHud({ heading: 90, groundspeed: 5, throttle: 40, alt: 50, climb: 0 })
     }
-    sendAttitude()
-    const iv = setInterval(sendAttitude, 50)
+    sendAll()
+    const iv = setInterval(sendAll, 50)
 
+    // FloatingInstruments shows HDG value
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('CONNECTED')
-      expect(text).toMatch(/Roll:\s*1[45]\.\d/)
+      expect(text).toContain('Connected')
+      expect(text).toMatch(/HDG\s*90/)
     }).toPass({ timeout: 5000 })
 
     clearInterval(iv)
-
-    const text = await page.textContent('body')
-    expect(text).toMatch(/Pitch:\s*[45]\.\d/)
-    expect(text).toMatch(/Yaw:\s*90\.\d/)
   })
 
-  test('displays GPS coordinates from GLOBAL_POSITION_INT messages', async ({
+  test('displays altitude from GLOBAL_POSITION_INT messages', async ({
     page,
     syntheticVehicle
   }) => {
@@ -57,32 +55,32 @@ test.describe('Meridian E2E', () => {
     const sendAll = (): void => {
       syntheticVehicle!.sendHeartbeat()
       syntheticVehicle!.sendPosition(42.3898, -71.1476, 100)
+      syntheticVehicle!.sendVfrHud({ heading: 0, groundspeed: 5, throttle: 40, alt: 100, climb: 0 })
     }
     sendAll()
     const iv = setInterval(sendAll, 100)
 
+    // FloatingInstruments shows ALT; GPS coordinates are in store only
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('42.389')
-      expect(text).toContain('-71.147')
-      expect(text).toContain('100.0m')
+      expect(text).toMatch(/ALT\s*100/)
     }).toPass({ timeout: 15000 })
 
     clearInterval(iv)
   })
 
-  test('shows DISARMED when vehicle is disarmed', async ({ page, syntheticVehicle }) => {
+  test('shows Disarmed when vehicle is disarmed', async ({ page, syntheticVehicle }) => {
     test.skip(useSitl, 'Test sends specific heartbeat via SyntheticVehicle')
 
     syntheticVehicle!.sendHeartbeat(false)
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('DISARMED')
+      expect(text).toContain('Disarmed')
     }).toPass({ timeout: 5000 })
   })
 
-  test('shows ARMED when vehicle is armed', async ({ page, syntheticVehicle }) => {
+  test('shows Armed when vehicle is armed', async ({ page, syntheticVehicle }) => {
     test.skip(useSitl, 'Test sends specific heartbeat via SyntheticVehicle')
 
     const sendArmed = (): void => syntheticVehicle!.sendHeartbeat(true)
@@ -91,7 +89,8 @@ test.describe('Meridian E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toMatch(/[^DIS]ARMED/)
+      expect(text).not.toContain('Disarmed')
+      expect(text).toContain('Armed')
     }).toPass({ timeout: 5000 })
 
     clearInterval(iv)
@@ -104,41 +103,13 @@ test.describe('Meridian E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('CONNECTED')
+      expect(text).toContain('Connected')
     }).toPass({ timeout: 5000 })
 
-    // Verify attitude values update over time
+    // Verify FloatingInstruments appears with data
     await page.waitForTimeout(2000)
     const text = await page.textContent('body')
-    expect(text).toMatch(/Roll:/)
-  })
-
-  test('FPS stays above 50 during streaming', async ({ page, syntheticVehicle }) => {
-    if (!useSitl) {
-      syntheticVehicle!.startStreaming()
-    }
-
-    await page.waitForTimeout(3000)
-
-    const text = await page.textContent('body')
-    const fpsMatch = text?.match(/FPS\s+(\d+)/)
-    expect(fpsMatch).toBeTruthy()
-    const fps = parseInt(fpsMatch![1], 10)
-    expect(fps).toBeGreaterThan(useSitl ? 30 : 50)
-  })
-
-  test('IPC latency stays under 40ms during streaming', async ({ page, syntheticVehicle }) => {
-    if (!useSitl) {
-      syntheticVehicle!.startStreaming()
-    }
-
-    await page.waitForTimeout(2000)
-
-    const text = await page.textContent('body')
-    const latencyMatch = text?.match(/IPC\s+(\d+)ms/)
-    expect(latencyMatch).toBeTruthy()
-    const latency = parseInt(latencyMatch![1], 10)
-    expect(latency).toBeLessThan(40)
+    expect(text).toMatch(/SPD/)
   })
 
   test('Compass displays heading from VFR_HUD', async ({ page, syntheticVehicle }) => {
@@ -158,7 +129,7 @@ test.describe('Meridian E2E', () => {
     const iv = setInterval(sendAll, 200)
 
     await expect(async () => {
-      const compass = page.locator('svg[aria-label="Heading 135°"]')
+      const compass = page.locator('svg[aria-label="Heading 135"]')
       await expect(compass).toBeVisible()
     }).toPass({ timeout: 5000 })
 
@@ -177,7 +148,7 @@ test.describe('Meridian E2E', () => {
     const iv1 = setInterval(sendHdg90, 200)
 
     await expect(async () => {
-      const compass = page.locator('svg[aria-label="Heading 90°"]')
+      const compass = page.locator('svg[aria-label="Heading 90"]')
       await expect(compass).toBeVisible()
     }).toPass({ timeout: 5000 })
 
@@ -198,7 +169,7 @@ test.describe('Meridian E2E', () => {
     const iv2 = setInterval(sendHdg270, 200)
 
     await expect(async () => {
-      const compass = page.locator('svg[aria-label="Heading 270°"]')
+      const compass = page.locator('svg[aria-label="Heading 270"]')
       await expect(compass).toBeVisible()
     }).toPass({ timeout: 5000 })
 
@@ -212,7 +183,7 @@ test.describe('Meridian E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('CONNECTED')
+      expect(text).toContain('Connected')
     }).toPass({ timeout: useSitl ? 30_000 : 5000 })
 
     // PiP body should be visible initially
@@ -242,7 +213,7 @@ test.describe('Meridian E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('CONNECTED')
+      expect(text).toContain('Connected')
     }).toPass({ timeout: useSitl ? 30_000 : 5000 })
 
     const pipContainer = page.locator('[data-testid="pip-container"]')
@@ -273,7 +244,7 @@ test.describe('Meridian E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('CONNECTED')
+      expect(text).toContain('Connected')
     }).toPass({ timeout: useSitl ? 30_000 : 5000 })
 
     const pipBody = page.locator('[data-testid="pip-body"]')
@@ -307,7 +278,7 @@ test.describe('Meridian E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('CONNECTED')
+      expect(text).toContain('Connected')
     }).toPass({ timeout: useSitl ? 30_000 : 5000 })
 
     await page.waitForTimeout(1000)

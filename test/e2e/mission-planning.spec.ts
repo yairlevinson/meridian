@@ -17,13 +17,13 @@ test.describe('Mission Planning E2E', () => {
     if (useSitl) {
       await expect(async () => {
         const text = await page.textContent('body')
-        expect(text).toContain('CONNECTED')
+        expect(text).toContain('Connected')
       }).toPass({ timeout: 30_000 })
     } else {
       syntheticVehicle!.sendHeartbeat()
       await expect(async () => {
         const text = await page.textContent('body')
-        expect(text).toContain('CONNECTED')
+        expect(text).toContain('Connected')
       }).toPass({ timeout: 5000 })
     }
 
@@ -42,7 +42,7 @@ test.describe('Mission Planning E2E', () => {
 
     await expect(async () => {
       const text = await page.textContent('body')
-      expect(text).toContain('CONNECTED')
+      expect(text).toContain('Connected')
     }).toPass({ timeout: 3000 })
   })
 
