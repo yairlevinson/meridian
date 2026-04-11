@@ -7,13 +7,11 @@ import { test, expect, useSitl } from './fixtures/vehicleFixture'
 import {
   waitConnected,
   waitGpsFix,
-  waitArmed,
   waitFlightMode,
   waitDisarmed,
   waitAltitude,
   waitAltitudeBelow,
   getPosition,
-  getFlightMode,
   armVehicle,
   ensureDisarmed,
   setMode,
@@ -104,7 +102,8 @@ function buildMission(homeLat: number, homeLon: number) {
 }
 
 test.describe.serial('PX4 SITL Mission', () => {
-  test('upload mission to PX4', async ({ page }) => {
+  test('upload and download mission round-trip', async ({ page }) => {
+    test.setTimeout(SITL_TIMEOUTS.gpsFix + 90_000)
     await waitConnected(page)
     await waitGpsFix(page)
 
@@ -113,11 +112,6 @@ test.describe.serial('PX4 SITL Mission', () => {
 
     // Upload mission via IPC
     await page.evaluate((missionItems) => window.bridge.missionWrite(1, missionItems), items)
-  })
-
-  test('download mission round-trip preserves items', async ({ page }) => {
-    test.setTimeout(30_000)
-    await waitConnected(page)
 
     // PX4 may need time to process the upload from the previous test.
     // Poll the download until we get items back.
@@ -136,15 +130,13 @@ test.describe.serial('PX4 SITL Mission', () => {
   })
 
   test('arm and start mission in Auto mode', async ({ page }) => {
-    // armVehicle may retry up to 6 times with 15s gaps (~90s worst case)
     test.setTimeout(SITL_TIMEOUTS.gpsFix + 120_000 + SITL_TIMEOUTS.modeTransition + 15_000)
 
-    // PX4 may need recovery time from emergencyStop in previous test files
     await ensureDisarmed(page)
     await waitGpsFix(page)
     await armVehicle(page)
 
-    // Upload mission again (arm may have cleared it) and switch to Auto:Mission
+    // Upload mission fresh (arm may have cleared it) and switch to Auto:Mission
     const pos = await getPosition(page)
     const items = buildMission(pos.lat, pos.lon)
     await page.evaluate((missionItems) => window.bridge.missionWrite(1, missionItems), items)
@@ -161,11 +153,16 @@ test.describe.serial('PX4 SITL Mission', () => {
   test('mission progresses through waypoints', async ({ page }) => {
     test.setTimeout(SITL_TIMEOUTS.missionComplete)
 
-    // Monitor mission progress — wait for the vehicle to reach at least waypoint 2
+    const startPos = await getPosition(page)
+
+    // Wait for significant movement — WP1 and WP2 are ~55m from home
     await expect(async () => {
-      const mode = await getFlightMode(page)
-      // Check that we're still in Auto:Mission or transitioning
-      expect(mode).toMatch(/Auto:(Mission|RTL|Land|Loiter)/)
+      const pos = await getPosition(page)
+      const dist = Math.sqrt(
+        Math.pow((pos.lat - startPos.lat) * 111_000, 2) +
+          Math.pow((pos.lon - startPos.lon) * 111_000 * Math.cos((startPos.lat * Math.PI) / 180), 2)
+      )
+      expect(dist).toBeGreaterThan(20) // moved at least 20m
     }).toPass({ timeout: SITL_TIMEOUTS.missionComplete })
   })
 

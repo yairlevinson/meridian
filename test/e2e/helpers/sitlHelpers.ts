@@ -238,19 +238,19 @@ export async function fullPreFlight(page: Page): Promise<void> {
 
 // ── Data extraction ─────────────────────────────────────────────────
 
-/** Get current vehicle position via IPC bridge. */
+/** Get current vehicle position via vehicle store. */
 export async function getPosition(page: Page): Promise<{ lat: number; lon: number; alt: number }> {
-  return page.evaluate(async () => {
-    const state = (await window.bridge.getVehicleState(1)) as Record<string, any> | null
-    const gps = state?.gps
+  return page.evaluate(() => {
+    const store = (window as any).__vehicleStore
+    const gps = store?.getState()?.vehicles?.[1]?.gps
     return gps ? { lat: gps.lat, lon: gps.lon, alt: gps.alt } : { lat: 0, lon: 0, alt: 0 }
   })
 }
 
-/** Get current flight mode name via IPC bridge. */
+/** Get current flight mode name via vehicle store. */
 export async function getFlightMode(page: Page): Promise<string> {
-  return page.evaluate(async () => {
-    const state = (await window.bridge.getVehicleState(1)) as Record<string, any> | null
-    return (state?.core?.flightModeName as string) ?? ''
+  return page.evaluate(() => {
+    const store = (window as any).__vehicleStore
+    return (store?.getState()?.vehicles?.[1]?.core?.flightModeName as string) ?? ''
   })
 }

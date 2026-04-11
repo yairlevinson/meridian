@@ -18,17 +18,12 @@ test.describe.serial('PX4 SITL Connection', () => {
 
   test('identifies PX4 autopilot type', async ({ page }) => {
     await waitConnected(page)
-    // Check via store or body for PX4-specific mode names
-    const mode = await getFlightMode(page)
-    const body = await page.textContent('body')
-    const hasPx4Indicators =
-      mode.includes('Auto:') ||
-      mode.includes('PosCtl') ||
-      mode.includes('AltCtl') ||
-      mode.includes('Stabilized') ||
-      mode.includes('Manual') ||
-      body?.includes('Connected')
-    expect(hasPx4Indicators).toBeTruthy()
+    const autopilot = await page.evaluate(() => {
+      const store = (window as any).__vehicleStore
+      return store?.getState()?.vehicles?.[1]?.core?.autopilot
+    })
+    // MAV_AUTOPILOT_PX4 = 12
+    expect(autopilot).toBe(12)
   })
 
   test('decodes PX4 mode name from custom_mode bitfield', async ({ page }) => {
