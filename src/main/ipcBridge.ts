@@ -100,24 +100,29 @@ export function startIpcBridge(
   const inspector = new MavlinkInspector(broadcast)
   vehicleManager.onRawMessage = inspector.handleMessage
 
+  // Track disposers so shutdown can fully unwire
+  const disposers: Array<() => void> = []
+
   // Forward renderer logs to main process log file
   const rendererLog = createLogger('renderer')
-  ipcMain.on(
-    'renderer:log',
-    (_event, { level, tag, message }: { level: string; tag: string; message: string }) => {
-      const tagged = `[${tag}] ${message}`
-      if (level === 'error') rendererLog.error(tagged)
-      else if (level === 'warn') rendererLog.warn(tagged)
-      else rendererLog.log(tagged)
-    }
-  )
+  const onRendererLog = (
+    _event: Electron.IpcMainEvent,
+    { level, tag, message }: { level: string; tag: string; message: string }
+  ): void => {
+    const tagged = `[${tag}] ${message}`
+    if (level === 'error') rendererLog.error(tagged)
+    else if (level === 'warn') rendererLog.warn(tagged)
+    else rendererLog.log(tagged)
+  }
+  ipcMain.on('renderer:log', onRendererLog)
+  disposers.push(() => ipcMain.removeListener('renderer:log', onRendererLog))
 
   let sentCount = 0
   let skippedCount = 0
   let lastLogTime = Date.now()
 
   // Forward vehicle lifecycle events to all renderer windows
-  vehicleManager.on('vehicleAdded', (sysid: number) => {
+  const onVehicleAdded = (sysid: number): void => {
     broadcast(IpcEvents.VehicleAdded, { vehicleId: sysid })
     const vehicle = vehicleManager.getVehicle(sysid)
     if (vehicle) {
@@ -181,38 +186,50 @@ export function startIpcBridge(
         broadcast(IpcEvents.MavConsoleData, { vehicleId: sysid, ...payload })
       })
     }
-  })
+  }
+  vehicleManager.on('vehicleAdded', onVehicleAdded)
+  disposers.push(() => vehicleManager.removeListener('vehicleAdded', onVehicleAdded))
 
-  vehicleManager.on('vehicleRemoved', (sysid: number) => {
+  const onVehicleRemoved = (sysid: number): void => {
     broadcast(IpcEvents.VehicleRemoved, { vehicleId: sysid })
-  })
+  }
+  vehicleManager.on('vehicleRemoved', onVehicleRemoved)
+  disposers.push(() => vehicleManager.removeListener('vehicleRemoved', onVehicleRemoved))
 
   // Forward link state changes to all renderer windows
   if (linkManager) {
-    linkManager.on('linkStateChanged', () => {
+    const onLinkStateChanged = (): void => {
       broadcast(IpcEvents.LinkStateChanged, linkManager.getAllStates())
-    })
+    }
+    linkManager.on('linkStateChanged', onLinkStateChanged)
+    disposers.push(() => linkManager.removeListener('linkStateChanged', onLinkStateChanged))
   }
 
   // Forward video state changes to all renderer windows
   if (videoManager) {
-    videoManager.on('stateChanged', (state) => {
+    const onVideoStateChanged = (state: unknown): void => {
       broadcast(IpcEvents.VideoStateChanged, state)
-    })
+    }
+    videoManager.on('stateChanged', onVideoStateChanged)
+    disposers.push(() => videoManager.removeListener('stateChanged', onVideoStateChanged))
   }
 
   // Forward MAVLink forwarding state changes to all renderer windows
   if (forwarder) {
-    forwarder.on('stateChanged', (state) => {
+    const onForwardingStateChanged = (state: unknown): void => {
       broadcast(IpcEvents.ForwardingStateChanged, state)
-    })
+    }
+    forwarder.on('stateChanged', onForwardingStateChanged)
+    disposers.push(() => forwarder.removeListener('stateChanged', onForwardingStateChanged))
   }
 
   // Forward radar state changes to all renderer windows
   if (radarManager) {
-    radarManager.on('stateChanged', (state) => {
+    const onRadarStateChanged = (state: unknown): void => {
       broadcast(IpcEvents.RadarStateChanged, state)
-    })
+    }
+    radarManager.on('stateChanged', onRadarStateChanged)
+    disposers.push(() => radarManager.removeListener('stateChanged', onRadarStateChanged))
   }
 
   // Delta tick: iterate all vehicles, broadcast to all windows
@@ -374,22 +391,27 @@ export function startIpcBridge(
       channel: IpcChannels.MissionLoad,
       handler: (vehicleId: number) => {
         const vehicle = vehicleManager.getVehicle(vehicleId)
-        if (!vehicle) return { items: [], error: 'No vehicle' }
+        if (!vehicle) return Promise.resolve({ items: [], error: 'No vehicle' })
         return new Promise((resolve) => {
+          const mm = vehicle.missionManager
+          const onComplete = (items: MissionItem[]): void => {
+            clearTimeout(timeout)
+            mm.off('error', onError)
+            resolve({ items })
+          }
+          const onError = (code: number): void => {
+            clearTimeout(timeout)
+            mm.off('loadComplete', onComplete)
+            resolve({ items: [], error: `Error code ${code}` })
+          }
           const timeout = setTimeout(() => {
-            vehicle.missionManager.removeAllListeners('loadComplete')
-            vehicle.missionManager.removeAllListeners('error')
+            mm.off('loadComplete', onComplete)
+            mm.off('error', onError)
             resolve({ items: [], error: 'Timeout' })
           }, 30000)
-          vehicle.missionManager.once('loadComplete', (items: MissionItem[]) => {
-            clearTimeout(timeout)
-            resolve({ items })
-          })
-          vehicle.missionManager.once('error', (code: number) => {
-            clearTimeout(timeout)
-            resolve({ items: [], error: `Error code ${code}` })
-          })
-          vehicle.missionManager.loadFromVehicle()
+          mm.once('loadComplete', onComplete)
+          mm.once('error', onError)
+          mm.loadFromVehicle()
         })
       }
     },
@@ -397,28 +419,27 @@ export function startIpcBridge(
       channel: IpcChannels.MissionWrite,
       handler: (req: { vehicleId: number; items: MissionItem[] }) => {
         const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        log.log(
-          `missionWrite vehicleId=${req.vehicleId} items=${req.items?.length ?? 0} vehicleFound=${!!vehicle} hasLink=${!!(vehicle?.missionManager as unknown as Record<string, unknown>)?.link}`
-        )
-        if (!vehicle) return { error: 'No vehicle' }
+        if (!vehicle) return Promise.resolve({ error: 'No vehicle' })
         return new Promise((resolve) => {
+          const mm = vehicle.missionManager
+          const onComplete = (): void => {
+            clearTimeout(timeout)
+            mm.off('error', onError)
+            resolve({ success: true })
+          }
+          const onError = (code: number): void => {
+            clearTimeout(timeout)
+            mm.off('writeComplete', onComplete)
+            resolve({ error: `Error code ${code}` })
+          }
           const timeout = setTimeout(() => {
-            log.log(`missionWrite TIMEOUT for vehicle ${req.vehicleId}`)
-            vehicle.missionManager.removeAllListeners('writeComplete')
-            vehicle.missionManager.removeAllListeners('error')
+            mm.off('writeComplete', onComplete)
+            mm.off('error', onError)
             resolve({ error: 'Timeout' })
           }, 30000)
-          vehicle.missionManager.once('writeComplete', () => {
-            log.log(`missionWrite COMPLETE for vehicle ${req.vehicleId}`)
-            clearTimeout(timeout)
-            resolve({ success: true })
-          })
-          vehicle.missionManager.once('error', (code: number) => {
-            log.log(`missionWrite ERROR code=${code} for vehicle ${req.vehicleId}`)
-            clearTimeout(timeout)
-            resolve({ error: `Error code ${code}` })
-          })
-          vehicle.missionManager.writeToVehicle(req.items)
+          mm.once('writeComplete', onComplete)
+          mm.once('error', onError)
+          mm.writeToVehicle(req.items)
         })
       }
     },
@@ -837,11 +858,14 @@ export function startIpcBridge(
     broadcast(IpcEvents.SettingsChanged, { key, value })
   }
   settingsManager?.on('changed', onSettingsChanged)
+  if (settingsManager) {
+    disposers.push(() => settingsManager.removeListener('changed', onSettingsChanged))
+  }
 
   return () => {
     inspector.disable()
     clearInterval(interval)
-    settingsManager?.removeListener('changed', onSettingsChanged)
+    for (const dispose of disposers) dispose()
     for (const { channel } of handlers) {
       ipcMain.removeHandler(channel)
     }

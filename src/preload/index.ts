@@ -46,8 +46,14 @@ export interface Bridge {
   getParameters: (vehicleId: number) => Promise<unknown>
   setParameter: (vehicleId: number, name: string, value: number) => Promise<void>
   refreshParameters: (vehicleId: number) => Promise<void>
-  missionLoad: (vehicleId: number) => Promise<unknown>
-  missionWrite: (vehicleId: number, items: unknown[]) => Promise<void>
+  missionLoad: (vehicleId: number) => Promise<{
+    items: import('../shared-types/ipc/MissionTypes').MissionItem[]
+    error?: string
+  }>
+  missionWrite: (
+    vehicleId: number,
+    items: import('../shared-types/ipc/MissionTypes').MissionItem[]
+  ) => Promise<{ success: true } | { error: string }>
   savePlan: (planData: unknown) => Promise<{ filePath: string } | { cancelled: true }>
   openPlan: () => Promise<unknown>
   onMissionProgress: (

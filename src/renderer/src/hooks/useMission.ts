@@ -14,7 +14,7 @@ export function useMission(): {
 
   const uploadMission = useCallback(async () => {
     const vid = activeId
-    if (vid == null) return
+    if (vid == null) return undefined
     const store = useMissionStore.getState()
     const waypoints = store.editableWaypoints
     const items = waypoints.map((wp, i) => waypointToMissionItem(wp, i))
@@ -25,6 +25,7 @@ export function useMission(): {
       return result
     } catch {
       useMissionStore.getState().setProtocolState(MissionProtocolState.Idle)
+      return undefined
     }
   }, [activeId])
 
