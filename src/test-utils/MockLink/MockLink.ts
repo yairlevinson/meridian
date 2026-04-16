@@ -77,7 +77,7 @@ export class MockLink extends LinkInterface {
   /** Inject an ATTITUDE message */
   injectAttitude(roll: number, pitch: number, yaw: number): void {
     const att = new common.Attitude()
-    att.timeBootMs = Date.now() & 0xffffffff
+    att.timeBootMs = Date.now() >>> 0
     att.roll = roll
     att.pitch = pitch
     att.yaw = yaw
@@ -90,7 +90,7 @@ export class MockLink extends LinkInterface {
   /** Inject a GLOBAL_POSITION_INT message */
   injectPosition(lat: number, lon: number, alt: number, hdg = 0): void {
     const pos = new common.GlobalPositionInt()
-    pos.timeBootMs = Date.now() & 0xffffffff
+    pos.timeBootMs = Date.now() >>> 0
     pos.lat = Math.round(lat * 1e7)
     pos.lon = Math.round(lon * 1e7)
     pos.alt = Math.round(alt * 1000)
