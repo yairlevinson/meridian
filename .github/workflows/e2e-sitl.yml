@@ -1,0 +1,59 @@
+name: E2E SITL
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e-sitl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright Electron deps
+        run: npx playwright install --with-deps
+
+      # Cache the Docker image to avoid rebuilding PX4 (~5 min) on every run
+      - name: Cache SITL Docker image
+        id: cache-sitl
+        uses: actions/cache@v4
+        with:
+          path: /tmp/sitl-image.tar
+          key: sitl-image-${{ hashFiles('test/e2e/sitl/Dockerfile.px4-sitl', 'test/e2e/sitl/entrypoint-sitl.sh', 'test/e2e/sitl/write-sitl-params.py', 'test/e2e/sitl/healthcheck.sh') }}
+
+      - name: Load cached SITL image
+        if: steps.cache-sitl.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/sitl-image.tar
+
+      - name: Build SITL Docker image
+        if: steps.cache-sitl.outputs.cache-hit != 'true'
+        run: |
+          docker build -t meridian-px4-sitl:latest -f test/e2e/sitl/Dockerfile.px4-sitl .
+          docker save meridian-px4-sitl:latest -o /tmp/sitl-image.tar
+
+      - name: Build app
+        run: npm run build
+
+      - name: Run E2E SITL tests
+        run: npx playwright test --grep sitl
+        env:
+          GC_E2E_SITL: '1'
+          # Run headless on CI (no display)
+          DISPLAY: ':99'
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-sitl-results
+          path: test-results/
