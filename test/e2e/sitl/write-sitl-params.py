@@ -12,13 +12,20 @@ import struct
 import sys
 import os
 
-# Must match the params in gazeboLauncher.ts SITL_PARAMS, plus airframe
-# and sensor calibration needed for SIH to report healthy.
-SITL_PARAMS = {
-    # Airframe: SIH quadcopter (10040 = sihsim_quadx).
+# Params that are SEEDED ONLY if not already set in parameters.bson.
+# Letting these persist allows users to change airframe via MAVLink/Meridian
+# and have the change survive container reboots.
+SEED_ONLY_PARAMS = {
+    # Airframe: SIH quadcopter (10040 = sihsim_quadx) as the initial default.
     # 4001 is a Gazebo airframe — using it with PX4_SIM_MODEL=none
     # causes PX4 to error "please install gz-garden".
     'SYS_AUTOSTART': ('int32', 10040),
+}
+
+# Must match the params in gazeboLauncher.ts SITL_PARAMS, plus sensor
+# calibration needed for SIH to report healthy. These are overwritten on
+# every boot since they're health/connectivity requirements.
+SITL_PARAMS = {
     # SYS_AUTOCONFIG=0: don't reset params on boot
     'SYS_AUTOCONFIG': ('int32', 0),
 
@@ -141,7 +148,13 @@ def main():
     if os.path.exists(param_file):
         params = read_bson_params(param_file)
 
-    # Merge SITL params
+    # Seed-only params: write only if not already present, so runtime changes
+    # via MAVLink (e.g. user switching airframe) survive container reboots.
+    for key, val in SEED_ONLY_PARAMS.items():
+        if key not in params:
+            params[key] = val
+
+    # Always-overwrite params (health/connectivity).
     params.update(SITL_PARAMS)
 
     # Write

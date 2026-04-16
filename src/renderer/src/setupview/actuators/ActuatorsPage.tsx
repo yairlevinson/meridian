@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useTelemetry } from '../../hooks/useVehicle'
 import { useActuatorTest } from '../../hooks/useActuatorTest'
 import { useParameterStore } from '../../store/parameterStore'
+import type { Parameter } from '../../../../shared-types/ipc/ParameterTypes'
 import { OutputConfigSection } from './OutputConfigSection'
 import { MotorIdentification } from './MotorIdentification'
 import { MotorSpinDirection } from './MotorSpinDirection'
@@ -14,6 +15,49 @@ const DEFAULT_TIMEOUT_S = 3
 const SERVO_MIN = 1000
 const SERVO_MAX = 2000
 const SERVO_CENTER = 1500
+// MAV_TYPE → motor count (matches QGC QGCMAVLink::motorCount)
+const MOTOR_COUNT_BY_TYPE: Record<number, number> = {
+  1: 1, // FIXED_WING
+  2: 4, // QUADROTOR
+  3: 2, // COAXIAL
+  4: 1, // HELICOPTER
+  10: 1, // GROUND_ROVER
+  11: 1, // SURFACE_BOAT
+  13: 6, // HEXAROTOR
+  14: 8, // OCTOROTOR
+  15: 3, // TRICOPTER
+  19: 2, // VTOL_TAILSITTER_DUOROTOR
+  20: 4, // VTOL_TAILSITTER_QUADROTOR
+  21: 1, // VTOL_TILTROTOR (conservative)
+  22: 1 // VTOL_FIXEDROTOR
+}
+
+/**
+ * Detect motor count. Primary source is MAV_TYPE (from HEARTBEAT — always
+ * available), matching QGC. Parameter-based detection only overrides when
+ * MAV_TYPE is unknown (e.g. custom airframes).
+ */
+function detectMotorCount(
+  vehicleType: number | undefined,
+  params: Map<string, Parameter>
+): number | null {
+  if (vehicleType != null && MOTOR_COUNT_BY_TYPE[vehicleType] != null) {
+    return MOTOR_COUNT_BY_TYPE[vehicleType]!
+  }
+  // Fallback: PX4 CA_ROTOR_COUNT
+  const caRotor = params.get('CA_ROTOR_COUNT')?.value
+  if (typeof caRotor === 'number' && caRotor > 0) {
+    return Math.min(8, Math.max(1, Math.round(caRotor)))
+  }
+  // Fallback: ArduPilot SERVOx_FUNCTION motor assignments (33-40, 82-85)
+  let count = 0
+  for (let i = 1; i <= 16; i++) {
+    const fn = params.get(`SERVO${i}_FUNCTION`)?.value
+    if (typeof fn !== 'number') continue
+    if ((fn >= 33 && fn <= 40) || (fn >= 82 && fn <= 85)) count++
+  }
+  return count > 0 ? Math.min(8, count) : null
+}
 
 export function ActuatorsPage(): React.JSX.Element {
   const core = useTelemetry('core')
@@ -22,6 +66,7 @@ export function ActuatorsPage(): React.JSX.Element {
 
   const [safetyEnabled, setSafetyEnabled] = useState(false)
   const [motorCount, setMotorCount] = useState(DEFAULT_MOTOR_COUNT)
+  const userOverrodeMotorCountRef = useRef(false)
   const [timeoutS, setTimeoutS] = useState(DEFAULT_TIMEOUT_S)
   const [motorValues, setMotorValues] = useState<number[]>(() => Array(8).fill(0))
   const [allMotorsValue, setAllMotorsValue] = useState(0)
@@ -170,6 +215,7 @@ export function ActuatorsPage(): React.JSX.Element {
 
   // Look up SERVOx_FUNCTION names for slider labels
   const parameters = useParameterStore((s) => s.parameters)
+  const loadState = useParameterStore((s) => s.loadState)
   const channelNames = useMemo(() => {
     const names: (string | null)[] = []
     for (let i = 1; i <= 16; i++) {
@@ -178,6 +224,18 @@ export function ActuatorsPage(): React.JSX.Element {
     }
     return names
   }, [parameters])
+
+  // Auto-detect motor count from vehicle params (PX4 CA_ROTOR_COUNT or
+  // ArduPilot SERVOx_FUNCTION motor assignments). User override wins.
+  const detectedMotorCount = useMemo(
+    () => (loadState.parametersReady ? detectMotorCount(core?.vehicleType, parameters) : null),
+    [core?.vehicleType, parameters, loadState.parametersReady]
+  )
+  useEffect(() => {
+    if (detectedMotorCount != null && !userOverrodeMotorCountRef.current) {
+      setMotorCount(detectedMotorCount)
+    }
+  }, [detectedMotorCount])
 
   // Live servo output data
   const outputs = servoOutput?.outputs ?? []
@@ -230,7 +288,10 @@ export function ActuatorsPage(): React.JSX.Element {
           <select
             className={styles.motorCountSelect}
             value={motorCount}
-            onChange={(e) => setMotorCount(Number(e.target.value))}
+            onChange={(e) => {
+              userOverrodeMotorCountRef.current = true
+              setMotorCount(Number(e.target.value))
+            }}
             disabled={controlsDisabled}
           >
             {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (

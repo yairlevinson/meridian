@@ -14,7 +14,12 @@ function distanceM(lat1: number, lon1: number, lat2: number, lon2: number): numb
 }
 
 function fmt(v: number | undefined, decimals: number): string {
-  return v != null ? v.toFixed(decimals) : '--'
+  if (v == null) return '--'
+  // Clamp sub-precision values to 0 so near-idle values don't flicker
+  // between e.g. "0.0" and "-0.0" as noise crosses zero.
+  const threshold = 0.5 * Math.pow(10, -decimals)
+  if (Math.abs(v) < threshold) return (0).toFixed(decimals)
+  return v.toFixed(decimals)
 }
 
 const COLORS = {
@@ -217,7 +222,10 @@ export function FloatingInstruments(): React.JSX.Element | null {
 
   const spd = vfrHud?.groundspeed
   const alt = gps?.relativeAlt ?? vfrHud?.altitude
-  const hdg = vfrHud?.heading
+  // Use gps.hdg (derived from ATTITUDE.yaw, EKF-smoothed float) instead of
+  // vfrHud.heading (int16 whole degrees) — the latter flips 0↔359 around north.
+  // Wrap 360→0 so rounding 359.7 doesn't display as "360".
+  const hdg = gps?.hdg != null ? Math.round(gps.hdg) % 360 : vfrHud?.heading
   const thr = vfrHud?.throttle
   const vs = vfrHud?.climbRate
   const distToHome = gps && home ? distanceM(gps.lat, gps.lon, home.lat, home.lon) : null
@@ -239,7 +247,6 @@ export function FloatingInstruments(): React.JSX.Element | null {
           value={fmt(spd, 1)}
           unit="m/s"
           color={COLORS.spd}
-          barPct={spd != null ? (spd / 50) * 100 : undefined}
         />
         <InstrumentRow
           icon={<AltIcon />}
@@ -247,7 +254,6 @@ export function FloatingInstruments(): React.JSX.Element | null {
           value={fmt(alt, 1)}
           unit="m"
           color={COLORS.alt}
-          barPct={alt != null ? (alt / 200) * 100 : undefined}
         />
         <InstrumentRow
           icon={<HdgIcon />}
@@ -255,7 +261,6 @@ export function FloatingInstruments(): React.JSX.Element | null {
           value={fmt(hdg, 0)}
           unit="deg"
           color={COLORS.hdg}
-          barPct={hdg != null ? (hdg / 360) * 100 : undefined}
         />
         <InstrumentRow
           icon={<ThrIcon />}
@@ -274,7 +279,7 @@ export function FloatingInstruments(): React.JSX.Element | null {
         />
         <InstrumentRow
           icon={<HomeIcon />}
-          label="HOME"
+          label="DIST"
           value={homeFmt}
           unit={homeUnit}
           color={COLORS.home}

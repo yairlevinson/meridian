@@ -45,7 +45,7 @@ export function AttitudeIndicator({ size = 150 }: { size?: number }): React.JSX.
             strokeWidth="1.5"
           />
           {[-20, -10, 10, 20].map((deg) => (
-            <g key={deg} transform={`translate(0, ${pitchOffset + deg * 2})`}>
+            <g key={deg} transform={`translate(0, ${pitchOffset - deg * 2})`}>
               <line
                 x1={deg % 20 === 0 ? -30 : -20}
                 y1="0"
