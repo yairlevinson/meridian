@@ -591,6 +591,93 @@ export class Vehicle extends EventEmitter {
     return this.executePlan(getActionPlan(this.autopilotType, 'emergencyStop'))
   }
 
+  /**
+   * Change in-flight altitude. `newAltRel` is the desired altitude above the home
+   * position in meters (matches the alt displayed in the fly view).
+   * Internally converted to AMSL using the vehicle's home altitude.
+   */
+  guidedChangeAltitude(newAltRel: number): Promise<MavResult> {
+    const snap = this.state.getSnapshot()
+    if (!snap.home.valid) {
+      log.warn('guidedChangeAltitude: no valid home position')
+      return Promise.resolve(MavResult.TEMPORARILY_REJECTED)
+    }
+    const altMsl = snap.home.alt + newAltRel
+    const lat = snap.gps.lat
+    const lon = snap.gps.lon
+    log.debug(
+      'guidedChangeAltitude %s: newAltRel=%f altMsl=%f',
+      this.autopilotType,
+      newAltRel,
+      altMsl
+    )
+    return this.executePlan(
+      getActionPlan(this.autopilotType, 'changeAltitude', { lat, lon, altMsl })
+    )
+  }
+
+  /**
+   * Rotate to an absolute heading in degrees (0 = north, clockwise positive).
+   * PX4 uses DO_REPOSITION with yaw; ArduPilot uses CONDITION_YAW.
+   */
+  guidedChangeHeading(headingDeg: number): Promise<MavResult> {
+    const wrapped = ((headingDeg % 360) + 360) % 360
+    let yawRateLimit = 0
+    if (this.autopilotType === 'ardupilot') {
+      const p = this.parameterManager.getParameter('ATC_RATE_Y_MAX')
+      if (p && typeof p.value === 'number' && p.value > 0) yawRateLimit = p.value
+    }
+    log.debug('guidedChangeHeading %s: heading=%f', this.autopilotType, wrapped)
+    return this.executePlan(
+      getActionPlan(this.autopilotType, 'changeHeading', {
+        headingDeg: wrapped,
+        yawRateLimit
+      })
+    )
+  }
+
+  /**
+   * Change flight speed. `speedType`: 0 = airspeed, 1 = groundspeed (MAV_CMD_DO_CHANGE_SPEED).
+   */
+  guidedChangeSpeed(speed: number, speedType: 0 | 1 = 1): Promise<MavResult> {
+    log.debug('guidedChangeSpeed %s: type=%d speed=%f', this.autopilotType, speedType, speed)
+    return this.executePlan(getActionPlan(this.autopilotType, 'changeSpeed', { speedType, speed }))
+  }
+
+  /**
+   * Orbit a point. Radius sign encodes direction (negative = CCW).
+   * `altRel` is altitude above home, converted to AMSL.
+   */
+  guidedOrbit(lat: number, lon: number, radius: number, altRel: number): Promise<MavResult> {
+    const snap = this.state.getSnapshot()
+    if (!snap.home.valid) {
+      log.warn('guidedOrbit: no valid home position')
+      return Promise.resolve(MavResult.TEMPORARILY_REJECTED)
+    }
+    const altMsl = snap.home.alt + altRel
+    log.debug(
+      'guidedOrbit %s: center=(%f,%f) radius=%f altMsl=%f',
+      this.autopilotType,
+      lat,
+      lon,
+      radius,
+      altMsl
+    )
+    return this.executePlan(
+      getActionPlan(this.autopilotType, 'orbit', { lat, lon, radius, altMsl })
+    )
+  }
+
+  landingGearDeploy(): Promise<MavResult> {
+    log.debug('landingGearDeploy')
+    return this.executePlan(getActionPlan(this.autopilotType, 'landingGear', { state: 0 }))
+  }
+
+  landingGearRetract(): Promise<MavResult> {
+    log.debug('landingGearRetract')
+    return this.executePlan(getActionPlan(this.autopilotType, 'landingGear', { state: 1 }))
+  }
+
   private consoleProtocol = createGcsProtocol()
   private consoleSeq = 0
 

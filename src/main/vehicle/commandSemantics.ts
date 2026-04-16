@@ -96,6 +96,44 @@ export interface GotoParams {
   alt: number // AMSL
 }
 
+export interface ChangeAltitudeParams {
+  /** Current latitude (degrees) — PX4 accepts NaN to hold, but ArduPilot Copter treats NaN as reject */
+  lat: number
+  lon: number
+  /** New target altitude AMSL (meters) */
+  altMsl: number
+}
+
+export interface ChangeHeadingParams {
+  /** Target heading in degrees (0-360, 0 = north, CW positive) */
+  headingDeg: number
+  /** For ArduPilot CONDITION_YAW: signed shortest-path delta in degrees (negative = CCW) */
+  deltaDeg?: number
+  /** ArduPilot yaw rate limit (deg/s, from ATC_RATE_Y_MAX), 0 = autopilot default */
+  yawRateLimit?: number
+}
+
+export interface ChangeSpeedParams {
+  /** 0 = airspeed, 1 = groundspeed */
+  speedType: number
+  /** Speed setpoint in m/s */
+  speed: number
+}
+
+export interface OrbitParams {
+  lat: number
+  lon: number
+  /** AMSL altitude (meters) */
+  altMsl: number
+  /** Radius in meters. Negative = counter-clockwise (QGC convention for orbit direction) */
+  radius: number
+}
+
+export interface LandingGearParams {
+  /** 0 = deploy/down, 1 = retract/up */
+  state: number
+}
+
 /**
  * Get the action plan for a guided action on the specified autopilot.
  *
@@ -215,6 +253,73 @@ function getPx4ActionPlan(action: string, params: Record<string, number>): Actio
         }
       ]
 
+    case 'changeAltitude': {
+      // QGC PX4FirmwarePlugin::guidedModeChangeAltitude → _changeAltAfterPause:
+      // DO_REPOSITION with NaN for yaw/lat/lon (hold) and new AMSL altitude in p7.
+      const { altMsl } = params as unknown as ChangeAltitudeParams
+      return [
+        {
+          type: 'command',
+          command: 192, // MAV_CMD_DO_REPOSITION
+          params: { p1: -1, p2: 1, p3: 0, p4: NaN, p5: NaN, p6: NaN, p7: altMsl }
+        }
+      ]
+    }
+
+    case 'changeHeading': {
+      // QGC PX4FirmwarePlugin::guidedModeChangeHeading: DO_REPOSITION with yaw in radians.
+      // PX4 firmware specifically accepts radians here (spec says degrees, but QGC sends
+      // radians and PX4 works with that — matching QGC to preserve parity).
+      const { headingDeg } = params as unknown as ChangeHeadingParams
+      const rad = (headingDeg * Math.PI) / 180
+      return [
+        {
+          type: 'command',
+          command: 192, // MAV_CMD_DO_REPOSITION
+          params: { p1: -1, p2: 1, p3: 0, p4: rad, p5: NaN, p6: NaN, p7: NaN }
+        }
+      ]
+    }
+
+    case 'changeSpeed': {
+      // MAV_CMD_DO_CHANGE_SPEED — shared between PX4 and ArduPilot
+      const { speedType, speed } = params as unknown as ChangeSpeedParams
+      return [
+        {
+          type: 'command',
+          command: 178, // MAV_CMD_DO_CHANGE_SPEED
+          params: { p1: speedType, p2: speed, p3: -1, p4: 0, p5: NaN, p6: NaN, p7: NaN }
+        }
+      ]
+    }
+
+    case 'orbit': {
+      // QGC Vehicle::guidedModeOrbit → MAV_CMD_DO_ORBIT.
+      // Negative radius = CCW per MAVLink spec.
+      // ORBIT_YAW_BEHAVIOUR_UNCHANGED = 1 (keep current yaw mode)
+      const { lat, lon, altMsl, radius } = params as unknown as OrbitParams
+      return [
+        {
+          type: 'command',
+          command: 34, // MAV_CMD_DO_ORBIT
+          params: { p1: radius, p2: NaN, p3: 1, p4: NaN, p5: lat, p6: lon, p7: altMsl }
+        }
+      ]
+    }
+
+    case 'landingGear': {
+      // QGC Vehicle::landingGearDeploy/Retract: MAV_CMD_AIRFRAME_CONFIGURATION
+      // p1 = -1 (all gears), p2 = 0 (down/deploy) or 1 (up/retract)
+      const { state } = params as unknown as LandingGearParams
+      return [
+        {
+          type: 'command',
+          command: 2520, // MAV_CMD_AIRFRAME_CONFIGURATION
+          params: { p1: -1, p2: state }
+        }
+      ]
+    }
+
     default:
       throw new Error(`Unknown PX4 action: ${action}`)
   }
@@ -329,6 +434,71 @@ function getArduPilotActionPlan(action: string, params: Record<string, number>):
           params: { p1: 0, p2: 21196 }
         }
       ]
+
+    case 'changeAltitude': {
+      // ArduPilot Copter accepts DO_REPOSITION in Guided mode with current lat/lon
+      // and new altitude. (QGC uses SET_POSITION_TARGET_LOCAL_NED with LOCAL_OFFSET_NED
+      // frame; DO_REPOSITION is simpler and supported by ArduPilot Copter 4.0+.)
+      const { lat, lon, altMsl } = params as unknown as ChangeAltitudeParams
+      return [
+        {
+          type: 'command',
+          command: 192, // MAV_CMD_DO_REPOSITION
+          params: { p1: -1, p2: 1, p4: NaN, p5: lat, p6: lon, p7: altMsl }
+        }
+      ]
+    }
+
+    case 'changeHeading': {
+      // QGC APMFirmwarePlugin::guidedModeChangeHeading: CONDITION_YAW with
+      // absolute heading (p4=0 means absolute, not relative).
+      const { headingDeg, yawRateLimit = 0 } = params as unknown as ChangeHeadingParams
+      return [
+        {
+          type: 'command',
+          command: 115, // MAV_CMD_CONDITION_YAW
+          params: {
+            p1: headingDeg,
+            p2: yawRateLimit,
+            p3: 0, // direction: 0 = shortest path (when p4=0 absolute)
+            p4: 0 // 0 = absolute angle, 1 = relative
+          }
+        }
+      ]
+    }
+
+    case 'changeSpeed': {
+      const { speedType, speed } = params as unknown as ChangeSpeedParams
+      return [
+        {
+          type: 'command',
+          command: 178, // MAV_CMD_DO_CHANGE_SPEED
+          params: { p1: speedType, p2: speed, p3: -1, p4: 0, p5: NaN, p6: NaN, p7: NaN }
+        }
+      ]
+    }
+
+    case 'orbit': {
+      const { lat, lon, altMsl, radius } = params as unknown as OrbitParams
+      return [
+        {
+          type: 'command',
+          command: 34, // MAV_CMD_DO_ORBIT
+          params: { p1: radius, p2: NaN, p3: 1, p4: NaN, p5: lat, p6: lon, p7: altMsl }
+        }
+      ]
+    }
+
+    case 'landingGear': {
+      const { state } = params as unknown as LandingGearParams
+      return [
+        {
+          type: 'command',
+          command: 2520, // MAV_CMD_AIRFRAME_CONFIGURATION
+          params: { p1: -1, p2: state }
+        }
+      ]
+    }
 
     default:
       throw new Error(`Unknown ArduPilot action: ${action}`)

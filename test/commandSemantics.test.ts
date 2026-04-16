@@ -188,6 +188,123 @@ describe('PX4 CommandSemantics', () => {
     })
   })
 
+  describe('changeAltitude', () => {
+    it('sends DO_REPOSITION with NaN lat/lon (hold) and new AMSL altitude', () => {
+      const plan = getActionPlan('px4', 'changeAltitude', { lat: 32.08, lon: 34.78, altMsl: 125 })
+      expect(plan).toHaveLength(1)
+      const step = plan[0]!
+      expect(step.type).toBe('command')
+      if (step.type === 'command') {
+        expect(step.command).toBe(192) // MAV_CMD_DO_REPOSITION
+        expect(step.params.p1).toBe(-1)
+        expect(step.params.p2).toBe(1)
+        expect(step.params.p4).toBeNaN() // yaw hold
+        expect(step.params.p5).toBeNaN() // lat hold
+        expect(step.params.p6).toBeNaN() // lon hold
+        expect(step.params.p7).toBe(125) // new AMSL alt
+      }
+    })
+  })
+
+  describe('changeHeading', () => {
+    it('sends DO_REPOSITION with yaw in RADIANS (QGC parity, not degrees per spec)', () => {
+      const plan = getActionPlan('px4', 'changeHeading', { headingDeg: 90 })
+      expect(plan).toHaveLength(1)
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.command).toBe(192)
+        expect(step.params.p4).toBeCloseTo(Math.PI / 2, 6)
+        expect(step.params.p5).toBeNaN()
+        expect(step.params.p6).toBeNaN()
+        expect(step.params.p7).toBeNaN()
+      }
+    })
+
+    it('encodes 0° as 0 rad, 180° as π rad, 270° as 3π/2 rad', () => {
+      const north = getActionPlan('px4', 'changeHeading', { headingDeg: 0 })[0]!
+      const south = getActionPlan('px4', 'changeHeading', { headingDeg: 180 })[0]!
+      const west = getActionPlan('px4', 'changeHeading', { headingDeg: 270 })[0]!
+      if (north.type === 'command') expect(north.params.p4).toBeCloseTo(0, 6)
+      if (south.type === 'command') expect(south.params.p4).toBeCloseTo(Math.PI, 6)
+      if (west.type === 'command') expect(west.params.p4).toBeCloseTo((3 * Math.PI) / 2, 6)
+    })
+  })
+
+  describe('changeSpeed', () => {
+    it('sends DO_CHANGE_SPEED with speedType and speed setpoint', () => {
+      const plan = getActionPlan('px4', 'changeSpeed', { speedType: 1, speed: 12 })
+      expect(plan).toHaveLength(1)
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.command).toBe(178) // MAV_CMD_DO_CHANGE_SPEED
+        expect(step.params.p1).toBe(1) // groundspeed
+        expect(step.params.p2).toBe(12)
+        expect(step.params.p3).toBe(-1) // throttle unchanged
+      }
+    })
+
+    it('supports airspeed (speedType=0)', () => {
+      const plan = getActionPlan('px4', 'changeSpeed', { speedType: 0, speed: 8 })
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.params.p1).toBe(0)
+        expect(step.params.p2).toBe(8)
+      }
+    })
+  })
+
+  describe('orbit', () => {
+    it('sends DO_ORBIT with positive radius for CW, negative for CCW', () => {
+      const cw = getActionPlan('px4', 'orbit', {
+        lat: 32.08,
+        lon: 34.78,
+        altMsl: 120,
+        radius: 50
+      })
+      const ccw = getActionPlan('px4', 'orbit', {
+        lat: 32.08,
+        lon: 34.78,
+        altMsl: 120,
+        radius: -50
+      })
+      const cwStep = cw[0]!
+      const ccwStep = ccw[0]!
+      if (cwStep.type === 'command') {
+        expect(cwStep.command).toBe(34) // MAV_CMD_DO_ORBIT
+        expect(cwStep.params.p1).toBe(50)
+        expect(cwStep.params.p3).toBe(1) // ORBIT_YAW_BEHAVIOUR_UNCHANGED
+        expect(cwStep.params.p5).toBe(32.08)
+        expect(cwStep.params.p6).toBe(34.78)
+        expect(cwStep.params.p7).toBe(120)
+      }
+      if (ccwStep.type === 'command') {
+        expect(ccwStep.params.p1).toBe(-50)
+      }
+    })
+  })
+
+  describe('landingGear', () => {
+    it('deploy sends AIRFRAME_CONFIGURATION with p2=0', () => {
+      const plan = getActionPlan('px4', 'landingGear', { state: 0 })
+      expect(plan).toHaveLength(1)
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.command).toBe(2520) // MAV_CMD_AIRFRAME_CONFIGURATION
+        expect(step.params.p1).toBe(-1) // all gears
+        expect(step.params.p2).toBe(0) // down / deploy
+      }
+    })
+
+    it('retract sends AIRFRAME_CONFIGURATION with p2=1', () => {
+      const plan = getActionPlan('px4', 'landingGear', { state: 1 })
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.params.p1).toBe(-1)
+        expect(step.params.p2).toBe(1)
+      }
+    })
+  })
+
   it('throws on unknown action', () => {
     expect(() => getActionPlan('px4', 'unknownAction')).toThrow('Unknown PX4 action')
   })
@@ -280,6 +397,100 @@ describe('ArduPilot CommandSemantics', () => {
         expect(step.params.p5).toBe(32.08)
         expect(step.params.p6).toBe(34.78)
         expect(step.params.p7).toBe(100)
+      }
+    })
+  })
+
+  describe('changeAltitude', () => {
+    it('sends DO_REPOSITION with current lat/lon and new AMSL altitude', () => {
+      const plan = getActionPlan('ardupilot', 'changeAltitude', {
+        lat: 32.08,
+        lon: 34.78,
+        altMsl: 80
+      })
+      expect(plan).toHaveLength(1)
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.command).toBe(192)
+        expect(step.params.p4).toBeNaN()
+        // ArduPilot wants real lat/lon (unlike PX4's NaN hold)
+        expect(step.params.p5).toBe(32.08)
+        expect(step.params.p6).toBe(34.78)
+        expect(step.params.p7).toBe(80)
+      }
+    })
+  })
+
+  describe('changeHeading', () => {
+    it('sends CONDITION_YAW with absolute angle in DEGREES (p4=0)', () => {
+      const plan = getActionPlan('ardupilot', 'changeHeading', { headingDeg: 135 })
+      expect(plan).toHaveLength(1)
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.command).toBe(115) // MAV_CMD_CONDITION_YAW
+        expect(step.params.p1).toBe(135) // degrees, not radians
+        expect(step.params.p2).toBe(0) // default yaw rate
+        expect(step.params.p3).toBe(0) // shortest path
+        expect(step.params.p4).toBe(0) // 0 = absolute
+      }
+    })
+
+    it('passes ATC_RATE_Y_MAX through as yaw rate limit', () => {
+      const plan = getActionPlan('ardupilot', 'changeHeading', {
+        headingDeg: 90,
+        yawRateLimit: 45
+      })
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.params.p2).toBe(45)
+      }
+    })
+  })
+
+  describe('changeSpeed', () => {
+    it('sends DO_CHANGE_SPEED (same encoding as PX4)', () => {
+      const plan = getActionPlan('ardupilot', 'changeSpeed', { speedType: 1, speed: 10 })
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.command).toBe(178)
+        expect(step.params.p1).toBe(1)
+        expect(step.params.p2).toBe(10)
+        expect(step.params.p3).toBe(-1)
+      }
+    })
+  })
+
+  describe('orbit', () => {
+    it('sends DO_ORBIT with signed radius for direction', () => {
+      const plan = getActionPlan('ardupilot', 'orbit', {
+        lat: 40.0,
+        lon: -73.0,
+        altMsl: 50,
+        radius: -30
+      })
+      const step = plan[0]!
+      if (step.type === 'command') {
+        expect(step.command).toBe(34)
+        expect(step.params.p1).toBe(-30) // CCW
+        expect(step.params.p3).toBe(1) // yaw unchanged
+        expect(step.params.p5).toBe(40.0)
+        expect(step.params.p6).toBe(-73.0)
+        expect(step.params.p7).toBe(50)
+      }
+    })
+  })
+
+  describe('landingGear', () => {
+    it('uses AIRFRAME_CONFIGURATION same as PX4', () => {
+      const deploy = getActionPlan('ardupilot', 'landingGear', { state: 0 })[0]!
+      const retract = getActionPlan('ardupilot', 'landingGear', { state: 1 })[0]!
+      if (deploy.type === 'command') {
+        expect(deploy.command).toBe(2520)
+        expect(deploy.params.p1).toBe(-1)
+        expect(deploy.params.p2).toBe(0)
+      }
+      if (retract.type === 'command') {
+        expect(retract.params.p2).toBe(1)
       }
     })
   })

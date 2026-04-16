@@ -356,6 +356,42 @@ export function startIpcBridge(
       handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.emergencyStop()
     },
     {
+      channel: IpcChannels.VehicleGuidedChangeAltitude,
+      handler: (req: { vehicleId: number; altitudeRel: number }) =>
+        vehicleManager.getVehicle(req.vehicleId)?.guidedChangeAltitude(req.altitudeRel)
+    },
+    {
+      channel: IpcChannels.VehicleGuidedChangeHeading,
+      handler: (req: { vehicleId: number; headingDeg: number }) =>
+        vehicleManager.getVehicle(req.vehicleId)?.guidedChangeHeading(req.headingDeg)
+    },
+    {
+      channel: IpcChannels.VehicleGuidedChangeSpeed,
+      handler: (req: { vehicleId: number; speed: number; speedType: 0 | 1 }) =>
+        vehicleManager.getVehicle(req.vehicleId)?.guidedChangeSpeed(req.speed, req.speedType)
+    },
+    {
+      channel: IpcChannels.VehicleGuidedOrbit,
+      handler: (req: {
+        vehicleId: number
+        lat: number
+        lon: number
+        radius: number
+        altitudeRel: number
+      }) =>
+        vehicleManager
+          .getVehicle(req.vehicleId)
+          ?.guidedOrbit(req.lat, req.lon, req.radius, req.altitudeRel)
+    },
+    {
+      channel: IpcChannels.VehicleLandingGearDeploy,
+      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.landingGearDeploy()
+    },
+    {
+      channel: IpcChannels.VehicleLandingGearRetract,
+      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.landingGearRetract()
+    },
+    {
       channel: IpcChannels.ParametersRefresh,
       handler: (...args: unknown[]) => {
         const vehicleId = args[0] as number

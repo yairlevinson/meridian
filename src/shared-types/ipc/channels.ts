@@ -16,6 +16,12 @@ export enum IpcChannels {
   VehicleGuidedPause = 'vehicle:guidedModePause',
   VehicleMissionStart = 'vehicle:missionStart',
   VehicleEmergencyStop = 'vehicle:emergencyStop',
+  VehicleGuidedChangeAltitude = 'vehicle:guidedModeChangeAltitude',
+  VehicleGuidedChangeHeading = 'vehicle:guidedModeChangeHeading',
+  VehicleGuidedChangeSpeed = 'vehicle:guidedModeChangeSpeed',
+  VehicleGuidedOrbit = 'vehicle:guidedModeOrbit',
+  VehicleLandingGearDeploy = 'vehicle:landingGearDeploy',
+  VehicleLandingGearRetract = 'vehicle:landingGearRetract',
 
   // Links
   LinksCreate = 'links:createConnectedLink',

@@ -37,6 +37,22 @@ export interface Bridge {
   guidedPause: (vehicleId: number) => Promise<void>
   missionStart: (vehicleId: number) => Promise<void>
   emergencyStop: (vehicleId: number) => Promise<void>
+  guidedChangeAltitude: (vehicleId: number, altitudeRel: number) => Promise<number | undefined>
+  guidedChangeHeading: (vehicleId: number, headingDeg: number) => Promise<number | undefined>
+  guidedChangeSpeed: (
+    vehicleId: number,
+    speed: number,
+    speedType: 0 | 1
+  ) => Promise<number | undefined>
+  guidedOrbit: (
+    vehicleId: number,
+    lat: number,
+    lon: number,
+    radius: number,
+    altitudeRel: number
+  ) => Promise<number | undefined>
+  landingGearDeploy: (vehicleId: number) => Promise<number | undefined>
+  landingGearRetract: (vehicleId: number) => Promise<number | undefined>
   onStatusText: (
     cb: (payload: { vehicleId: number; severity: number; text: string }) => void
   ) => () => void
@@ -247,6 +263,24 @@ const bridge: Bridge = {
   guidedPause: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleGuidedPause, vehicleId),
   missionStart: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleMissionStart, vehicleId),
   emergencyStop: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleEmergencyStop, vehicleId),
+  guidedChangeAltitude: (vehicleId, altitudeRel) =>
+    ipcRenderer.invoke(IpcChannels.VehicleGuidedChangeAltitude, { vehicleId, altitudeRel }),
+  guidedChangeHeading: (vehicleId, headingDeg) =>
+    ipcRenderer.invoke(IpcChannels.VehicleGuidedChangeHeading, { vehicleId, headingDeg }),
+  guidedChangeSpeed: (vehicleId, speed, speedType) =>
+    ipcRenderer.invoke(IpcChannels.VehicleGuidedChangeSpeed, { vehicleId, speed, speedType }),
+  guidedOrbit: (vehicleId, lat, lon, radius, altitudeRel) =>
+    ipcRenderer.invoke(IpcChannels.VehicleGuidedOrbit, {
+      vehicleId,
+      lat,
+      lon,
+      radius,
+      altitudeRel
+    }),
+  landingGearDeploy: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.VehicleLandingGearDeploy, vehicleId),
+  landingGearRetract: (vehicleId) =>
+    ipcRenderer.invoke(IpcChannels.VehicleLandingGearRetract, vehicleId),
   onStatusText: (cb) => {
     const handler = (
       _event: Electron.IpcRendererEvent,

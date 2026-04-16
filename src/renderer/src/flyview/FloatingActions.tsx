@@ -1,8 +1,9 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useCommand } from '../hooks/useCommand'
 import { useMission } from '../hooks/useMission'
 import { useTelemetry } from '../hooks/useVehicle'
 import { useMissionStore } from '../store/missionStore'
+import { FlightActionsMenu } from './FlightActionsMenu'
 import styles from './FloatingActions.module.css'
 
 /* ── Icons ───────────────────────────────────────── */
@@ -129,6 +130,27 @@ function StopIcon({ color }: { color: string }): React.JSX.Element {
   )
 }
 
+function TuneIcon({ color }: { color: string }): React.JSX.Element {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <circle cx="8" cy="7" r="2" stroke={color} strokeWidth="1.6" />
+      <circle cx="16" cy="17" r="2" stroke={color} strokeWidth="1.6" />
+      <line x1="4" y1="7" x2="6" y2="7" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <line x1="10" y1="7" x2="20" y2="7" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <line x1="4" y1="17" x2="14" y2="17" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <line
+        x1="18"
+        y1="17"
+        x2="20"
+        y2="17"
+        stroke={color}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 /* ── Hold Button (inline for floating context) ───── */
 
 function ActionButton({
@@ -222,8 +244,28 @@ export function FloatingActions(): React.JSX.Element | null {
   const isAutoMission = modeName === 'Auto:Mission' || modeName === 'Auto'
   const waypointCount = useMissionStore((s) => s.editableWaypoints.length)
   const [expanded, setExpanded] = useState(false)
+  const [tuneOpen, setTuneOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!tuneOpen) return
+    const onDown = (e: MouseEvent): void => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setTuneOpen(false)
+      }
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setTuneOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [tuneOpen])
 
   if (!core || core.communicationLost) return null
 
@@ -330,12 +372,14 @@ export function FloatingActions(): React.JSX.Element | null {
   }
 
   return (
-    <div className={styles.root}>
+    <div className={styles.root} ref={rootRef}>
       {error && (
         <div className={styles.error} onClick={() => setError(null)}>
           {error}
         </div>
       )}
+
+      {tuneOpen && armed && <FlightActionsMenu />}
 
       <div className={styles.primaryActions}>
         {primary.map((a) => (
@@ -349,6 +393,21 @@ export function FloatingActions(): React.JSX.Element | null {
           />
         ))}
       </div>
+
+      {armed && (
+        <>
+          <div className={styles.separator} />
+          <button
+            className={styles.expandBtn}
+            onClick={() => setTuneOpen((v) => !v)}
+            aria-label="Flight adjustments"
+            title="In-flight adjustments"
+            style={tuneOpen ? { color: '#4a9eff', borderColor: 'rgba(74,158,255,0.4)' } : undefined}
+          >
+            <TuneIcon color="currentColor" />
+          </button>
+        </>
+      )}
 
       {secondary.length > 0 && (
         <>

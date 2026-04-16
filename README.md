@@ -509,22 +509,22 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 
 ### Flight Control
 
-| Feature              | Status | Notes                         |
-| -------------------- | ------ | ----------------------------- |
-| Arm / Disarm         | ✅     |                               |
-| Takeoff              | ✅     | Configurable altitude         |
-| Land                 | ✅     |                               |
-| RTL                  | ✅     |                               |
-| Go-To Location       | ✅     | Click-on-map reposition       |
-| Pause / Resume       | ✅     |                               |
-| Emergency Stop       | ✅     | Hold-to-confirm safety UX     |
-| Pre-Flight Checklist | ✅     | 6 automated + 4 manual checks |
-| Change Altitude      | ❌     | In-flight altitude adjustment |
-| Change Heading       | ❌     |                               |
-| Change Speed         | ❌     |                               |
-| Orbit                | ❌     | Circle around point           |
-| Follow Me            | ❌     | GPS-based follow mode         |
-| Landing Gear Control | ❌     |                               |
+| Feature              | Status | Notes                                |
+| -------------------- | ------ | ------------------------------------ |
+| Arm / Disarm         | ✅     |                                      |
+| Takeoff              | ✅     | Configurable altitude                |
+| Land                 | ✅     |                                      |
+| RTL                  | ✅     |                                      |
+| Go-To Location       | ✅     | Click-on-map reposition              |
+| Pause / Resume       | ✅     |                                      |
+| Emergency Stop       | ✅     | Hold-to-confirm safety UX            |
+| Pre-Flight Checklist | ✅     | 6 automated + 4 manual checks        |
+| Change Altitude      | ✅     | In-flight altitude adjustment        |
+| Change Heading       | ✅     | Absolute heading + N/E/S/W quick set |
+| Change Speed         | ✅     | Ground or air speed                  |
+| Orbit                | ✅     | Circle around current point, CW/CCW  |
+| Follow Me            | ❌     | GPS-based follow mode                |
+| Landing Gear Control | ✅     | Deploy/Retract via AIRFRAME_CONFIG   |
 
 ### Joystick & RC
 
@@ -606,13 +606,12 @@ The feature parity table above covers all individual items. The most significant
 
 1. **Survey/Scan mission types** — No automated camera survey, structure scan, or corridor scan patterns. Only basic waypoint missions are supported.
 2. **RTK GPS / NTRIP** — No differential GPS support for precision operations.
-3. **In-flight adjustments** — Cannot change altitude, heading, or speed mid-flight from the UI (only via guided actions like Go-To, RTL, Land).
-4. **Orbit / Follow Me** — No circle-around-point or GPS-follow modes.
-5. **Advanced mission commands** — No DO_JUMP, speed/delay, servo/relay, camera trigger, or ROI commands in the mission editor.
-6. **Offline maps** — Only a 500-tile LRU cache; no bulk region download for field use.
-7. **Mobile platforms** — Desktop only (macOS, Windows, Linux); no Android/iOS.
-8. **Multiple video streams** — Only a single video stream at a time.
-9. **Log analysis** — Can record logs but has no built-in download browser or vibration analysis.
+3. **Follow Me** — No GPS-follow mode (requires a live external GPS source streaming FOLLOW_TARGET).
+4. **Advanced mission commands** — No DO_JUMP, speed/delay, servo/relay, camera trigger, or ROI commands in the mission editor.
+5. **Offline maps** — Only a 500-tile LRU cache; no bulk region download for field use.
+6. **Mobile platforms** — Desktop only (macOS, Windows, Linux); no Android/iOS.
+7. **Multiple video streams** — Only a single video stream at a time.
+8. **Log analysis** — Can record logs but has no built-in download browser or vibration analysis.
 
 ## License
 
