@@ -6,7 +6,6 @@ import type {
   InspectorSnapshotPayload,
   InspectorFieldsPayload
 } from '@shared/ipc/MavInspectorTypes'
-import { IpcEvents } from '@shared/ipc/events'
 import { REGISTRY } from './registry'
 
 interface MessageStats {
@@ -22,7 +21,8 @@ interface MessageStats {
   lastData: unknown
 }
 
-type BroadcastFn = (channel: string, ...args: unknown[]) => void
+type EmitSnapshot = (payload: InspectorSnapshotPayload) => void
+type EmitFields = (payload: InspectorFieldsPayload) => void
 
 /**
  * Collects per-message statistics and field values for the MAVLink Inspector UI.
@@ -36,10 +36,12 @@ export class MavlinkInspector {
 
   private snapshotTimer: ReturnType<typeof setInterval> | null = null
   private fieldsTimer: ReturnType<typeof setInterval> | null = null
-  private broadcast: BroadcastFn
+  private emitSnapshot: EmitSnapshot
+  private emitFields: EmitFields
 
-  constructor(broadcast: BroadcastFn) {
-    this.broadcast = broadcast
+  constructor(emitSnapshot: EmitSnapshot, emitFields: EmitFields) {
+    this.emitSnapshot = emitSnapshot
+    this.emitFields = emitFields
   }
 
   enable(): void {
@@ -153,7 +155,7 @@ export class MavlinkInspector {
       })
     }
     const payload: InspectorSnapshotPayload = { messages }
-    this.broadcast(IpcEvents.MavInspectorSnapshot, payload)
+    this.emitSnapshot(payload)
   }
 
   private _pushFields(): void {
@@ -168,7 +170,7 @@ export class MavlinkInspector {
       msgid: entry.msgid,
       fields
     }
-    this.broadcast(IpcEvents.MavInspectorFields, payload)
+    this.emitFields(payload)
   }
 
   private _extractFields(msgid: number, data: unknown): InspectorFieldValue[] {

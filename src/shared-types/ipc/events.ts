@@ -58,10 +58,8 @@ export enum IpcEvents {
   /** Camera state changed */
   CameraStateChanged = 'camera:stateChanged',
   /** Image captured event */
-  CameraImageCaptured = 'camera:imageCaptured',
+  CameraImageCaptured = 'camera:imageCaptured'
 
-  /** MAVLink Inspector: 1 Hz message list snapshot */
-  MavInspectorSnapshot = 'mavInspector:snapshot',
-  /** MAVLink Inspector: 5 Hz field values for selected message */
-  MavInspectorFields = 'mavInspector:fields'
+  // MAVLink Inspector: now owned by mavInspectorModule
+  //   (src/shared-types/ipc/modules/mavInspector.ts)
 }

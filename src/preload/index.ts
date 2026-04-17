@@ -21,6 +21,7 @@ import { forwardingModule } from '../shared-types/ipc/modules/forwarding'
 import { settingsModule } from '../shared-types/ipc/modules/settings'
 import { kmlModule } from '../shared-types/ipc/modules/kml'
 import { mavConsoleModule } from '../shared-types/ipc/modules/mavConsole'
+import { mavInspectorModule } from '../shared-types/ipc/modules/mavInspector'
 import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
 import { bindIpcModule } from './moduleBridge'
 
@@ -30,7 +31,8 @@ export interface Bridge
     ModuleBridge<typeof forwardingModule>,
     ModuleBridge<typeof settingsModule>,
     ModuleBridge<typeof kmlModule>,
-    ModuleBridge<typeof mavConsoleModule> {
+    ModuleBridge<typeof mavConsoleModule>,
+    ModuleBridge<typeof mavInspectorModule> {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
@@ -188,17 +190,9 @@ export interface Bridge
   popoutClose: (view: 'video' | 'map') => Promise<void>
   onPopoutClosed: (cb: (payload: { view: string }) => void) => () => void
 
-  // MAVLink Inspector
-  mavInspectorEnable: () => Promise<void>
-  mavInspectorDisable: () => Promise<void>
-  mavInspectorSelect: (sysid: number, compid: number, msgid: number) => Promise<void>
-  mavInspectorDeselect: () => Promise<void>
-  onMavInspectorSnapshot: (
-    cb: (payload: import('../shared-types/ipc/MavInspectorTypes').InspectorSnapshotPayload) => void
-  ) => () => void
-  onMavInspectorFields: (
-    cb: (payload: import('../shared-types/ipc/MavInspectorTypes').InspectorFieldsPayload) => void
-  ) => () => void
+  // MAVLink Inspector: generated from mavInspectorModule (mavInspectorEnable,
+  //   mavInspectorDisable, mavInspectorSelect, mavInspectorDeselect,
+  //   onMavInspectorSnapshot, onMavInspectorFields)
 
   // Radar: generated from radarModule (radarEnable, radarDisable, radarGetState,
   //   radarSetSimPosition, onRadarStateChanged)
@@ -531,28 +525,7 @@ const bridge: Bridge = {
     }
   },
 
-  // MAVLink Inspector
-  mavInspectorEnable: () => ipcRenderer.invoke(IpcChannels.MavInspectorEnable),
-  mavInspectorDisable: () => ipcRenderer.invoke(IpcChannels.MavInspectorDisable),
-  mavInspectorSelect: (sysid, compid, msgid) =>
-    ipcRenderer.invoke(IpcChannels.MavInspectorSelect, { sysid, compid, msgid }),
-  mavInspectorDeselect: () => ipcRenderer.invoke(IpcChannels.MavInspectorDeselect),
-  onMavInspectorSnapshot: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void =>
-      cb(payload as import('../shared-types/ipc/MavInspectorTypes').InspectorSnapshotPayload)
-    ipcRenderer.on(IpcEvents.MavInspectorSnapshot, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.MavInspectorSnapshot, handler)
-    }
-  },
-  onMavInspectorFields: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: unknown): void =>
-      cb(payload as import('../shared-types/ipc/MavInspectorTypes').InspectorFieldsPayload)
-    ipcRenderer.on(IpcEvents.MavInspectorFields, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.MavInspectorFields, handler)
-    }
-  },
+  // MAVLink Inspector methods are spread in from bindIpcModule(mavInspectorModule) below.
 
   // Radar methods are spread in from bindIpcModule(radarModule) below.
 
@@ -566,7 +539,8 @@ const bridge: Bridge = {
   ...bindIpcModule(forwardingModule),
   ...bindIpcModule(settingsModule),
   ...bindIpcModule(kmlModule),
-  ...bindIpcModule(mavConsoleModule)
+  ...bindIpcModule(mavConsoleModule),
+  ...bindIpcModule(mavInspectorModule)
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)

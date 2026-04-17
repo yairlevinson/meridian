@@ -30,6 +30,11 @@ import { forwardingModule } from '@shared/ipc/modules/forwarding'
 import { settingsModule } from '@shared/ipc/modules/settings'
 import { kmlModule } from '@shared/ipc/modules/kml'
 import { mavConsoleModule } from '@shared/ipc/modules/mavConsole'
+import { mavInspectorModule } from '@shared/ipc/modules/mavInspector'
+import type {
+  InspectorSnapshotPayload,
+  InspectorFieldsPayload
+} from '@shared/ipc/MavInspectorTypes'
 import type { AppSettings } from '@shared/ipc/AppSettings'
 
 const log = createLogger('IPC')
@@ -104,15 +109,22 @@ export function startIpcBridge(
   settingsManager?: SettingsManager,
   radarManager?: RadarManager
 ): () => void {
-  const inspector = new MavlinkInspector(broadcast)
-  vehicleManager.onRawMessage = inspector.handleMessage
-
   // Track disposers so shutdown can fully unwire
   const disposers: Array<() => void> = []
 
   // Captured by mavConsoleModule event wire so per-vehicle consoleData can
   // fan out through the module's emit (registered below).
   let emitMavConsoleData: ((payload: { vehicleId: number; text: string }) => void) | null = null
+
+  // Inspector emits are populated by the mavInspectorModule event wires below.
+  // They're no-ops until registration completes (all before any renderer-driven enable()).
+  let emitInspectorSnapshot: (p: InspectorSnapshotPayload) => void = () => {}
+  let emitInspectorFields: (p: InspectorFieldsPayload) => void = () => {}
+  const inspector = new MavlinkInspector(
+    (p) => emitInspectorSnapshot(p),
+    (p) => emitInspectorFields(p)
+  )
+  vehicleManager.onRawMessage = inspector.handleMessage
 
   // Forward renderer logs to main process log file
   const rendererLog = createLogger('renderer')
@@ -323,6 +335,33 @@ export function startIpcBridge(
           emitMavConsoleData = emit
           return () => {
             emitMavConsoleData = null
+          }
+        }
+      }
+    })
+  )
+
+  // MAVLink Inspector IPC module — commands proxy to the inspector instance
+  // above; emits are captured so the inspector's periodic pushes reach renderers.
+  disposers.push(
+    registerIpcModule(mavInspectorModule, {
+      commands: {
+        enable: async () => inspector.enable(),
+        disable: async () => inspector.disable(),
+        select: async (sysid, compid, msgid) => inspector.select(sysid, compid, msgid),
+        deselect: async () => inspector.deselect()
+      },
+      events: {
+        snapshot: (emit) => {
+          emitInspectorSnapshot = emit
+          return () => {
+            emitInspectorSnapshot = () => {}
+          }
+        },
+        fields: (emit) => {
+          emitInspectorFields = emit
+          return () => {
+            emitInspectorFields = () => {}
           }
         }
       }
@@ -853,24 +892,7 @@ export function startIpcBridge(
       }
     },
     // (MAVLink Console: now registered via registerIpcModule above)
-    // MAVLink Inspector
-    {
-      channel: IpcChannels.MavInspectorEnable,
-      handler: () => inspector.enable()
-    },
-    {
-      channel: IpcChannels.MavInspectorDisable,
-      handler: () => inspector.disable()
-    },
-    {
-      channel: IpcChannels.MavInspectorSelect,
-      handler: (req: { sysid: number; compid: number; msgid: number }) =>
-        inspector.select(req.sysid, req.compid, req.msgid)
-    },
-    {
-      channel: IpcChannels.MavInspectorDeselect,
-      handler: () => inspector.deselect()
-    },
+    // (MAVLink Inspector: now registered via registerIpcModule above)
     // (Forwarding: now registered via registerIpcModule above)
     {
       channel: IpcChannels.FirmwareGetBoardInfo,

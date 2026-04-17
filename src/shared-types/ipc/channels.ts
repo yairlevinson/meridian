@@ -123,11 +123,8 @@ export enum IpcChannels {
 
   // Actuator testing
   ActuatorMotorTest = 'actuator:motorTest',
-  ActuatorServoTest = 'actuator:servoTest',
+  ActuatorServoTest = 'actuator:servoTest'
 
-  // MAVLink Inspector
-  MavInspectorEnable = 'mavInspector:enable',
-  MavInspectorDisable = 'mavInspector:disable',
-  MavInspectorSelect = 'mavInspector:select',
-  MavInspectorDeselect = 'mavInspector:deselect'
+  // MAVLink Inspector: now owned by mavInspectorModule
+  //   (src/shared-types/ipc/modules/mavInspector.ts)
 }
