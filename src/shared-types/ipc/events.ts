@@ -66,14 +66,8 @@ export enum IpcEvents {
   /** MAVLink Inspector: 1 Hz message list snapshot */
   MavInspectorSnapshot = 'mavInspector:snapshot',
   /** MAVLink Inspector: 5 Hz field values for selected message */
-  MavInspectorFields = 'mavInspector:fields',
+  MavInspectorFields = 'mavInspector:fields'
 
-  /** MAVLink forwarding state changed */
-  ForwardingStateChanged = 'forwarding:stateChanged',
-
-  /** App settings changed */
-  SettingsChanged = 'settings:changed',
-
-  /** Radar state changed (units, tracks updated) */
-  RadarStateChanged = 'radar:stateChanged'
+  // Forwarding / Settings / Radar stateChanged events are now owned by their
+  // IPC modules (src/shared-types/ipc/modules/{forwarding,settings,radar}.ts).
 }

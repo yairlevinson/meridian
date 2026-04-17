@@ -16,14 +16,18 @@ import type {
   FirmwareUpgradeState
 } from '../shared-types/ipc/SetupTypes'
 import type { CameraState } from '../shared-types/ipc/CameraTypes'
-import type { ForwardingState } from '../shared-types/ipc/ForwardingTypes'
-import type { AppSettings } from '../shared-types/ipc/AppSettings'
 import type { KmlImportResult } from '../shared-types/ipc/OverlayTypes'
 import { radarModule } from '../shared-types/ipc/modules/radar'
+import { forwardingModule } from '../shared-types/ipc/modules/forwarding'
+import { settingsModule } from '../shared-types/ipc/modules/settings'
 import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
 import { bindIpcModule } from './moduleBridge'
 
-export interface Bridge extends ModuleBridge<typeof radarModule> {
+export interface Bridge
+  extends
+    ModuleBridge<typeof radarModule>,
+    ModuleBridge<typeof forwardingModule>,
+    ModuleBridge<typeof settingsModule> {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
@@ -200,10 +204,7 @@ export interface Bridge extends ModuleBridge<typeof radarModule> {
   // Radar: generated from radarModule (radarEnable, radarDisable, radarGetState,
   //   radarSetSimPosition, onRadarStateChanged)
 
-  // Settings
-  settingsGetAll: () => Promise<AppSettings>
-  settingsSet: (key: string, value: unknown) => Promise<void>
-  onSettingsChanged: (cb: (payload: { key: string; value: unknown }) => void) => () => void
+  // Settings: generated from settingsModule (settingsGetAll, settingsSet, onSettingsChanged)
 
   // Renderer → main process logging (written to ~/meridian-app.log)
   log: (level: 'info' | 'warn' | 'error' | 'debug', tag: string, message: string) => void
@@ -212,13 +213,9 @@ export interface Bridge extends ModuleBridge<typeof radarModule> {
   kmlImport: () => Promise<KmlImportResult | { cancelled: true }>
   kmlImportFromPath: (filePath: string) => Promise<KmlImportResult>
 
-  // MAVLink Forwarding
-  forwardingGetState: () => Promise<ForwardingState>
-  forwardingAddTarget: (host: string, port: number) => Promise<string>
-  forwardingRemoveTarget: (id: string) => Promise<void>
-  forwardingSetEnabled: (enabled: boolean) => Promise<void>
-  forwardingSetTargetEnabled: (id: string, enabled: boolean) => Promise<void>
-  onForwardingStateChanged: (cb: (state: ForwardingState) => void) => () => void
+  // MAVLink Forwarding: generated from forwardingModule (forwardingGetState,
+  //   forwardingAddTarget, forwardingRemoveTarget, forwardingSetEnabled,
+  //   forwardingSetTargetEnabled, onForwardingStateChanged)
 }
 
 const bridge: Bridge = {
@@ -582,19 +579,7 @@ const bridge: Bridge = {
 
   // Radar methods are spread in from bindIpcModule(radarModule) below.
 
-  // Settings
-  settingsGetAll: () => ipcRenderer.invoke(IpcChannels.SettingsGetAll),
-  settingsSet: (key, value) => ipcRenderer.invoke(IpcChannels.SettingsSet, { key, value }),
-  onSettingsChanged: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { key: string; value: unknown }
-    ): void => cb(payload)
-    ipcRenderer.on(IpcEvents.SettingsChanged, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.SettingsChanged, handler)
-    }
-  },
+  // Settings methods are spread in from bindIpcModule(settingsModule) below.
 
   // Renderer → main process logging
   log: (level, tag, message) => {
@@ -605,21 +590,9 @@ const bridge: Bridge = {
   kmlImport: () => ipcRenderer.invoke(IpcChannels.KmlImport),
   kmlImportFromPath: (filePath) => ipcRenderer.invoke(IpcChannels.KmlImportFromPath, filePath),
 
-  // MAVLink Forwarding
-  forwardingGetState: () => ipcRenderer.invoke(IpcChannels.ForwardingGetState),
-  forwardingAddTarget: (host, port) =>
-    ipcRenderer.invoke(IpcChannels.ForwardingAddTarget, { host, port }),
-  forwardingRemoveTarget: (id) => ipcRenderer.invoke(IpcChannels.ForwardingRemoveTarget, id),
-  forwardingSetEnabled: (enabled) => ipcRenderer.invoke(IpcChannels.ForwardingSetEnabled, enabled),
-  forwardingSetTargetEnabled: (id, enabled) =>
-    ipcRenderer.invoke(IpcChannels.ForwardingSetTargetEnabled, { id, enabled }),
-  onForwardingStateChanged: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, state: ForwardingState): void => cb(state)
-    ipcRenderer.on(IpcEvents.ForwardingStateChanged, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.ForwardingStateChanged, handler)
-    }
-  }
+  // MAVLink Forwarding + Settings methods are spread in from bindIpcModule below.
+  ...bindIpcModule(forwardingModule),
+  ...bindIpcModule(settingsModule)
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)

@@ -26,6 +26,9 @@ import type { RadarManager } from './radar/RadarManager'
 import { createLogger } from './logger'
 import { registerIpcModule } from './ipc/registerIpcModule'
 import { radarModule } from '@shared/ipc/modules/radar'
+import { forwardingModule } from '@shared/ipc/modules/forwarding'
+import { settingsModule } from '@shared/ipc/modules/settings'
+import type { AppSettings } from '@shared/ipc/AppSettings'
 
 const log = createLogger('IPC')
 
@@ -216,13 +219,35 @@ export function startIpcBridge(
     disposers.push(() => videoManager.removeListener('stateChanged', onVideoStateChanged))
   }
 
-  // Forward MAVLink forwarding state changes to all renderer windows
+  // Forwarding IPC module (commands + stateChanged event)
   if (forwarder) {
-    const onForwardingStateChanged = (state: unknown): void => {
-      broadcast(IpcEvents.ForwardingStateChanged, state)
-    }
-    forwarder.on('stateChanged', onForwardingStateChanged)
-    disposers.push(() => forwarder.removeListener('stateChanged', onForwardingStateChanged))
+    const fw = forwarder
+    disposers.push(
+      registerIpcModule(forwardingModule, {
+        commands: {
+          getState: async () => fw.getState(),
+          addTarget: async (host, port) => fw.addTarget(host, port),
+          removeTarget: async (id) => {
+            fw.removeTarget(id)
+          },
+          setEnabled: async (enabled) => {
+            fw.setEnabled(enabled)
+          },
+          setTargetEnabled: async (id, enabled) => {
+            fw.setTargetEnabled(id, enabled)
+          }
+        },
+        events: {
+          stateChanged: (emit) => {
+            const handler = (state: unknown): void => emit(state as ReturnType<typeof fw.getState>)
+            fw.on('stateChanged', handler)
+            return () => {
+              fw.removeListener('stateChanged', handler)
+            }
+          }
+        }
+      })
+    )
   }
 
   // Radar IPC module (commands + stateChanged event)
@@ -805,31 +830,7 @@ export function startIpcBridge(
       channel: IpcChannels.MavInspectorDeselect,
       handler: () => inspector.deselect()
     },
-    // MAVLink Forwarding
-    {
-      channel: IpcChannels.ForwardingGetState,
-      handler: () => forwarder?.getState() ?? { enabled: false, targets: [] }
-    },
-    {
-      channel: IpcChannels.ForwardingAddTarget,
-      handler: (req: { host: string; port: number }) => {
-        if (!forwarder) throw new Error('Forwarder not available')
-        return forwarder.addTarget(req.host, req.port)
-      }
-    },
-    {
-      channel: IpcChannels.ForwardingRemoveTarget,
-      handler: (id: string) => forwarder?.removeTarget(id)
-    },
-    {
-      channel: IpcChannels.ForwardingSetEnabled,
-      handler: (enabled: boolean) => forwarder?.setEnabled(enabled)
-    },
-    {
-      channel: IpcChannels.ForwardingSetTargetEnabled,
-      handler: (req: { id: string; enabled: boolean }) =>
-        forwarder?.setTargetEnabled(req.id, req.enabled)
-    },
+    // (Forwarding: now registered via registerIpcModule above)
     {
       channel: IpcChannels.FirmwareGetBoardInfo,
       handler: (vehicleId: number) => {
@@ -849,23 +850,7 @@ export function startIpcBridge(
     },
 
     // (Radar: now registered via registerIpcModule above)
-
-    // Settings
-    {
-      channel: IpcChannels.SettingsGetAll,
-      handler: () => settingsManager?.getAll()
-    },
-    {
-      channel: IpcChannels.SettingsSet,
-      handler: (req: { key: string; value: unknown }) => {
-        if (settingsManager) {
-          settingsManager.set(
-            req.key as keyof import('@shared/ipc/AppSettings').AppSettings,
-            req.value as never
-          )
-        }
-      }
-    },
+    // (Settings: now registered via registerIpcModule above)
 
     // KML Import
     {
@@ -889,13 +874,28 @@ export function startIpcBridge(
     ipcMain.handle(channel, (_event, ...args) => handler(...args))
   }
 
-  // Broadcast settings changes to renderer
-  const onSettingsChanged = (key: string, value: unknown): void => {
-    broadcast(IpcEvents.SettingsChanged, { key, value })
-  }
-  settingsManager?.on('changed', onSettingsChanged)
+  // Settings IPC module (getAll/set + changed event)
   if (settingsManager) {
-    disposers.push(() => settingsManager.removeListener('changed', onSettingsChanged))
+    const sm = settingsManager
+    disposers.push(
+      registerIpcModule(settingsModule, {
+        commands: {
+          getAll: async () => sm.getAll(),
+          set: async (key, value) => {
+            sm.set(key as keyof AppSettings, value as never)
+          }
+        },
+        events: {
+          changed: (emit) => {
+            const handler = (key: string, value: unknown): void => emit({ key, value })
+            sm.on('changed', handler)
+            return () => {
+              sm.removeListener('changed', handler)
+            }
+          }
+        }
+      })
+    )
   }
 
   return () => {

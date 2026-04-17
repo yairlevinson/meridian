@@ -72,10 +72,8 @@ export enum IpcChannels {
   // Map tiles
   MapFetchTile = 'map:fetchTile',
 
-  // Settings
+  // Settings: now owned by settingsModule (src/shared-types/ipc/modules/settings.ts)
   SettingsGet = 'settings:get',
-  SettingsSet = 'settings:set',
-  SettingsGetAll = 'settings:getAll',
 
   // Mission file I/O
   MissionSavePlan = 'mission:savePlan',
@@ -136,18 +134,10 @@ export enum IpcChannels {
   MavInspectorSelect = 'mavInspector:select',
   MavInspectorDeselect = 'mavInspector:deselect',
 
-  // MAVLink Forwarding
-  ForwardingGetState = 'forwarding:getState',
-  ForwardingAddTarget = 'forwarding:addTarget',
-  ForwardingRemoveTarget = 'forwarding:removeTarget',
-  ForwardingSetEnabled = 'forwarding:setEnabled',
-  ForwardingSetTargetEnabled = 'forwarding:setTargetEnabled',
+  // MAVLink Forwarding: now owned by forwardingModule
+  //   (src/shared-types/ipc/modules/forwarding.ts)
 
-  // Radar
-  RadarEnable = 'radar:enable',
-  RadarDisable = 'radar:disable',
-  RadarGetState = 'radar:getState',
-  RadarSetSimPosition = 'radar:setSimPosition',
+  // Radar: now owned by radarModule (src/shared-types/ipc/modules/radar.ts)
 
   // KML Import
   KmlImport = 'kml:import',
