@@ -23,6 +23,7 @@ import {
   type ActionStep,
   type VehicleDialect
 } from './dialect'
+import type { VehicleContext, VehicleSubsystem } from './VehicleContext'
 
 const log = createLogger('Vehicle')
 
@@ -88,17 +89,7 @@ export class Vehicle extends EventEmitter {
     })
 
     this.linkManager.on('primaryLinkChanged', (link: LinkInterface) => {
-      this._commandLink = link
-      this.commandQueue.setLink(link)
-      this.missionManager.setLink(link)
-      this.missionManager.setTarget(sysid, 1)
-      this.parameterManager.setLink(link)
-      this.parameterManager.setTarget(sysid, 1)
-      this.calibrationManager.setLink(link)
-      this.calibrationManager.setTarget(sysid)
-      this.cameraManager.setLink(link)
-      this.cameraManager.setTarget(sysid)
-      this._wireFtpSend(link)
+      this._rebind(link)
       this.emit('primaryLinkChanged', link)
     })
   }
@@ -106,35 +97,44 @@ export class Vehicle extends EventEmitter {
   /** Add a link and set it as the command target */
   addLink(link: LinkInterface): void {
     this.linkManager.addLink(link)
-    if (this.linkManager.linkCount === 1) {
-      this._commandLink = link
-      this.commandQueue.setLink(link)
-      this.missionManager.setLink(link)
-      this.missionManager.setTarget(this.sysid, 1)
-      this.parameterManager.setLink(link)
-      this.parameterManager.setTarget(this.sysid, 1)
-      this.calibrationManager.setLink(link)
-      this.calibrationManager.setTarget(this.sysid)
-      this.cameraManager.setLink(link)
-      this.cameraManager.setTarget(this.sysid)
-      this._wireFtpSend(link)
-    }
+    if (this.linkManager.linkCount === 1) this._rebind(link)
   }
 
-  /** Set a writable link for sending commands (used in UDP mode) */
+  /** Set a writable link for sending commands (used in UDP mode).
+   * PlanManager/Parameter/etc. only call writeBytes() on the link, so a plain
+   * WritableLink works. commandQueue.setLink() is called directly to preserve
+   * its WritableLink-accepting signature.
+   */
   setCommandLink(link: WritableLink): void {
     this._commandLink = link
     this.commandQueue.setLink(link)
-    // PlanManager only calls writeBytes() on the link, so a plain WritableLink works fine.
-    this.missionManager.setLink(link as LinkInterface)
-    this.missionManager.setTarget(this.sysid, 1)
-    this.parameterManager.setLink(link as LinkInterface)
-    this.parameterManager.setTarget(this.sysid, 1)
-    this.calibrationManager.setLink(link as LinkInterface)
-    this.calibrationManager.setTarget(this.sysid)
-    this.cameraManager.setLink(link as LinkInterface)
-    this.cameraManager.setTarget(this.sysid)
+    this._bindSubsystems(link as LinkInterface)
     this._wireFtpSend(link)
+  }
+
+  /** Rebuild the shared context and (re)bind all VehicleSubsystems to it. */
+  private _rebind(link: LinkInterface): void {
+    this._commandLink = link
+    this._bindSubsystems(link)
+    this._wireFtpSend(link)
+  }
+
+  /** Bind all link-dependent subsystems to a freshly-built VehicleContext. */
+  private _bindSubsystems(link: LinkInterface): void {
+    const ctx: VehicleContext = {
+      sysid: this.sysid,
+      compid: 1, // MAV_COMP_ID_AUTOPILOT1 — camera manager keeps its own comp id
+      link,
+      dialect: this.dialect
+    }
+    const subsystems: VehicleSubsystem[] = [
+      this.commandQueue,
+      this.missionManager,
+      this.parameterManager,
+      this.calibrationManager,
+      this.cameraManager
+    ]
+    for (const s of subsystems) s.bind(ctx)
   }
 
   // ── Message dispatch table ───────────────────────────────────────

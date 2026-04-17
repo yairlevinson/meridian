@@ -1,9 +1,9 @@
-import { EventEmitter } from 'events'
 import { common } from 'mavlink-mappings'
 import type { LinkInterface } from '../links/LinkInterface'
 import { createGcsProtocol } from '../mavlink/constants'
 import { createLogger } from '../logger'
 import { mavLog } from '../mavlink/trafficLog'
+import { VehicleSubsystem } from '../vehicle/VehicleContext'
 import {
   MissionType,
   MissionProtocolState,
@@ -22,7 +22,7 @@ const DOWNLOAD_RETRY_DELAY_MS = 2000
  * Base plan manager implementing the MAVLink mission protocol.
  * Handles both read (download) and write (upload) operations.
  */
-export class PlanManager extends EventEmitter {
+export class PlanManager extends VehicleSubsystem {
   protected missionType: MissionType
   protected items: MissionItem[] = []
   protected state = MissionProtocolState.Idle
@@ -58,13 +58,10 @@ export class PlanManager extends EventEmitter {
     return [...this.items]
   }
 
-  setLink(link: LinkInterface): void {
-    this.link = link
-  }
-
-  setTarget(sysid: number, compid: number): void {
-    this.targetSystem = sysid
-    this.targetComponent = compid
+  protected override onBind(): void {
+    this.link = this.ctx!.link
+    this.targetSystem = this.ctx!.sysid
+    this.targetComponent = this.ctx!.compid
   }
 
   /** Download mission items from vehicle */

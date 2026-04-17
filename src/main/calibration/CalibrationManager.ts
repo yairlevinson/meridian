@@ -1,6 +1,6 @@
-import { EventEmitter } from 'events'
 import type { LinkInterface } from '../links/LinkInterface'
 import { createGcsProtocol } from '../mavlink/constants'
+import { VehicleSubsystem } from '../vehicle/VehicleContext'
 import {
   CalibrationSensor,
   CalibrationStatus,
@@ -99,7 +99,7 @@ function parseOrientation(text: string): CalibrationOrientation | null {
  * Manages sensor calibration via MAV_CMD_PREFLIGHT_CALIBRATION (241).
  * Progress is communicated via STATUSTEXT parsing + MAG_CAL_PROGRESS/REPORT.
  */
-export class CalibrationManager extends EventEmitter {
+export class CalibrationManager extends VehicleSubsystem {
   private link: LinkInterface | null = null
   private protocol = createGcsProtocol()
   private seq = 0
@@ -132,12 +132,9 @@ export class CalibrationManager extends EventEmitter {
     )
   }
 
-  setLink(link: LinkInterface): void {
-    this.link = link
-  }
-
-  setTarget(sysid: number): void {
-    this.targetSystem = sysid
+  protected override onBind(): void {
+    this.link = this.ctx!.link
+    this.targetSystem = this.ctx!.sysid
   }
 
   /** Start a sensor calibration */

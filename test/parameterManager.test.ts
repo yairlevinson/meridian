@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { ParameterManager } from '../src/main/parameters/ParameterManager'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
+import { bindForTest } from '../src/test-utils/bindForTest'
 import { ParamValueType } from '../src/shared-types/ipc/ParameterTypes'
 
 function makeParamValue(
@@ -27,7 +28,7 @@ describe('ParameterManager', () => {
   beforeEach(() => {
     pm = new ParameterManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
   })
 
   afterEach(() => {
@@ -195,7 +196,7 @@ describe('ParameterManager — integer param type decoding', () => {
   beforeEach(() => {
     pm = new ParameterManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
     pm.requestAllParameters()
   })
 

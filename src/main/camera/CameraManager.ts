@@ -1,7 +1,7 @@
-import { EventEmitter } from 'events'
 import { common } from 'mavlink-mappings'
 import type { LinkInterface } from '../links/LinkInterface'
 import { createGcsProtocol } from '../mavlink/constants'
+import { VehicleSubsystem } from '../vehicle/VehicleContext'
 import type { CameraInfo, CameraState, CaptureStatus, StorageInfo } from '@shared/ipc/CameraTypes'
 import {
   CameraMode,
@@ -49,7 +49,7 @@ const STORAGE_MAX_RETRIES = 5
  * 3. Poll CAMERA_CAPTURE_STATUS periodically
  * 4. Send commands for photo/video/mode changes
  */
-export class CameraManager extends EventEmitter {
+export class CameraManager extends VehicleSubsystem {
   private protocol = createGcsProtocol()
   private seq = 0
   private link: LinkInterface | null = null
@@ -79,13 +79,11 @@ export class CameraManager extends EventEmitter {
   // MAV_CMD_REQUEST_MESSAGE and legacy-specific commands)
   private _useRequestMessage = true
 
-  setLink(link: LinkInterface): void {
-    this.link = link
-  }
-
-  setTarget(sysid: number, compid?: number): void {
-    this.targetSystem = sysid
-    if (compid !== undefined) this.targetComponent = compid
+  protected override onBind(): void {
+    // Camera's targetComponent stays at MAV_COMP_ID_CAMERA (100) — ctx.compid
+    // is the autopilot (1), which is the wrong target for camera commands.
+    this.link = this.ctx!.link
+    this.targetSystem = this.ctx!.sysid
   }
 
   /** Called when a heartbeat from a camera component is received */

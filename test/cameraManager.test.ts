@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { CameraManager } from '../src/main/camera/CameraManager'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
+import { bindForTest } from '../src/test-utils/bindForTest'
 import { CameraMode, CameraCapFlags } from '../src/shared-types/ipc/CameraTypes'
 
 describe('CameraManager — discovery', () => {
@@ -12,8 +13,7 @@ describe('CameraManager — discovery', () => {
     vi.useFakeTimers()
     cm = new CameraManager()
     link = new MockLink()
-    cm.setLink(link)
-    cm.setTarget(1)
+    bindForTest(cm, link)
   })
 
   afterEach(() => {
@@ -99,8 +99,7 @@ describe('CameraManager — camera settings', () => {
 
   beforeEach(() => {
     cm = new CameraManager()
-    cm.setLink(new MockLink())
-    cm.setTarget(1)
+    bindForTest(cm, new MockLink())
   })
 
   afterEach(() => {
@@ -122,8 +121,7 @@ describe('CameraManager — storage', () => {
 
   beforeEach(() => {
     cm = new CameraManager()
-    cm.setLink(new MockLink())
-    cm.setTarget(1)
+    bindForTest(cm, new MockLink())
   })
 
   afterEach(() => {
@@ -152,8 +150,7 @@ describe('CameraManager — capture status', () => {
 
   beforeEach(() => {
     cm = new CameraManager()
-    cm.setLink(new MockLink())
-    cm.setTarget(1)
+    bindForTest(cm, new MockLink())
   })
 
   afterEach(() => {
@@ -210,8 +207,7 @@ describe('CameraManager — image captured event', () => {
 
   beforeEach(() => {
     cm = new CameraManager()
-    cm.setLink(new MockLink())
-    cm.setTarget(1)
+    bindForTest(cm, new MockLink())
   })
 
   afterEach(() => {
@@ -257,8 +253,7 @@ describe('CameraManager — commands', () => {
   beforeEach(() => {
     cm = new CameraManager()
     link = new MockLink()
-    cm.setLink(link)
-    cm.setTarget(1)
+    bindForTest(cm, link)
     // Give it camera info with full capabilities
     cm.handleCameraInformation({
       flags: CameraCapFlags.CaptureImage | CameraCapFlags.CaptureVideo
@@ -324,7 +319,7 @@ describe('CameraManager — commands', () => {
   it('skips photo if no image capability', () => {
     const cm2 = new CameraManager()
     const link2 = new MockLink()
-    cm2.setLink(link2)
+    bindForTest(cm2, link2)
     cm2.handleCameraInformation({ flags: CameraCapFlags.CaptureVideo }) // video only
     link2.sentBuffers.length = 0
 
@@ -336,7 +331,7 @@ describe('CameraManager — commands', () => {
   it('skips recording if no video capability', () => {
     const cm2 = new CameraManager()
     const link2 = new MockLink()
-    cm2.setLink(link2)
+    bindForTest(cm2, link2)
     cm2.handleCameraInformation({ flags: CameraCapFlags.CaptureImage }) // image only
     link2.sentBuffers.length = 0
 
@@ -403,8 +398,7 @@ describe('CameraManager — capture status polling', () => {
     vi.useFakeTimers()
     cm = new CameraManager()
     link = new MockLink()
-    cm.setLink(link)
-    cm.setTarget(1)
+    bindForTest(cm, link)
   })
 
   afterEach(() => {

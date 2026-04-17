@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PlanManager } from '../src/main/mission/PlanManager'
 import { MissionManager } from '../src/main/mission/MissionManager'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
+import { bindForTest } from '../src/test-utils/bindForTest'
 import { MavLinkPacketSplitter, MavLinkPacketParser, type MavLinkPacket } from 'node-mavlink'
 import { minimal, common } from 'mavlink-mappings'
 import { PassThrough } from 'stream'
@@ -166,7 +167,7 @@ describe('Mission protocol integration — upload', () => {
   beforeEach(() => {
     pm = new PlanManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
     vehicle = new MockVehicleResponder(pm, link)
   })
 
@@ -292,7 +293,7 @@ describe('Mission protocol integration — download', () => {
   beforeEach(() => {
     pm = new PlanManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
     vehicle = new MockVehicleResponder(pm, link)
   })
 
@@ -377,7 +378,7 @@ describe('Mission protocol integration — round-trip', () => {
   beforeEach(() => {
     pm = new PlanManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
     vehicle = new MockVehicleResponder(pm, link)
   })
 

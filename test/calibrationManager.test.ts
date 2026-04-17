@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { CalibrationManager } from '../src/main/calibration/CalibrationManager'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
+import { bindForTest } from '../src/test-utils/bindForTest'
 import {
   CalibrationSensor,
   CalibrationStatus,
@@ -15,7 +16,7 @@ describe('CalibrationManager', () => {
   beforeEach(() => {
     mgr = new CalibrationManager()
     link = new MockLink()
-    mgr.setLink(link)
+    bindForTest(mgr, link)
   })
 
   // --- Lifecycle ---
@@ -84,7 +85,7 @@ describe('CalibrationManager', () => {
 
     it('ignores text when not calibrating', () => {
       const idle = new CalibrationManager()
-      idle.setLink(link)
+      bindForTest(idle, link)
       idle.handleStatusText('Calibration successful', 0)
       expect(idle.state.status).toBe(CalibrationStatus.Idle)
     })

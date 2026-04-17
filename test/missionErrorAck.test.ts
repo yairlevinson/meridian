@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PlanManager } from '../src/main/mission/PlanManager'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
+import { bindForTest } from '../src/test-utils/bindForTest'
 import {
   MissionProtocolState,
   MissionError,
@@ -33,7 +34,7 @@ describe('PlanManager — mission ACK error codes', () => {
   beforeEach(() => {
     pm = new PlanManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
   })
 
   afterEach(() => pm.destroy())
@@ -131,7 +132,7 @@ describe('PlanManager — invalid sequence during upload', () => {
   beforeEach(() => {
     pm = new PlanManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
   })
 
   afterEach(() => pm.destroy())
@@ -157,7 +158,7 @@ describe('PlanManager — timeout and retry', () => {
     vi.useFakeTimers()
     pm = new PlanManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
   })
 
   afterEach(() => {

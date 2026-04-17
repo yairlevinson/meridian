@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PlanManager } from '../src/main/mission/PlanManager'
 import { MissionManager } from '../src/main/mission/MissionManager'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
+import { bindForTest } from '../src/test-utils/bindForTest'
 import { MissionProtocolState, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
 
 function makeItem(seq: number, lat = 42.389, lon = -71.147, alt = 50): MissionItem {
@@ -30,7 +31,7 @@ describe('PlanManager — read (download) mission', () => {
   beforeEach(() => {
     pm = new PlanManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
   })
 
   afterEach(() => pm.destroy())
@@ -101,7 +102,7 @@ describe('PlanManager — write (upload) mission', () => {
   beforeEach(() => {
     pm = new PlanManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
   })
 
   afterEach(() => pm.destroy())
@@ -150,7 +151,7 @@ describe('PlanManager — removeAll', () => {
   it('sends MISSION_CLEAR_ALL', () => {
     const pm = new PlanManager()
     const link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
     pm.removeAll()
     expect(link.sentBuffers).toHaveLength(1)
     pm.destroy()

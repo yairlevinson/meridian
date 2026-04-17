@@ -1,7 +1,7 @@
-import { EventEmitter } from 'events'
 import { common } from 'mavlink-mappings'
 import type { LinkInterface } from '../links/LinkInterface'
 import { createGcsProtocol } from '../mavlink/constants'
+import { VehicleSubsystem } from '../vehicle/VehicleContext'
 import { ParamValueType, type Parameter, type ParameterLoadState } from '@shared/ipc/ParameterTypes'
 
 // Shared buffer for float↔int reinterpretation
@@ -70,7 +70,7 @@ function encodeParamValue(value: number, paramType: number): number {
  * Handles PARAM_REQUEST_LIST, PARAM_VALUE accumulation, missing-param retry,
  * and PARAM_SET with ACK tracking.
  */
-export class ParameterManager extends EventEmitter {
+export class ParameterManager extends VehicleSubsystem {
   private params = new Map<string, Parameter>()
   private totalExpected = -1
   private receivedIndices = new Set<number>()
@@ -106,13 +106,10 @@ export class ParameterManager extends EventEmitter {
     }
   }
 
-  setLink(link: LinkInterface): void {
-    this.link = link
-  }
-
-  setTarget(sysid: number, compid: number): void {
-    this.targetSystem = sysid
-    this.componentId = compid
+  protected override onBind(): void {
+    this.link = this.ctx!.link
+    this.targetSystem = this.ctx!.sysid
+    this.componentId = this.ctx!.compid
   }
 
   /** Start a full parameter request */

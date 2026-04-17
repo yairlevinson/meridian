@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { PlanManager } from '../src/main/mission/PlanManager'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
+import { bindForTest } from '../src/test-utils/bindForTest'
 import { MissionProtocolState, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
 
 function makeItem(seq: number, alt = 50): MissionItem {
@@ -34,7 +35,7 @@ describe('PlanManager — state guards against concurrent GCS traffic', () => {
   beforeEach(() => {
     pm = new PlanManager()
     link = new MockLink()
-    pm.setLink(link)
+    bindForTest(pm, link)
   })
 
   afterEach(() => pm.destroy())

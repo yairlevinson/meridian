@@ -1,9 +1,9 @@
-import { EventEmitter } from 'events'
 import { common } from 'mavlink-mappings'
 import type { LinkInterface } from '../links/LinkInterface'
 import { MavResult } from '@shared/ipc/MavCommandRequest'
 import { createGcsProtocol } from '../mavlink/constants'
 import { mavLog } from '../mavlink/trafficLog'
+import { VehicleSubsystem } from './VehicleContext'
 
 /** Anything that can write bytes — a LinkInterface or a simple callback */
 export type WritableLink = LinkInterface | { writeBytes: (buf: Buffer) => void }
@@ -31,7 +31,7 @@ export interface PendingCommand {
  * Command queue with retry logic.
  * Mirrors MavCommandQueue from C++ QGroundControl.
  */
-export class MavCommandQueue extends EventEmitter {
+export class MavCommandQueue extends VehicleSubsystem {
   private queue: PendingCommand[] = []
   private protocol = createGcsProtocol()
   private seq = 0
@@ -40,6 +40,11 @@ export class MavCommandQueue extends EventEmitter {
   static DEFAULT_TIMEOUT_MS = 1500
   static DEFAULT_MAX_RETRIES = 3
 
+  protected override onBind(): void {
+    this.link = this.ctx!.link
+  }
+
+  /** Set link directly — used by setCommandLink path (WritableLink may not be a full LinkInterface). */
   setLink(link: WritableLink): void {
     this.link = link
   }
