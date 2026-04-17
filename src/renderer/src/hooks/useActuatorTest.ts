@@ -16,14 +16,14 @@ export function useActuatorTest(vehicleIdOverride?: number): {
 
   const motorTest = useCallback(
     (motorInstance: number, throttlePercent: number, timeoutSeconds: number) => {
-      return window.bridge?.motorTest(vid, motorInstance, throttlePercent, timeoutSeconds)
+      return window.bridge?.actuatorMotorTest(vid, motorInstance, throttlePercent, timeoutSeconds)
     },
     [vid]
   )
 
   const servoTest = useCallback(
     (servoInstance: number, pwmValue: number) => {
-      return window.bridge?.servoTest(vid, servoInstance, pwmValue)
+      return window.bridge?.actuatorServoTest(vid, servoInstance, pwmValue)
     },
     [vid]
   )
@@ -31,7 +31,7 @@ export function useActuatorTest(vehicleIdOverride?: number): {
   const stopAllMotors = useCallback(
     (motorCount: number) => {
       for (let i = 1; i <= motorCount; i++) {
-        window.bridge?.motorTest(vid, i, 0, 0)
+        window.bridge?.actuatorMotorTest(vid, i, 0, 0)
       }
     },
     [vid]

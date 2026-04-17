@@ -3,10 +3,7 @@ import type { VehicleDeltaPayload } from '../shared-types/ipc/VehicleState'
 import { IpcChannels } from '../shared-types/ipc/channels'
 import { IpcEvents } from '../shared-types/ipc/events'
 import type { MavCommandRequest } from '../shared-types/ipc/MavCommandRequest'
-import type { LinkConfig, LinkState, SerialPortInfo } from '../shared-types/ipc/LinkState'
 import type { Parameter, ParameterLoadState } from '../shared-types/ipc/ParameterTypes'
-import type { RcCalibrationState, FirmwareUpgradeState } from '../shared-types/ipc/SetupTypes'
-import type { CameraState } from '../shared-types/ipc/CameraTypes'
 import { radarModule } from '../shared-types/ipc/modules/radar'
 import { forwardingModule } from '../shared-types/ipc/modules/forwarding'
 import { settingsModule } from '../shared-types/ipc/modules/settings'
@@ -16,6 +13,11 @@ import { mavInspectorModule } from '../shared-types/ipc/modules/mavInspector'
 import { popoutModule } from '../shared-types/ipc/modules/popout'
 import { videoModule } from '../shared-types/ipc/modules/video'
 import { calibrationModule } from '../shared-types/ipc/modules/calibration'
+import { rcCalibrationModule } from '../shared-types/ipc/modules/rcCalibration'
+import { firmwareModule } from '../shared-types/ipc/modules/firmware'
+import { cameraModule } from '../shared-types/ipc/modules/camera'
+import { actuatorModule } from '../shared-types/ipc/modules/actuator'
+import { linksModule } from '../shared-types/ipc/modules/links'
 import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
 import { bindIpcModule } from './moduleBridge'
 
@@ -29,7 +31,12 @@ export interface Bridge
     ModuleBridge<typeof mavInspectorModule>,
     ModuleBridge<typeof popoutModule>,
     ModuleBridge<typeof videoModule>,
-    ModuleBridge<typeof calibrationModule> {
+    ModuleBridge<typeof calibrationModule>,
+    ModuleBridge<typeof rcCalibrationModule>,
+    ModuleBridge<typeof firmwareModule>,
+    ModuleBridge<typeof cameraModule>,
+    ModuleBridge<typeof actuatorModule>,
+    ModuleBridge<typeof linksModule> {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
@@ -94,12 +101,8 @@ export interface Bridge
   // Video: generated from videoModule (videoStart, videoStop, videoStartRecording,
   //   videoStopRecording, videoGetState, onVideoStateChanged)
 
-  // Links
-  serialListPorts: () => Promise<SerialPortInfo[]>
-  linksCreate: (config: LinkConfig) => Promise<{ id: string; status: string }>
-  linksDisconnect: (id: string) => Promise<void>
-  linksGetAll: () => Promise<LinkState[]>
-  onLinkStateChanged: (cb: (states: LinkState[]) => void) => () => void
+  // Links: generated from linksModule (linksCreate, linksDisconnect, linksGetAll,
+  //   linksListSerialPorts, onLinksStateChanged)
 
   // Parameters (events)
   onParameterChanged: (
@@ -114,55 +117,18 @@ export interface Bridge
   //   calibrationGetState, onCalibrationStateChanged, onCalibrationMagProgress,
   //   onCalibrationMagReport)
 
-  // RC Calibration
-  rcCalibrationStart: (vehicleId: number) => Promise<void>
-  rcCalibrationNextStep: (vehicleId: number) => Promise<void>
-  rcCalibrationCancel: (vehicleId: number) => Promise<void>
-  rcCalibrationSave: (vehicleId: number) => Promise<void>
-  onRcCalibrationStateChanged: (
-    cb: (payload: { vehicleId: number; state: RcCalibrationState }) => void
-  ) => () => void
+  // RC Calibration: generated from rcCalibrationModule (rcCalibrationStart,
+  //   rcCalibrationNextStep, rcCalibrationCancel, rcCalibrationSave,
+  //   onRcCalibrationStateChanged)
 
-  // Firmware
-  firmwareUploadFile: (vehicleId: number, filePath: string) => Promise<void>
-  firmwareCancel: (vehicleId: number) => Promise<void>
-  firmwareReboot: (vehicleId: number) => Promise<void>
-  firmwareGetBoardInfo: (vehicleId: number) => Promise<unknown>
-  onFirmwareUpgradeStateChanged: (
-    cb: (payload: { vehicleId: number; state: FirmwareUpgradeState }) => void
-  ) => () => void
+  // Firmware: generated from firmwareModule (firmwareUploadFile, firmwareCancel,
+  //   firmwareReboot, firmwareGetBoardInfo, onFirmwareUpgradeStateChanged)
 
-  // Camera
-  cameraRequestInfo: (vehicleId: number) => Promise<void>
-  cameraTakePhoto: (vehicleId: number) => Promise<void>
-  cameraStopCapture: (vehicleId: number) => Promise<void>
-  cameraStartRecording: (vehicleId: number) => Promise<void>
-  cameraStopRecording: (vehicleId: number) => Promise<void>
-  cameraSetMode: (vehicleId: number, mode: number) => Promise<void>
-  cameraFormatStorage: (vehicleId: number, storageId?: number) => Promise<void>
-  cameraGetState: (vehicleId: number) => Promise<CameraState | null>
-  onCameraStateChanged: (
-    cb: (payload: { vehicleId: number; state: CameraState }) => void
-  ) => () => void
-  onCameraImageCaptured: (
-    cb: (payload: {
-      vehicleId: number
-      lat: number
-      lon: number
-      alt: number
-      imageIndex: number
-      captureResult: number
-    }) => void
-  ) => () => void
+  // Camera: generated from cameraModule (cameraRequestInfo, cameraTakePhoto,
+  //   cameraStopCapture, cameraStartRecording, cameraStopRecording, cameraSetMode,
+  //   cameraFormatStorage, cameraGetState, onCameraStateChanged, onCameraImageCaptured)
 
-  // Actuator testing
-  motorTest: (
-    vehicleId: number,
-    motorInstance: number,
-    throttlePercent: number,
-    timeoutSeconds: number
-  ) => Promise<void>
-  servoTest: (vehicleId: number, servoInstance: number, pwmValue: number) => Promise<void>
+  // Actuator testing: generated from actuatorModule (actuatorMotorTest, actuatorServoTest)
 
   // Popout: generated from popoutModule (popoutOpen, popoutClose, onPopoutClosed)
 
@@ -306,18 +272,7 @@ const bridge: Bridge = {
 
   // Video methods are spread in from bindIpcModule(videoModule) below.
 
-  // Links
-  serialListPorts: () => ipcRenderer.invoke(IpcChannels.SerialListPorts),
-  linksCreate: (config) => ipcRenderer.invoke(IpcChannels.LinksCreate, config),
-  linksDisconnect: (id) => ipcRenderer.invoke(IpcChannels.LinksDisconnect, id),
-  linksGetAll: () => ipcRenderer.invoke(IpcChannels.LinksGetAll),
-  onLinkStateChanged: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, states: LinkState[]): void => cb(states)
-    ipcRenderer.on(IpcEvents.LinkStateChanged, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.LinkStateChanged, handler)
-    }
-  },
+  // Links methods are spread in from bindIpcModule(linksModule) below.
 
   // Parameters (events)
   onParameterChanged: (cb) => {
@@ -350,94 +305,10 @@ const bridge: Bridge = {
   },
 
   // Calibration methods are spread in from bindIpcModule(calibrationModule) below.
-
-  // RC Calibration
-  rcCalibrationStart: (vehicleId) => ipcRenderer.invoke(IpcChannels.RcCalibrationStart, vehicleId),
-  rcCalibrationNextStep: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.RcCalibrationNextStep, vehicleId),
-  rcCalibrationCancel: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.RcCalibrationCancel, vehicleId),
-  rcCalibrationSave: (vehicleId) => ipcRenderer.invoke(IpcChannels.RcCalibrationSave, vehicleId),
-  onRcCalibrationStateChanged: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; state: RcCalibrationState }
-    ): void => cb(payload)
-    ipcRenderer.on(IpcEvents.RcCalibrationStateChanged, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.RcCalibrationStateChanged, handler)
-    }
-  },
-
-  // Firmware
-  firmwareUploadFile: (vehicleId, filePath) =>
-    ipcRenderer.invoke(IpcChannels.FirmwareUploadFile, { vehicleId, filePath }),
-  firmwareCancel: (vehicleId) => ipcRenderer.invoke(IpcChannels.FirmwareCancel, vehicleId),
-  firmwareReboot: (vehicleId) => ipcRenderer.invoke(IpcChannels.FirmwareReboot, vehicleId),
-  firmwareGetBoardInfo: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.FirmwareGetBoardInfo, vehicleId),
-  onFirmwareUpgradeStateChanged: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; state: FirmwareUpgradeState }
-    ): void => cb(payload)
-    ipcRenderer.on(IpcEvents.FirmwareUpgradeStateChanged, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.FirmwareUpgradeStateChanged, handler)
-    }
-  },
-
-  // Camera
-  cameraRequestInfo: (vehicleId) => ipcRenderer.invoke(IpcChannels.CameraRequestInfo, vehicleId),
-  cameraTakePhoto: (vehicleId) => ipcRenderer.invoke(IpcChannels.CameraTakePhoto, vehicleId),
-  cameraStopCapture: (vehicleId) => ipcRenderer.invoke(IpcChannels.CameraStopCapture, vehicleId),
-  cameraStartRecording: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.CameraStartRecording, vehicleId),
-  cameraStopRecording: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.CameraStopRecording, vehicleId),
-  cameraSetMode: (vehicleId, mode) =>
-    ipcRenderer.invoke(IpcChannels.CameraSetMode, { vehicleId, mode }),
-  cameraFormatStorage: (vehicleId, storageId) =>
-    ipcRenderer.invoke(IpcChannels.CameraFormatStorage, { vehicleId, storageId }),
-  cameraGetState: (vehicleId) => ipcRenderer.invoke(IpcChannels.CameraGetState, vehicleId),
-  onCameraStateChanged: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; state: CameraState }
-    ): void => cb(payload)
-    ipcRenderer.on(IpcEvents.CameraStateChanged, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.CameraStateChanged, handler)
-    }
-  },
-  onCameraImageCaptured: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: {
-        vehicleId: number
-        lat: number
-        lon: number
-        alt: number
-        imageIndex: number
-        captureResult: number
-      }
-    ): void => cb(payload)
-    ipcRenderer.on(IpcEvents.CameraImageCaptured, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.CameraImageCaptured, handler)
-    }
-  },
-
-  // Actuator testing
-  motorTest: (vehicleId, motorInstance, throttlePercent, timeoutSeconds) =>
-    ipcRenderer.invoke(IpcChannels.ActuatorMotorTest, {
-      vehicleId,
-      motorInstance,
-      throttlePercent,
-      timeoutSeconds
-    }),
-  servoTest: (vehicleId, servoInstance, pwmValue) =>
-    ipcRenderer.invoke(IpcChannels.ActuatorServoTest, { vehicleId, servoInstance, pwmValue }),
+  // RC Calibration methods are spread in from bindIpcModule(rcCalibrationModule) below.
+  // Firmware methods are spread in from bindIpcModule(firmwareModule) below.
+  // Camera methods are spread in from bindIpcModule(cameraModule) below.
+  // Actuator testing methods are spread in from bindIpcModule(actuatorModule) below.
 
   // Popout methods are spread in from bindIpcModule(popoutModule) below.
 
@@ -459,7 +330,12 @@ const bridge: Bridge = {
   ...bindIpcModule(mavInspectorModule),
   ...bindIpcModule(popoutModule),
   ...bindIpcModule(videoModule),
-  ...bindIpcModule(calibrationModule)
+  ...bindIpcModule(calibrationModule),
+  ...bindIpcModule(rcCalibrationModule),
+  ...bindIpcModule(firmwareModule),
+  ...bindIpcModule(cameraModule),
+  ...bindIpcModule(actuatorModule),
+  ...bindIpcModule(linksModule)
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)

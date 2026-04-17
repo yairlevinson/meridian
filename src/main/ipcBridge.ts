@@ -11,7 +11,6 @@ import {
   type MavCommandRequest,
   type FlightModeRequest
 } from '@shared/ipc/MavCommandRequest'
-import type { LinkConfig } from '@shared/ipc/LinkState'
 import { common } from 'mavlink-mappings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { CameraMode } from '@shared/ipc/CameraTypes'
@@ -32,8 +31,20 @@ import { mavConsoleModule } from '@shared/ipc/modules/mavConsole'
 import { mavInspectorModule } from '@shared/ipc/modules/mavInspector'
 import { videoModule } from '@shared/ipc/modules/video'
 import { calibrationModule } from '@shared/ipc/modules/calibration'
+import { rcCalibrationModule } from '@shared/ipc/modules/rcCalibration'
+import { firmwareModule } from '@shared/ipc/modules/firmware'
+import { cameraModule, type CameraImageCapturedPayload } from '@shared/ipc/modules/camera'
+import { actuatorModule } from '@shared/ipc/modules/actuator'
+import { linksModule } from '@shared/ipc/modules/links'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
-import type { CalibrationState, MagCalProgress, MagCalReport } from '@shared/ipc/SetupTypes'
+import type {
+  CalibrationState,
+  MagCalProgress,
+  MagCalReport,
+  RcCalibrationState,
+  FirmwareUpgradeState
+} from '@shared/ipc/SetupTypes'
+import type { CameraState } from '@shared/ipc/CameraTypes'
 import type {
   InspectorSnapshotPayload,
   InspectorFieldsPayload
@@ -128,6 +139,31 @@ export function startIpcBridge(
   let emitCalibrationMagProgress: (p: { vehicleId: number } & MagCalProgress) => void = () => {}
   let emitCalibrationMagReport: (p: { vehicleId: number } & MagCalReport) => void = () => {}
 
+  // Captured by rcCalibrationModule event wire so per-vehicle rcCalibration
+  // manager events can fan out through the module's emit (registered below).
+  let emitRcCalibrationStateChanged: (p: {
+    vehicleId: number
+    state: RcCalibrationState
+  }) => void = () => {}
+
+  // Captured by firmwareModule event wire so per-vehicle firmwareManager
+  // events can fan out through the module's emit (registered below).
+  let emitFirmwareUpgradeStateChanged: (p: {
+    vehicleId: number
+    state: FirmwareUpgradeState
+  }) => void = () => {}
+
+  // Captured by cameraModule event wires so per-vehicle cameraManager
+  // events can fan out through the module's emit (registered below).
+  let emitCameraStateChanged: (p: { vehicleId: number; state: CameraState }) => void = () => {}
+  let emitCameraImageCaptured: (p: CameraImageCapturedPayload) => void = () => {}
+
+  // Captured by linksModule event wire so linkManager state changes can fan
+  // out through the module's emit (registered below).
+  let emitLinksStateChanged: (
+    states: import('@shared/ipc/LinkState').LinkState[]
+  ) => void = () => {}
+
   // Inspector emits are populated by the mavInspectorModule event wires below.
   // They're no-ops until registration completes (all before any renderer-driven enable()).
   let emitInspectorSnapshot: (p: InspectorSnapshotPayload) => void = () => {}
@@ -198,22 +234,22 @@ export function startIpcBridge(
         emitCalibrationMagReport({ vehicleId: sysid, ...report })
       })
 
-      // Forward RC calibration events
+      // Forward RC calibration events via rcCalibrationModule's captured emit
       vehicle.rcCalibrationManager.on('stateChanged', (state) => {
-        broadcast(IpcEvents.RcCalibrationStateChanged, { vehicleId: sysid, state })
+        emitRcCalibrationStateChanged({ vehicleId: sysid, state })
       })
 
-      // Forward firmware upgrade events
+      // Forward firmware upgrade events via firmwareModule's captured emit
       vehicle.firmwareManager.on('stateChanged', (state) => {
-        broadcast(IpcEvents.FirmwareUpgradeStateChanged, { vehicleId: sysid, state })
+        emitFirmwareUpgradeStateChanged({ vehicleId: sysid, state })
       })
 
-      // Forward camera events
+      // Forward camera events via cameraModule's captured emits
       vehicle.cameraManager.on('stateChanged', (state) => {
-        broadcast(IpcEvents.CameraStateChanged, { vehicleId: sysid, state })
+        emitCameraStateChanged({ vehicleId: sysid, state })
       })
       vehicle.cameraManager.on('imageCaptured', (data) => {
-        broadcast(IpcEvents.CameraImageCaptured, { vehicleId: sysid, ...data })
+        emitCameraImageCaptured({ vehicleId: sysid, ...data })
       })
 
       // Forward MAVLink console data
@@ -234,13 +270,14 @@ export function startIpcBridge(
   vehicleManager.on('vehicleRemoved', onVehicleRemoved)
   disposers.push(() => vehicleManager.removeListener('vehicleRemoved', onVehicleRemoved))
 
-  // Forward link state changes to all renderer windows
+  // Forward link state changes to all renderer windows via linksModule's captured emit
   if (linkManager) {
+    const lm = linkManager
     const onLinkStateChanged = (): void => {
-      broadcast(IpcEvents.LinkStateChanged, linkManager.getAllStates())
+      emitLinksStateChanged(lm.getAllStates())
     }
-    linkManager.on('linkStateChanged', onLinkStateChanged)
-    disposers.push(() => linkManager.removeListener('linkStateChanged', onLinkStateChanged))
+    lm.on('linkStateChanged', onLinkStateChanged)
+    disposers.push(() => lm.removeListener('linkStateChanged', onLinkStateChanged))
   }
 
   // Video IPC module (commands + stateChanged event)
@@ -436,6 +473,199 @@ export function startIpcBridge(
           emitCalibrationMagReport = emit
           return () => {
             emitCalibrationMagReport = () => {}
+          }
+        }
+      }
+    })
+  )
+
+  // RC Calibration IPC module — commands target a vehicle; stateChanged is
+  // emitted from per-vehicle rcCalibrationManager listeners via captured emit.
+  disposers.push(
+    registerIpcModule(rcCalibrationModule, {
+      commands: {
+        start: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.start()
+        },
+        nextStep: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.nextStep()
+        },
+        cancel: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.cancel()
+        },
+        save: async (vehicleId) => {
+          await vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.save()
+        }
+      },
+      events: {
+        stateChanged: (emit) => {
+          emitRcCalibrationStateChanged = emit
+          return () => {
+            emitRcCalibrationStateChanged = () => {}
+          }
+        }
+      }
+    })
+  )
+
+  // Firmware IPC module — commands target a vehicle; upgradeStateChanged is
+  // emitted from per-vehicle firmwareManager listeners via captured emit.
+  disposers.push(
+    registerIpcModule(firmwareModule, {
+      commands: {
+        uploadFile: async (vehicleId, filePath) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) throw new Error('No vehicle')
+          await vehicle.firmwareManager.uploadFile(filePath)
+        },
+        cancel: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.firmwareManager.cancel()
+        },
+        reboot: async (vehicleId) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) throw new Error('No vehicle')
+          await vehicle.firmwareManager.reboot()
+        },
+        getBoardInfo: async (vehicleId) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) return null
+          const core = vehicle.state.getDelta().core
+          return core
+            ? {
+                firmwareVersionMajor: core.firmwareVersionMajor,
+                firmwareVersionMinor: core.firmwareVersionMinor,
+                firmwareVersionPatch: core.firmwareVersionPatch,
+                vehicleType: core.vehicleType,
+                autopilot: core.autopilot
+              }
+            : null
+        }
+      },
+      events: {
+        upgradeStateChanged: (emit) => {
+          emitFirmwareUpgradeStateChanged = emit
+          return () => {
+            emitFirmwareUpgradeStateChanged = () => {}
+          }
+        }
+      }
+    })
+  )
+
+  // Camera IPC module — commands target a vehicle; events fan out from
+  // per-vehicle cameraManager listeners via captured emits.
+  disposers.push(
+    registerIpcModule(cameraModule, {
+      commands: {
+        requestInfo: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.cameraManager.handleCameraHeartbeat()
+        },
+        takePhoto: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.cameraManager.takePhoto()
+        },
+        stopCapture: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.cameraManager.stopCapture()
+        },
+        startRecording: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.cameraManager.startRecording()
+        },
+        stopRecording: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.cameraManager.stopRecording()
+        },
+        setMode: async (vehicleId, mode) => {
+          vehicleManager.getVehicle(vehicleId)?.cameraManager.setMode(mode as CameraMode)
+        },
+        formatStorage: async (vehicleId, storageId) => {
+          vehicleManager.getVehicle(vehicleId)?.cameraManager.formatStorage(storageId)
+        },
+        getState: async (vehicleId) =>
+          vehicleManager.getVehicle(vehicleId)?.cameraManager.state ?? null
+      },
+      events: {
+        stateChanged: (emit) => {
+          emitCameraStateChanged = emit
+          return () => {
+            emitCameraStateChanged = () => {}
+          }
+        },
+        imageCaptured: (emit) => {
+          emitCameraImageCaptured = emit
+          return () => {
+            emitCameraImageCaptured = () => {}
+          }
+        }
+      }
+    })
+  )
+
+  // Actuator testing IPC module — commands target a vehicle; no events.
+  // Uses MAV_CMD_ACTUATOR_TEST (310). Matches QGC implementation:
+  //   p1 = output value (-1.0..1.0 for servos, 0.0..1.0 for motors, NaN = stop)
+  //   p2 = timeout in seconds (0 = stop immediately)
+  //   p5 = 1000 + actuator function
+  // Must be refreshed every ~100ms or PX4 auto-stops the output.
+  disposers.push(
+    registerIpcModule(actuatorModule, {
+      commands: {
+        motorTest: async (vehicleId, motorInstance, throttlePercent, _timeoutSeconds) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) return
+          const throttleFraction = throttlePercent > 0 ? throttlePercent / 100 : NaN
+          const timeout = throttlePercent > 0 ? 1 : 0
+          const actuatorFunction = vehicle.actuatorMetadata.motorFunction(motorInstance)
+          await vehicle.commandQueue.sendCommand(310, vehicleId, 1, {
+            p1: throttleFraction,
+            p2: timeout,
+            p5: actuatorFunction
+          })
+        },
+        servoTest: async (vehicleId, servoInstance, pwmValue) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) return
+          const normalized = (pwmValue - 1500) / 500
+          const timeout = 1
+          const actuatorFunction = vehicle.actuatorMetadata.servoFunction(servoInstance)
+          await vehicle.commandQueue.sendCommand(310, vehicleId, 1, {
+            p1: normalized,
+            p2: timeout,
+            p5: actuatorFunction
+          })
+        }
+      },
+      events: {}
+    })
+  )
+
+  // Links IPC module — commands manage link lifecycle; stateChanged fans out
+  // linkManager state changes via captured emit (wired above).
+  disposers.push(
+    registerIpcModule(linksModule, {
+      commands: {
+        create: async (config) => {
+          if (!linkManager) throw new Error('LinkManager not available')
+          const link = await linkManager.createLink(config)
+          return { id: link.id, status: link.status }
+        },
+        disconnect: async (id) => {
+          linkManager?.disconnectLink(id)
+        },
+        getAll: async () => linkManager?.getAllStates() ?? [],
+        listSerialPorts: async () => {
+          const ports = await SerialPort.list()
+          return ports.map((p) => ({
+            path: p.path,
+            manufacturer: p.manufacturer,
+            serialNumber: p.serialNumber,
+            vendorId: p.vendorId,
+            productId: p.productId
+          }))
+        }
+      },
+      events: {
+        stateChanged: (emit) => {
+          emitLinksStateChanged = emit
+          return () => {
+            emitLinksStateChanged = () => {}
           }
         }
       }
@@ -710,205 +940,19 @@ export function startIpcBridge(
         if (result.canceled || result.filePaths.length === 0) return { cancelled: true }
         return loadPlanFile(result.filePaths[0]!)
       }
-    },
+    }
     // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
-
-    // Serial port enumeration
-    {
-      channel: IpcChannels.SerialListPorts,
-      handler: async () => {
-        const ports = await SerialPort.list()
-        return ports.map((p) => ({
-          path: p.path,
-          manufacturer: p.manufacturer,
-          serialNumber: p.serialNumber,
-          vendorId: p.vendorId,
-          productId: p.productId
-        }))
-      }
-    },
-    // Link management
-    {
-      channel: IpcChannels.LinksCreate,
-      handler: async (config: LinkConfig) => {
-        if (!linkManager) throw new Error('LinkManager not available')
-        const link = await linkManager.createLink(config)
-        return { id: link.id, status: link.status }
-      }
-    },
-    {
-      channel: IpcChannels.LinksDisconnect,
-      handler: (id: string) => linkManager?.disconnectLink(id)
-    },
-    {
-      channel: IpcChannels.LinksGetAll,
-      handler: () => linkManager?.getAllStates() ?? []
-    },
+    // Links + serial ports: now owned by linksModule (src/shared-types/ipc/modules/links.ts)
     // (Calibration: now registered via registerIpcModule above)
-    // RC Calibration
-    {
-      channel: IpcChannels.RcCalibrationStart,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.start()
-      }
-    },
-    {
-      channel: IpcChannels.RcCalibrationNextStep,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.nextStep()
-      }
-    },
-    {
-      channel: IpcChannels.RcCalibrationCancel,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.cancel()
-      }
-    },
-    {
-      channel: IpcChannels.RcCalibrationSave,
-      handler: (vehicleId: number) => {
-        return vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.save()
-      }
-    },
-    // Firmware upgrade
-    {
-      channel: IpcChannels.FirmwareUploadFile,
-      handler: async (req: { vehicleId: number; filePath: string }) => {
-        const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        if (!vehicle) throw new Error('No vehicle')
-        await vehicle.firmwareManager.uploadFile(req.filePath)
-      }
-    },
-    {
-      channel: IpcChannels.FirmwareCancel,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.firmwareManager.cancel()
-      }
-    },
-    {
-      channel: IpcChannels.FirmwareReboot,
-      handler: async (vehicleId: number) => {
-        const vehicle = vehicleManager.getVehicle(vehicleId)
-        if (!vehicle) throw new Error('No vehicle')
-        await vehicle.firmwareManager.reboot()
-      }
-    },
-    // Camera
-    {
-      channel: IpcChannels.CameraRequestInfo,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.cameraManager.handleCameraHeartbeat()
-      }
-    },
-    {
-      channel: IpcChannels.CameraTakePhoto,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.cameraManager.takePhoto()
-      }
-    },
-    {
-      channel: IpcChannels.CameraStopCapture,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.cameraManager.stopCapture()
-      }
-    },
-    {
-      channel: IpcChannels.CameraStartRecording,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.cameraManager.startRecording()
-      }
-    },
-    {
-      channel: IpcChannels.CameraStopRecording,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.cameraManager.stopRecording()
-      }
-    },
-    {
-      channel: IpcChannels.CameraSetMode,
-      handler: (req: { vehicleId: number; mode: number }) => {
-        vehicleManager.getVehicle(req.vehicleId)?.cameraManager.setMode(req.mode as CameraMode)
-      }
-    },
-    {
-      channel: IpcChannels.CameraFormatStorage,
-      handler: (req: { vehicleId: number; storageId?: number }) => {
-        vehicleManager.getVehicle(req.vehicleId)?.cameraManager.formatStorage(req.storageId)
-      }
-    },
-    {
-      channel: IpcChannels.CameraGetState,
-      handler: (vehicleId: number) => {
-        return vehicleManager.getVehicle(vehicleId)?.cameraManager.state ?? null
-      }
-    },
-    // Actuator testing — uses MAV_CMD_ACTUATOR_TEST (310).
-    // Matches QGC implementation (src/Vehicle/Actuators/ActuatorTesting.cc):
-    //   p1 = output value (-1.0..1.0 for servos, 0.0..1.0 for motors, NaN = stop)
-    //   p2 = timeout in seconds (0 = stop immediately)
-    //   p5 = 1000 + actuator function (loaded from vehicle metadata, defaults: motor1=101→1101, servo1=201→1201)
-    // Must be refreshed every ~100ms or PX4 auto-stops the output.
-    {
-      channel: IpcChannels.ActuatorMotorTest,
-      handler: (req: {
-        vehicleId: number
-        motorInstance: number
-        throttlePercent: number
-        timeoutSeconds: number
-      }) => {
-        const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        if (!vehicle) return
-        const throttleFraction = req.throttlePercent > 0 ? req.throttlePercent / 100 : NaN
-        const timeout = req.throttlePercent > 0 ? 1 : 0
-        const actuatorFunction = vehicle.actuatorMetadata.motorFunction(req.motorInstance)
-        return vehicle.commandQueue.sendCommand(
-          310, // MAV_CMD_ACTUATOR_TEST
-          req.vehicleId,
-          1,
-          { p1: throttleFraction, p2: timeout, p5: actuatorFunction }
-        )
-      }
-    },
-    {
-      channel: IpcChannels.ActuatorServoTest,
-      handler: (req: { vehicleId: number; servoInstance: number; pwmValue: number }) => {
-        const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        if (!vehicle) return
-        const normalized = (req.pwmValue - 1500) / 500
-        const timeout = 1
-        const actuatorFunction = vehicle.actuatorMetadata.servoFunction(req.servoInstance)
-        return vehicle.commandQueue.sendCommand(
-          310, // MAV_CMD_ACTUATOR_TEST
-          req.vehicleId,
-          1,
-          { p1: normalized, p2: timeout, p5: actuatorFunction }
-        )
-      }
-    },
+    // (RC Calibration: now registered via registerIpcModule above)
+    // (Firmware: now registered via registerIpcModule above)
+    // (Camera: now registered via registerIpcModule above)
+    // (Actuator testing: now registered via registerIpcModule above)
     // (MAVLink Console: now registered via registerIpcModule above)
     // (MAVLink Inspector: now registered via registerIpcModule above)
     // (Forwarding: now registered via registerIpcModule above)
-    {
-      channel: IpcChannels.FirmwareGetBoardInfo,
-      handler: (vehicleId: number) => {
-        const vehicle = vehicleManager.getVehicle(vehicleId)
-        if (!vehicle) return null
-        const core = vehicle.state.getDelta().core
-        return core
-          ? {
-              firmwareVersionMajor: core.firmwareVersionMajor,
-              firmwareVersionMinor: core.firmwareVersionMinor,
-              firmwareVersionPatch: core.firmwareVersionPatch,
-              vehicleType: core.vehicleType,
-              autopilot: core.autopilot
-            }
-          : null
-      }
-    }
-
     // (Radar: now registered via registerIpcModule above)
     // (Settings: now registered via registerIpcModule above)
-
     // (KML Import: now registered via registerIpcModule above)
   ]
 

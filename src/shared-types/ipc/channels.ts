@@ -23,14 +23,7 @@ export enum IpcChannels {
   VehicleLandingGearDeploy = 'vehicle:landingGearDeploy',
   VehicleLandingGearRetract = 'vehicle:landingGearRetract',
 
-  // Links
-  LinksCreate = 'links:createConnectedLink',
-  LinksDisconnect = 'links:disconnect',
-  LinksRemoveConfig = 'links:removeConfiguration',
-  LinksGetAll = 'links:getAll',
-
-  // Serial ports
-  SerialListPorts = 'serial:listPorts',
+  // Links + serial ports: now owned by linksModule (src/shared-types/ipc/modules/links.ts)
 
   // Mission
   MissionLoad = 'mission:load',
@@ -72,40 +65,17 @@ export enum IpcChannels {
 
   // Mission file I/O
   MissionSavePlan = 'mission:savePlan',
-  MissionOpenPlan = 'mission:openPlan',
+  MissionOpenPlan = 'mission:openPlan'
 
   // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
 
   // Popout: now owned by popoutModule (src/shared-types/ipc/modules/popout.ts)
 
   // Calibration: now owned by calibrationModule (src/shared-types/ipc/modules/calibration.ts)
-
-  // RC Calibration
-  RcCalibrationStart = 'rcCalibration:start',
-  RcCalibrationNextStep = 'rcCalibration:nextStep',
-  RcCalibrationCancel = 'rcCalibration:cancel',
-  RcCalibrationSave = 'rcCalibration:save',
-
-  // Firmware
-  FirmwareUploadFile = 'firmware:uploadFile',
-  FirmwareCancel = 'firmware:cancel',
-  FirmwareReboot = 'firmware:reboot',
-  FirmwareGetBoardInfo = 'firmware:getBoardInfo',
-
-  // Camera
-  CameraRequestInfo = 'camera:requestInfo',
-  CameraTakePhoto = 'camera:takePhoto',
-  CameraStopCapture = 'camera:stopCapture',
-  CameraStartRecording = 'camera:startRecording',
-  CameraStopRecording = 'camera:stopRecording',
-  CameraSetMode = 'camera:setMode',
-  CameraFormatStorage = 'camera:formatStorage',
-  CameraGetState = 'camera:getState',
-
-  // Actuator testing
-  ActuatorMotorTest = 'actuator:motorTest',
-  ActuatorServoTest = 'actuator:servoTest'
-
+  // RC Calibration: now owned by rcCalibrationModule (src/shared-types/ipc/modules/rcCalibration.ts)
+  // Firmware: now owned by firmwareModule (src/shared-types/ipc/modules/firmware.ts)
+  // Camera: now owned by cameraModule (src/shared-types/ipc/modules/camera.ts)
+  // Actuator testing: now owned by actuatorModule (src/shared-types/ipc/modules/actuator.ts)
   // MAVLink Inspector: now owned by mavInspectorModule
   //   (src/shared-types/ipc/modules/mavInspector.ts)
 }

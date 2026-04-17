@@ -4,8 +4,8 @@ import { FirmwareManager } from '../src/main/firmware/FirmwareManager'
 import { FTPManager } from '../src/main/ftp/FTPManager'
 import { MavCommandQueue } from '../src/main/vehicle/MavCommandQueue'
 import { FirmwareUpgradeStatus } from '../src/shared-types/ipc/SetupTypes'
-import { IpcChannels } from '../src/shared-types/ipc/channels'
-import { IpcEvents } from '../src/shared-types/ipc/events'
+import { firmwareModule } from '../src/shared-types/ipc/modules/firmware'
+import { commandChannel, eventChannel } from '../src/shared-types/ipc/ipcModule'
 import { Vehicle } from '../src/main/vehicle/Vehicle'
 import * as fs from 'fs/promises'
 
@@ -179,24 +179,16 @@ describe('FirmwareManager — Vehicle integration', () => {
 })
 
 describe('Firmware IPC channels and events', () => {
-  it('firmware IPC channels exist and are unique', () => {
-    expect(IpcChannels.FirmwareUploadFile).toBe('firmware:uploadFile')
-    expect(IpcChannels.FirmwareCancel).toBe('firmware:cancel')
-    expect(IpcChannels.FirmwareReboot).toBe('firmware:reboot')
-    expect(IpcChannels.FirmwareGetBoardInfo).toBe('firmware:getBoardInfo')
-
-    const values = Object.values(IpcChannels)
-    for (const ch of [
-      'firmware:uploadFile',
-      'firmware:cancel',
-      'firmware:reboot',
-      'firmware:getBoardInfo'
-    ]) {
-      expect(values.filter((v) => v === ch)).toHaveLength(1)
-    }
+  it('firmware IPC channels derive expected names', () => {
+    expect(commandChannel(firmwareModule.name, 'uploadFile')).toBe('firmware:uploadFile')
+    expect(commandChannel(firmwareModule.name, 'cancel')).toBe('firmware:cancel')
+    expect(commandChannel(firmwareModule.name, 'reboot')).toBe('firmware:reboot')
+    expect(commandChannel(firmwareModule.name, 'getBoardInfo')).toBe('firmware:getBoardInfo')
   })
 
-  it('firmware upgrade event exists', () => {
-    expect(IpcEvents.FirmwareUpgradeStateChanged).toBe('firmware:stateChanged')
+  it('firmware upgrade event derives expected name', () => {
+    expect(eventChannel(firmwareModule.name, 'upgradeStateChanged')).toBe(
+      'firmware:upgradeStateChanged'
+    )
   })
 })

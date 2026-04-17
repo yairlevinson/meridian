@@ -6,9 +6,9 @@ import { MotorIdentification } from '../src/renderer/src/setupview/actuators/Mot
 // Mock window.bridge
 const mockMotorTest = vi.fn()
 const mockBridge = {
-  motorTest: mockMotorTest,
+  actuatorMotorTest: mockMotorTest,
   setParameter: vi.fn(),
-  servoTest: vi.fn()
+  actuatorServoTest: vi.fn()
 }
 
 beforeEach(() => {

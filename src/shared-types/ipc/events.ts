@@ -9,8 +9,7 @@ export enum IpcEvents {
   VehicleAdded = 'vehicle:added',
   VehicleRemoved = 'vehicle:removed',
 
-  /** Link state change */
-  LinkStateChanged = 'link:stateChanged',
+  // Link state change: now owned by linksModule (src/shared-types/ipc/modules/links.ts)
 
   /** Parameter load progress */
   ParametersProgress = 'parameters:progress',
@@ -34,7 +33,7 @@ export enum IpcEvents {
 
   /** Log streaming */
   LogData = 'log:data',
-  LogProgress = 'log:progress',
+  LogProgress = 'log:progress'
 
   // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
 
@@ -42,17 +41,9 @@ export enum IpcEvents {
 
   // Calibration: now owned by calibrationModule (src/shared-types/ipc/modules/calibration.ts)
 
-  /** RC calibration state changed */
-  RcCalibrationStateChanged = 'rcCalibration:stateChanged',
-
-  /** Firmware upgrade state changed */
-  FirmwareUpgradeStateChanged = 'firmware:stateChanged',
-
-  /** Camera state changed */
-  CameraStateChanged = 'camera:stateChanged',
-  /** Image captured event */
-  CameraImageCaptured = 'camera:imageCaptured'
-
+  // RC Calibration: now owned by rcCalibrationModule (src/shared-types/ipc/modules/rcCalibration.ts)
+  // Firmware: now owned by firmwareModule (src/shared-types/ipc/modules/firmware.ts)
+  // Camera: now owned by cameraModule (src/shared-types/ipc/modules/camera.ts)
   // MAVLink Inspector: now owned by mavInspectorModule
   //   (src/shared-types/ipc/modules/mavInspector.ts)
 }
