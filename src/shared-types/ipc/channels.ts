@@ -78,10 +78,7 @@ export enum IpcChannels {
 
   // Popout: now owned by popoutModule (src/shared-types/ipc/modules/popout.ts)
 
-  // Calibration
-  CalibrationStart = 'calibration:start',
-  CalibrationCancel = 'calibration:cancel',
-  CalibrationGetState = 'calibration:getState',
+  // Calibration: now owned by calibrationModule (src/shared-types/ipc/modules/calibration.ts)
 
   // RC Calibration
   RcCalibrationStart = 'rcCalibration:start',

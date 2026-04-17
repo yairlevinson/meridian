@@ -5,14 +5,7 @@ import { IpcEvents } from '../shared-types/ipc/events'
 import type { MavCommandRequest } from '../shared-types/ipc/MavCommandRequest'
 import type { LinkConfig, LinkState, SerialPortInfo } from '../shared-types/ipc/LinkState'
 import type { Parameter, ParameterLoadState } from '../shared-types/ipc/ParameterTypes'
-import type {
-  CalibrationSensor,
-  CalibrationState,
-  MagCalProgress,
-  MagCalReport,
-  RcCalibrationState,
-  FirmwareUpgradeState
-} from '../shared-types/ipc/SetupTypes'
+import type { RcCalibrationState, FirmwareUpgradeState } from '../shared-types/ipc/SetupTypes'
 import type { CameraState } from '../shared-types/ipc/CameraTypes'
 import { radarModule } from '../shared-types/ipc/modules/radar'
 import { forwardingModule } from '../shared-types/ipc/modules/forwarding'
@@ -22,6 +15,7 @@ import { mavConsoleModule } from '../shared-types/ipc/modules/mavConsole'
 import { mavInspectorModule } from '../shared-types/ipc/modules/mavInspector'
 import { popoutModule } from '../shared-types/ipc/modules/popout'
 import { videoModule } from '../shared-types/ipc/modules/video'
+import { calibrationModule } from '../shared-types/ipc/modules/calibration'
 import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
 import { bindIpcModule } from './moduleBridge'
 
@@ -34,7 +28,8 @@ export interface Bridge
     ModuleBridge<typeof mavConsoleModule>,
     ModuleBridge<typeof mavInspectorModule>,
     ModuleBridge<typeof popoutModule>,
-    ModuleBridge<typeof videoModule> {
+    ModuleBridge<typeof videoModule>,
+    ModuleBridge<typeof calibrationModule> {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
@@ -115,18 +110,9 @@ export interface Bridge
     cb: (payload: { vehicleId: number; loadState: ParameterLoadState }) => void
   ) => () => void
 
-  // Calibration
-  calibrationStart: (vehicleId: number, sensor: CalibrationSensor) => Promise<void>
-  calibrationCancel: (vehicleId: number) => Promise<void>
-  onCalibrationStateChanged: (
-    cb: (payload: { vehicleId: number; state: CalibrationState }) => void
-  ) => () => void
-  onCalibrationMagProgress: (
-    cb: (payload: { vehicleId: number } & MagCalProgress) => void
-  ) => () => void
-  onCalibrationMagReport: (
-    cb: (payload: { vehicleId: number } & MagCalReport) => void
-  ) => () => void
+  // Calibration: generated from calibrationModule (calibrationStart, calibrationCancel,
+  //   calibrationGetState, onCalibrationStateChanged, onCalibrationMagProgress,
+  //   onCalibrationMagReport)
 
   // RC Calibration
   rcCalibrationStart: (vehicleId: number) => Promise<void>
@@ -363,40 +349,7 @@ const bridge: Bridge = {
     }
   },
 
-  // Calibration
-  calibrationStart: (vehicleId, sensor) =>
-    ipcRenderer.invoke(IpcChannels.CalibrationStart, { vehicleId, sensor }),
-  calibrationCancel: (vehicleId) => ipcRenderer.invoke(IpcChannels.CalibrationCancel, vehicleId),
-  onCalibrationStateChanged: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; state: CalibrationState }
-    ): void => cb(payload)
-    ipcRenderer.on(IpcEvents.CalibrationStateChanged, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.CalibrationStateChanged, handler)
-    }
-  },
-  onCalibrationMagProgress: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number } & MagCalProgress
-    ): void => cb(payload)
-    ipcRenderer.on(IpcEvents.CalibrationMagProgress, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.CalibrationMagProgress, handler)
-    }
-  },
-  onCalibrationMagReport: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number } & MagCalReport
-    ): void => cb(payload)
-    ipcRenderer.on(IpcEvents.CalibrationMagReport, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.CalibrationMagReport, handler)
-    }
-  },
+  // Calibration methods are spread in from bindIpcModule(calibrationModule) below.
 
   // RC Calibration
   rcCalibrationStart: (vehicleId) => ipcRenderer.invoke(IpcChannels.RcCalibrationStart, vehicleId),
@@ -505,7 +458,8 @@ const bridge: Bridge = {
   ...bindIpcModule(mavConsoleModule),
   ...bindIpcModule(mavInspectorModule),
   ...bindIpcModule(popoutModule),
-  ...bindIpcModule(videoModule)
+  ...bindIpcModule(videoModule),
+  ...bindIpcModule(calibrationModule)
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)

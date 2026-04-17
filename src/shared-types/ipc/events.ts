@@ -40,12 +40,7 @@ export enum IpcEvents {
 
   // Popout: now owned by popoutModule (src/shared-types/ipc/modules/popout.ts)
 
-  /** Sensor calibration state changed */
-  CalibrationStateChanged = 'calibration:stateChanged',
-  /** Compass calibration progress */
-  CalibrationMagProgress = 'calibration:magProgress',
-  /** Compass calibration report */
-  CalibrationMagReport = 'calibration:magReport',
+  // Calibration: now owned by calibrationModule (src/shared-types/ipc/modules/calibration.ts)
 
   /** RC calibration state changed */
   RcCalibrationStateChanged = 'rcCalibration:stateChanged',

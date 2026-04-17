@@ -14,7 +14,6 @@ import {
 import type { LinkConfig } from '@shared/ipc/LinkState'
 import { common } from 'mavlink-mappings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
-import { CalibrationSensor } from '@shared/ipc/SetupTypes'
 import { CameraMode } from '@shared/ipc/CameraTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import { parseKmlFile } from './kml/KmlParser'
@@ -32,7 +31,9 @@ import { kmlModule } from '@shared/ipc/modules/kml'
 import { mavConsoleModule } from '@shared/ipc/modules/mavConsole'
 import { mavInspectorModule } from '@shared/ipc/modules/mavInspector'
 import { videoModule } from '@shared/ipc/modules/video'
+import { calibrationModule } from '@shared/ipc/modules/calibration'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
+import type { CalibrationState, MagCalProgress, MagCalReport } from '@shared/ipc/SetupTypes'
 import type {
   InspectorSnapshotPayload,
   InspectorFieldsPayload
@@ -118,6 +119,15 @@ export function startIpcBridge(
   // fan out through the module's emit (registered below).
   let emitMavConsoleData: ((payload: { vehicleId: number; text: string }) => void) | null = null
 
+  // Captured by calibrationModule event wires so per-vehicle calibration
+  // manager events can fan out through the module's emit (registered below).
+  let emitCalibrationStateChanged: (p: {
+    vehicleId: number
+    state: CalibrationState
+  }) => void = () => {}
+  let emitCalibrationMagProgress: (p: { vehicleId: number } & MagCalProgress) => void = () => {}
+  let emitCalibrationMagReport: (p: { vehicleId: number } & MagCalReport) => void = () => {}
+
   // Inspector emits are populated by the mavInspectorModule event wires below.
   // They're no-ops until registration completes (all before any renderer-driven enable()).
   let emitInspectorSnapshot: (p: InspectorSnapshotPayload) => void = () => {}
@@ -177,15 +187,15 @@ export function startIpcBridge(
         broadcast(IpcEvents.StatusText, { vehicleId: sysid, ...payload })
       })
 
-      // Forward calibration events
+      // Forward calibration events via calibrationModule's captured emits
       vehicle.calibrationManager.on('stateChanged', (state) => {
-        broadcast(IpcEvents.CalibrationStateChanged, { vehicleId: sysid, state })
+        emitCalibrationStateChanged({ vehicleId: sysid, state })
       })
       vehicle.calibrationManager.on('magProgress', (progress) => {
-        broadcast(IpcEvents.CalibrationMagProgress, { vehicleId: sysid, ...progress })
+        emitCalibrationMagProgress({ vehicleId: sysid, ...progress })
       })
       vehicle.calibrationManager.on('magReport', (report) => {
-        broadcast(IpcEvents.CalibrationMagReport, { vehicleId: sysid, ...report })
+        emitCalibrationMagReport({ vehicleId: sysid, ...report })
       })
 
       // Forward RC calibration events
@@ -388,6 +398,44 @@ export function startIpcBridge(
           emitInspectorFields = emit
           return () => {
             emitInspectorFields = () => {}
+          }
+        }
+      }
+    })
+  )
+
+  // Calibration IPC module — commands target a vehicle; events are emitted
+  // from per-vehicle calibrationManager listeners attached in onVehicleAdded
+  // via the captured emit callbacks.
+  disposers.push(
+    registerIpcModule(calibrationModule, {
+      commands: {
+        start: async (vehicleId, sensor) => {
+          vehicleManager.getVehicle(vehicleId)?.calibrationManager.startCalibration(sensor)
+        },
+        cancel: async (vehicleId) => {
+          vehicleManager.getVehicle(vehicleId)?.calibrationManager.cancelCalibration()
+        },
+        getState: async (vehicleId) =>
+          vehicleManager.getVehicle(vehicleId)?.calibrationManager.state ?? null
+      },
+      events: {
+        stateChanged: (emit) => {
+          emitCalibrationStateChanged = emit
+          return () => {
+            emitCalibrationStateChanged = () => {}
+          }
+        },
+        magProgress: (emit) => {
+          emitCalibrationMagProgress = emit
+          return () => {
+            emitCalibrationMagProgress = () => {}
+          }
+        },
+        magReport: (emit) => {
+          emitCalibrationMagReport = emit
+          return () => {
+            emitCalibrationMagReport = () => {}
           }
         }
       }
@@ -696,27 +744,7 @@ export function startIpcBridge(
       channel: IpcChannels.LinksGetAll,
       handler: () => linkManager?.getAllStates() ?? []
     },
-    // Calibration
-    {
-      channel: IpcChannels.CalibrationStart,
-      handler: (req: { vehicleId: number; sensor: string }) => {
-        const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        if (!vehicle) return
-        vehicle.calibrationManager.startCalibration(req.sensor as CalibrationSensor)
-      }
-    },
-    {
-      channel: IpcChannels.CalibrationCancel,
-      handler: (vehicleId: number) => {
-        vehicleManager.getVehicle(vehicleId)?.calibrationManager.cancelCalibration()
-      }
-    },
-    {
-      channel: IpcChannels.CalibrationGetState,
-      handler: (vehicleId: number) => {
-        return vehicleManager.getVehicle(vehicleId)?.calibrationManager.state ?? null
-      }
-    },
+    // (Calibration: now registered via registerIpcModule above)
     // RC Calibration
     {
       channel: IpcChannels.RcCalibrationStart,
