@@ -6,11 +6,7 @@ import { SerialPort } from 'serialport'
 import { IpcChannels } from '@shared/ipc/channels'
 import { IpcEvents } from '@shared/ipc/events'
 import type { IpcHandler } from '@shared/ipc/geo'
-import {
-  MavResult,
-  type MavCommandRequest,
-  type FlightModeRequest
-} from '@shared/ipc/MavCommandRequest'
+import { MavResult } from '@shared/ipc/MavCommandRequest'
 import { common } from 'mavlink-mappings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { CameraMode } from '@shared/ipc/CameraTypes'
@@ -36,6 +32,7 @@ import { firmwareModule } from '@shared/ipc/modules/firmware'
 import { cameraModule, type CameraImageCapturedPayload } from '@shared/ipc/modules/camera'
 import { actuatorModule } from '@shared/ipc/modules/actuator'
 import { linksModule } from '@shared/ipc/modules/links'
+import { vehicleModule } from '@shared/ipc/modules/vehicle'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
 import type {
   CalibrationState,
@@ -164,6 +161,19 @@ export function startIpcBridge(
     states: import('@shared/ipc/LinkState').LinkState[]
   ) => void = () => {}
 
+  // Captured by vehicleModule event wires so vehicle lifecycle/telemetry
+  // events can fan out through the module's emit (registered below).
+  let emitVehicleAdded: (p: { vehicleId: number }) => void = () => {}
+  let emitVehicleRemoved: (p: { vehicleId: number }) => void = () => {}
+  let emitVehicleDelta: (
+    p: import('@shared/ipc/VehicleState').VehicleDeltaPayload
+  ) => void = () => {}
+  let emitVehicleStatusText: (p: {
+    vehicleId: number
+    severity: number
+    text: string
+  }) => void = () => {}
+
   // Inspector emits are populated by the mavInspectorModule event wires below.
   // They're no-ops until registration completes (all before any renderer-driven enable()).
   let emitInspectorSnapshot: (p: InspectorSnapshotPayload) => void = () => {}
@@ -194,7 +204,7 @@ export function startIpcBridge(
 
   // Forward vehicle lifecycle events to all renderer windows
   const onVehicleAdded = (sysid: number): void => {
-    broadcast(IpcEvents.VehicleAdded, { vehicleId: sysid })
+    emitVehicleAdded({ vehicleId: sysid })
     const vehicle = vehicleManager.getVehicle(sysid)
     if (vehicle) {
       vehicle.missionManager.on('progress', (p: { current: number; total: number }) => {
@@ -220,7 +230,7 @@ export function startIpcBridge(
 
       // Forward STATUSTEXT
       vehicle.on('statusText', (payload: { severity: number; text: string }) => {
-        broadcast(IpcEvents.StatusText, { vehicleId: sysid, ...payload })
+        emitVehicleStatusText({ vehicleId: sysid, ...payload })
       })
 
       // Forward calibration events via calibrationModule's captured emits
@@ -265,7 +275,7 @@ export function startIpcBridge(
   disposers.push(() => vehicleManager.removeListener('vehicleAdded', onVehicleAdded))
 
   const onVehicleRemoved = (sysid: number): void => {
-    broadcast(IpcEvents.VehicleRemoved, { vehicleId: sysid })
+    emitVehicleRemoved({ vehicleId: sysid })
   }
   vehicleManager.on('vehicleRemoved', onVehicleRemoved)
   disposers.push(() => vehicleManager.removeListener('vehicleRemoved', onVehicleRemoved))
@@ -681,11 +691,7 @@ export function startIpcBridge(
     for (const vehicle of vehicleManager.getAllVehicles()) {
       if (!vehicle.hasDirty()) continue
       const delta = vehicle.getDelta()
-      const payload = { vehicleId: vehicle.sysid, delta, sentAt: Date.now() }
-      for (const win of windows) {
-        const wc = win.webContents
-        if (!wc.isDestroyed()) wc.send(IpcEvents.VehicleDelta, payload)
-      }
+      emitVehicleDelta({ vehicleId: vehicle.sysid, delta, sentAt: Date.now() })
       anySent = true
     }
 
@@ -708,129 +714,121 @@ export function startIpcBridge(
     }
   }, TICK_RATE_MS)
 
+  // Vehicle command + telemetry IPC module.
+  // Commands target a vehicle via sysid; events (added/removed/delta/statusText)
+  // are fanned out through the captured emits wired in above.
+  disposers.push(
+    registerIpcModule(vehicleModule, {
+      commands: {
+        arm: async (vehicleId) => {
+          await vehicleManager.getVehicle(vehicleId)?.arm()
+        },
+        forceArm: async (vehicleId) => {
+          await vehicleManager.getVehicle(vehicleId)?.forceArm()
+        },
+        disarm: async (vehicleId) => {
+          await vehicleManager.getVehicle(vehicleId)?.disarm()
+        },
+        sendMavCommand: async (req) => {
+          await vehicleManager
+            .getVehicle(req.vehicleId)
+            ?.commandQueue.sendCommand(req.command, req.vehicleId, req.componentId, {
+              p1: req.param1,
+              p2: req.param2,
+              p3: req.param3,
+              p4: req.param4,
+              p5: req.param5,
+              p6: req.param6,
+              p7: req.param7
+            })
+        },
+        setFlightMode: async (vehicleId, modeName) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) return undefined
+          const pm = vehicle.parameterManager
+          const isPX4 = pm.getParameter('RC_MAP_FLTMODE') !== undefined
+          const customMode = isPX4 ? resolvePx4Mode(modeName) : resolveArduMode(modeName)
+          log.log(
+            `setFlightMode vehicleId=${vehicleId} mode=${modeName} isPX4=${isPX4} customMode=${customMode}`
+          )
+          if (customMode < 0) {
+            log.error(`setFlightMode: unknown mode name '${modeName}'`)
+            return MavResult.UNSUPPORTED
+          }
+          if (isPX4) {
+            // PX4 requires SET_MODE message (id 11), not DO_SET_MODE command
+            vehicle.sendSetMode(1, customMode) // 1 = MAV_MODE_FLAG_CUSTOM_MODE_ENABLED
+            return MavResult.ACCEPTED
+          }
+          return vehicle.commandQueue.sendCommand(common.MavCmd.DO_SET_MODE, vehicleId, 0, {
+            p1: 1,
+            p2: customMode
+          })
+        },
+        guidedTakeoff: async (vehicleId, altitude) =>
+          vehicleManager.getVehicle(vehicleId)?.guidedTakeoff(altitude),
+        guidedRTL: async (vehicleId) => {
+          await vehicleManager.getVehicle(vehicleId)?.guidedRTL()
+        },
+        guidedLand: async (vehicleId) => {
+          await vehicleManager.getVehicle(vehicleId)?.guidedLand()
+        },
+        guidedGoto: async (vehicleId, lat, lon, alt) => {
+          await vehicleManager.getVehicle(vehicleId)?.guidedGoto(lat, lon, alt)
+        },
+        guidedPause: async (vehicleId) => {
+          await vehicleManager.getVehicle(vehicleId)?.guidedPause()
+        },
+        missionStart: async (vehicleId) => {
+          await vehicleManager.getVehicle(vehicleId)?.missionStart()
+        },
+        emergencyStop: async (vehicleId) => {
+          await vehicleManager.getVehicle(vehicleId)?.emergencyStop()
+        },
+        guidedChangeAltitude: async (vehicleId, altitudeRel) =>
+          vehicleManager.getVehicle(vehicleId)?.guidedChangeAltitude(altitudeRel),
+        guidedChangeHeading: async (vehicleId, headingDeg) =>
+          vehicleManager.getVehicle(vehicleId)?.guidedChangeHeading(headingDeg),
+        guidedChangeSpeed: async (vehicleId, speed, speedType) =>
+          vehicleManager.getVehicle(vehicleId)?.guidedChangeSpeed(speed, speedType),
+        guidedOrbit: async (vehicleId, lat, lon, radius, altitudeRel) =>
+          vehicleManager.getVehicle(vehicleId)?.guidedOrbit(lat, lon, radius, altitudeRel),
+        landingGearDeploy: async (vehicleId) =>
+          vehicleManager.getVehicle(vehicleId)?.landingGearDeploy(),
+        landingGearRetract: async (vehicleId) =>
+          vehicleManager.getVehicle(vehicleId)?.landingGearRetract()
+      },
+      events: {
+        added: (emit) => {
+          emitVehicleAdded = emit
+          return () => {
+            emitVehicleAdded = () => {}
+          }
+        },
+        removed: (emit) => {
+          emitVehicleRemoved = emit
+          return () => {
+            emitVehicleRemoved = () => {}
+          }
+        },
+        delta: (emit) => {
+          emitVehicleDelta = emit
+          return () => {
+            emitVehicleDelta = () => {}
+          }
+        },
+        statusText: (emit) => {
+          emitVehicleStatusText = emit
+          return () => {
+            emitVehicleStatusText = () => {}
+          }
+        }
+      }
+    })
+  )
+
   // Register all IPC command handlers
   const handlers: IpcHandler[] = [
-    {
-      channel: IpcChannels.VehicleArm,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.arm()
-    },
-    {
-      channel: IpcChannels.VehicleForceArm,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.forceArm()
-    },
-    {
-      channel: IpcChannels.VehicleDisarm,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.disarm()
-    },
-    {
-      channel: IpcChannels.VehicleSendMavCommand,
-      handler: (req: MavCommandRequest) =>
-        vehicleManager
-          .getVehicle(req.vehicleId)
-          ?.commandQueue.sendCommand(req.command, req.vehicleId, req.componentId, {
-            p1: req.param1,
-            p2: req.param2,
-            p3: req.param3,
-            p4: req.param4,
-            p5: req.param5,
-            p6: req.param6,
-            p7: req.param7
-          })
-    },
-    {
-      channel: IpcChannels.VehicleSetFlightMode,
-      handler: (req: FlightModeRequest) => {
-        const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        if (!vehicle) return undefined
-        const pm = vehicle.parameterManager
-        const isPX4 = pm.getParameter('RC_MAP_FLTMODE') !== undefined
-        const customMode = isPX4 ? resolvePx4Mode(req.modeName) : resolveArduMode(req.modeName)
-        log.log(
-          `setFlightMode vehicleId=${req.vehicleId} mode=${req.modeName} isPX4=${isPX4} customMode=${customMode}`
-        )
-        if (customMode < 0) {
-          log.error(`setFlightMode: unknown mode name '${req.modeName}'`)
-          return Promise.resolve(MavResult.UNSUPPORTED)
-        }
-        if (isPX4) {
-          // PX4 requires SET_MODE message (id 11), not DO_SET_MODE command
-          vehicle.sendSetMode(1, customMode) // 1 = MAV_MODE_FLAG_CUSTOM_MODE_ENABLED
-          return Promise.resolve(MavResult.ACCEPTED)
-        }
-        return vehicle.commandQueue.sendCommand(
-          common.MavCmd.DO_SET_MODE,
-          req.vehicleId,
-          0,
-          { p1: 1, p2: customMode } // p1 = MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, p2 = custom mode
-        )
-      }
-    },
-    {
-      channel: IpcChannels.VehicleGuidedTakeoff,
-      handler: (req: { vehicleId: number; altitude: number }) =>
-        vehicleManager.getVehicle(req.vehicleId)?.guidedTakeoff(req.altitude)
-    },
-    {
-      channel: IpcChannels.VehicleGuidedRTL,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.guidedRTL()
-    },
-    {
-      channel: IpcChannels.VehicleGuidedLand,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.guidedLand()
-    },
-    {
-      channel: IpcChannels.VehicleGuidedGoto,
-      handler: (req: { vehicleId: number; lat: number; lon: number; alt: number }) =>
-        vehicleManager.getVehicle(req.vehicleId)?.guidedGoto(req.lat, req.lon, req.alt)
-    },
-    {
-      channel: IpcChannels.VehicleGuidedPause,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.guidedPause()
-    },
-    {
-      channel: IpcChannels.VehicleMissionStart,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.missionStart()
-    },
-    {
-      channel: IpcChannels.VehicleEmergencyStop,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.emergencyStop()
-    },
-    {
-      channel: IpcChannels.VehicleGuidedChangeAltitude,
-      handler: (req: { vehicleId: number; altitudeRel: number }) =>
-        vehicleManager.getVehicle(req.vehicleId)?.guidedChangeAltitude(req.altitudeRel)
-    },
-    {
-      channel: IpcChannels.VehicleGuidedChangeHeading,
-      handler: (req: { vehicleId: number; headingDeg: number }) =>
-        vehicleManager.getVehicle(req.vehicleId)?.guidedChangeHeading(req.headingDeg)
-    },
-    {
-      channel: IpcChannels.VehicleGuidedChangeSpeed,
-      handler: (req: { vehicleId: number; speed: number; speedType: 0 | 1 }) =>
-        vehicleManager.getVehicle(req.vehicleId)?.guidedChangeSpeed(req.speed, req.speedType)
-    },
-    {
-      channel: IpcChannels.VehicleGuidedOrbit,
-      handler: (req: {
-        vehicleId: number
-        lat: number
-        lon: number
-        radius: number
-        altitudeRel: number
-      }) =>
-        vehicleManager
-          .getVehicle(req.vehicleId)
-          ?.guidedOrbit(req.lat, req.lon, req.radius, req.altitudeRel)
-    },
-    {
-      channel: IpcChannels.VehicleLandingGearDeploy,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.landingGearDeploy()
-    },
-    {
-      channel: IpcChannels.VehicleLandingGearRetract,
-      handler: (vehicleId: number) => vehicleManager.getVehicle(vehicleId)?.landingGearRetract()
-    },
     {
       channel: IpcChannels.ParametersRefresh,
       handler: (...args: unknown[]) => {

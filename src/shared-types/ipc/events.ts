@@ -2,12 +2,8 @@
  * All ipcRenderer.on() event names — main→renderer push events.
  */
 export enum IpcEvents {
-  /** Vehicle state delta (30Hz throttled) */
-  VehicleDelta = 'vehicle:delta',
-
-  /** Vehicle added/removed */
-  VehicleAdded = 'vehicle:added',
-  VehicleRemoved = 'vehicle:removed',
+  // Vehicle delta/added/removed/statusText: now owned by vehicleModule
+  //   (src/shared-types/ipc/modules/vehicle.ts)
 
   // Link state change: now owned by linksModule (src/shared-types/ipc/modules/links.ts)
 
@@ -21,12 +17,6 @@ export enum IpcEvents {
   MissionComplete = 'mission:complete',
   MissionError = 'mission:error',
   MissionCurrentChanged = 'mission:currentChanged',
-
-  /** MAV command result */
-  CommandResult = 'command:result',
-
-  /** STATUSTEXT messages */
-  StatusText = 'statustext',
 
   /** FTP progress */
   FtpProgress = 'ftp:progress',

@@ -1,8 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { VehicleDeltaPayload } from '../shared-types/ipc/VehicleState'
 import { IpcChannels } from '../shared-types/ipc/channels'
 import { IpcEvents } from '../shared-types/ipc/events'
-import type { MavCommandRequest } from '../shared-types/ipc/MavCommandRequest'
 import type { Parameter, ParameterLoadState } from '../shared-types/ipc/ParameterTypes'
 import { radarModule } from '../shared-types/ipc/modules/radar'
 import { forwardingModule } from '../shared-types/ipc/modules/forwarding'
@@ -18,6 +16,7 @@ import { firmwareModule } from '../shared-types/ipc/modules/firmware'
 import { cameraModule } from '../shared-types/ipc/modules/camera'
 import { actuatorModule } from '../shared-types/ipc/modules/actuator'
 import { linksModule } from '../shared-types/ipc/modules/links'
+import { vehicleModule } from '../shared-types/ipc/modules/vehicle'
 import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
 import { bindIpcModule } from './moduleBridge'
 
@@ -36,44 +35,10 @@ export interface Bridge
     ModuleBridge<typeof firmwareModule>,
     ModuleBridge<typeof cameraModule>,
     ModuleBridge<typeof actuatorModule>,
-    ModuleBridge<typeof linksModule> {
-  onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
-  onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
-  onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
-  arm: (vehicleId: number) => Promise<void>
-  forceArm: (vehicleId: number) => Promise<void>
-  disarm: (vehicleId: number) => Promise<void>
-  sendMavCommand: (req: MavCommandRequest) => Promise<void>
-  setFlightMode: (vehicleId: number, modeName: string) => Promise<number | undefined>
-  guidedTakeoff: (vehicleId: number, altitude: number) => Promise<number | undefined>
-  guidedRTL: (vehicleId: number) => Promise<void>
-  guidedLand: (vehicleId: number) => Promise<void>
-  guidedGoto: (vehicleId: number, lat: number, lon: number, alt: number) => Promise<void>
-  guidedPause: (vehicleId: number) => Promise<void>
-  missionStart: (vehicleId: number) => Promise<void>
-  emergencyStop: (vehicleId: number) => Promise<void>
-  guidedChangeAltitude: (vehicleId: number, altitudeRel: number) => Promise<number | undefined>
-  guidedChangeHeading: (vehicleId: number, headingDeg: number) => Promise<number | undefined>
-  guidedChangeSpeed: (
-    vehicleId: number,
-    speed: number,
-    speedType: 0 | 1
-  ) => Promise<number | undefined>
-  guidedOrbit: (
-    vehicleId: number,
-    lat: number,
-    lon: number,
-    radius: number,
-    altitudeRel: number
-  ) => Promise<number | undefined>
-  landingGearDeploy: (vehicleId: number) => Promise<number | undefined>
-  landingGearRetract: (vehicleId: number) => Promise<number | undefined>
-  onStatusText: (
-    cb: (payload: { vehicleId: number; severity: number; text: string }) => void
-  ) => () => void
-  onCommandResult: (
-    cb: (payload: { vehicleId: number; command: number; result: number }) => void
-  ) => () => void
+    ModuleBridge<typeof linksModule>,
+    ModuleBridge<typeof vehicleModule> {
+  // Vehicle: generated from vehicleModule (vehicleArm, vehicleDisarm, vehicleGuidedTakeoff,
+  //   ..., onVehicleAdded, onVehicleRemoved, onVehicleDelta, onVehicleStatusText)
   getParameters: (vehicleId: number) => Promise<unknown>
   setParameter: (vehicleId: number, name: string, value: number) => Promise<void>
   refreshParameters: (vehicleId: number) => Promise<void>
@@ -147,83 +112,7 @@ export interface Bridge
 
 const bridge: Bridge = {
   ...bindIpcModule(radarModule),
-  onVehicleDelta: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: VehicleDeltaPayload): void =>
-      cb(payload)
-    ipcRenderer.on('vehicle:delta', handler)
-    return () => {
-      ipcRenderer.removeListener('vehicle:delta', handler)
-    }
-  },
-  onVehicleAdded: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: { vehicleId: number }): void =>
-      cb(payload)
-    ipcRenderer.on('vehicle:added', handler)
-    return () => {
-      ipcRenderer.removeListener('vehicle:added', handler)
-    }
-  },
-  onVehicleRemoved: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: { vehicleId: number }): void =>
-      cb(payload)
-    ipcRenderer.on('vehicle:removed', handler)
-    return () => {
-      ipcRenderer.removeListener('vehicle:removed', handler)
-    }
-  },
-  arm: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleArm, vehicleId),
-  forceArm: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleForceArm, vehicleId),
-  disarm: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleDisarm, vehicleId),
-  sendMavCommand: (req) => ipcRenderer.invoke(IpcChannels.VehicleSendMavCommand, req),
-  setFlightMode: (vehicleId, modeName) =>
-    ipcRenderer.invoke(IpcChannels.VehicleSetFlightMode, { vehicleId, modeName }),
-  guidedTakeoff: (vehicleId, altitude) =>
-    ipcRenderer.invoke(IpcChannels.VehicleGuidedTakeoff, { vehicleId, altitude }),
-  guidedRTL: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleGuidedRTL, vehicleId),
-  guidedLand: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleGuidedLand, vehicleId),
-  guidedGoto: (vehicleId, lat, lon, alt) =>
-    ipcRenderer.invoke(IpcChannels.VehicleGuidedGoto, { vehicleId, lat, lon, alt }),
-  guidedPause: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleGuidedPause, vehicleId),
-  missionStart: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleMissionStart, vehicleId),
-  emergencyStop: (vehicleId) => ipcRenderer.invoke(IpcChannels.VehicleEmergencyStop, vehicleId),
-  guidedChangeAltitude: (vehicleId, altitudeRel) =>
-    ipcRenderer.invoke(IpcChannels.VehicleGuidedChangeAltitude, { vehicleId, altitudeRel }),
-  guidedChangeHeading: (vehicleId, headingDeg) =>
-    ipcRenderer.invoke(IpcChannels.VehicleGuidedChangeHeading, { vehicleId, headingDeg }),
-  guidedChangeSpeed: (vehicleId, speed, speedType) =>
-    ipcRenderer.invoke(IpcChannels.VehicleGuidedChangeSpeed, { vehicleId, speed, speedType }),
-  guidedOrbit: (vehicleId, lat, lon, radius, altitudeRel) =>
-    ipcRenderer.invoke(IpcChannels.VehicleGuidedOrbit, {
-      vehicleId,
-      lat,
-      lon,
-      radius,
-      altitudeRel
-    }),
-  landingGearDeploy: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.VehicleLandingGearDeploy, vehicleId),
-  landingGearRetract: (vehicleId) =>
-    ipcRenderer.invoke(IpcChannels.VehicleLandingGearRetract, vehicleId),
-  onStatusText: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; severity: number; text: string }
-    ): void => cb(payload)
-    ipcRenderer.on('statustext', handler)
-    return () => {
-      ipcRenderer.removeListener('statustext', handler)
-    }
-  },
-  onCommandResult: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; command: number; result: number }
-    ): void => cb(payload)
-    ipcRenderer.on('command:result', handler)
-    return () => {
-      ipcRenderer.removeListener('command:result', handler)
-    }
-  },
+  // Vehicle methods are spread in from bindIpcModule(vehicleModule) below.
   getParameters: (vehicleId) => ipcRenderer.invoke(IpcChannels.ParametersGetAll, vehicleId),
   setParameter: (vehicleId, name, value) =>
     ipcRenderer.invoke(IpcChannels.ParametersSet, { vehicleId, componentId: 1, name, value }),
@@ -335,7 +224,8 @@ const bridge: Bridge = {
   ...bindIpcModule(firmwareModule),
   ...bindIpcModule(cameraModule),
   ...bindIpcModule(actuatorModule),
-  ...bindIpcModule(linksModule)
+  ...bindIpcModule(linksModule),
+  ...bindIpcModule(vehicleModule)
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)

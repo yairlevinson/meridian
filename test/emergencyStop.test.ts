@@ -5,7 +5,8 @@ import { MavCommandQueue } from '../src/main/vehicle/MavCommandQueue'
 import { MockLink } from '../src/test-utils/MockLink/MockLink'
 import { MavlinkChannel, type DecodedMessage } from '../src/main/mavlink/MavlinkChannel'
 import { MavResult } from '../src/shared-types/ipc/MavCommandRequest'
-import { IpcChannels } from '../src/shared-types/ipc/channels'
+import { vehicleModule } from '../src/shared-types/ipc/modules/vehicle'
+import { commandChannel } from '../src/shared-types/ipc/ipcModule'
 
 describe('Emergency Stop — Vehicle command', () => {
   let vehicle: Vehicle
@@ -82,11 +83,7 @@ describe('Emergency Stop — MavCommandQueue params', () => {
 })
 
 describe('Emergency Stop — IPC channel', () => {
-  it('VehicleEmergencyStop channel exists and is unique', () => {
-    expect(IpcChannels.VehicleEmergencyStop).toBe('vehicle:emergencyStop')
-
-    const values = Object.values(IpcChannels)
-    const occurrences = values.filter((v) => v === 'vehicle:emergencyStop')
-    expect(occurrences).toHaveLength(1)
+  it('vehicleModule emergencyStop command channel derives expected name', () => {
+    expect(commandChannel(vehicleModule.name, 'emergencyStop')).toBe('vehicle:emergencyStop')
   })
 })

@@ -3,25 +3,7 @@
  * Both main and renderer reference this single enum.
  */
 export enum IpcChannels {
-  // Vehicle commands
-  VehicleArm = 'vehicle:arm',
-  VehicleForceArm = 'vehicle:forceArm',
-  VehicleDisarm = 'vehicle:disarm',
-  VehicleSendMavCommand = 'vehicle:sendMavCommand',
-  VehicleSetFlightMode = 'vehicle:setFlightMode',
-  VehicleGuidedTakeoff = 'vehicle:guidedModeTakeoff',
-  VehicleGuidedRTL = 'vehicle:guidedModeRTL',
-  VehicleGuidedLand = 'vehicle:guidedModeLand',
-  VehicleGuidedGoto = 'vehicle:guidedModeGotoLocation',
-  VehicleGuidedPause = 'vehicle:guidedModePause',
-  VehicleMissionStart = 'vehicle:missionStart',
-  VehicleEmergencyStop = 'vehicle:emergencyStop',
-  VehicleGuidedChangeAltitude = 'vehicle:guidedModeChangeAltitude',
-  VehicleGuidedChangeHeading = 'vehicle:guidedModeChangeHeading',
-  VehicleGuidedChangeSpeed = 'vehicle:guidedModeChangeSpeed',
-  VehicleGuidedOrbit = 'vehicle:guidedModeOrbit',
-  VehicleLandingGearDeploy = 'vehicle:landingGearDeploy',
-  VehicleLandingGearRetract = 'vehicle:landingGearRetract',
+  // Vehicle commands: now owned by vehicleModule (src/shared-types/ipc/modules/vehicle.ts)
 
   // Links + serial ports: now owned by linksModule (src/shared-types/ipc/modules/links.ts)
 

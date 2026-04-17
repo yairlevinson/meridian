@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { EventEmitter } from 'events'
-import { IpcEvents } from '../src/shared-types/ipc/events'
 import { IpcChannels } from '../src/shared-types/ipc/channels'
 
 // ── Mock electron ipcMain + BrowserWindow ───────────────────────
@@ -108,7 +107,7 @@ describe('ipcBridge', () => {
     // Advance past one tick (33ms)
     vi.advanceTimersByTime(34)
 
-    const deltaMsgs = wc.sent.filter((s) => s.channel === IpcEvents.VehicleDelta)
+    const deltaMsgs = wc.sent.filter((s) => s.channel === 'vehicle:delta')
     expect(deltaMsgs).toHaveLength(1)
     expect(deltaMsgs[0].args[0].vehicleId).toBe(1)
     expect(deltaMsgs[0].args[0].delta.core.armed).toBe(true)
@@ -120,7 +119,7 @@ describe('ipcBridge', () => {
 
     vi.advanceTimersByTime(34)
 
-    const deltaMsgs = wc.sent.filter((s) => s.channel === IpcEvents.VehicleDelta)
+    const deltaMsgs = wc.sent.filter((s) => s.channel === 'vehicle:delta')
     expect(deltaMsgs).toHaveLength(0)
     expect(vehicle.getDelta).not.toHaveBeenCalled()
   })
@@ -128,7 +127,7 @@ describe('ipcBridge', () => {
   it('forwards vehicleAdded events to webContents', () => {
     vm.emit('vehicleAdded', 42)
 
-    const addedMsgs = wc.sent.filter((s) => s.channel === IpcEvents.VehicleAdded)
+    const addedMsgs = wc.sent.filter((s) => s.channel === 'vehicle:added')
     expect(addedMsgs).toHaveLength(1)
     expect(addedMsgs[0].args[0]).toEqual({ vehicleId: 42 })
   })
@@ -136,7 +135,7 @@ describe('ipcBridge', () => {
   it('forwards vehicleRemoved events to webContents', () => {
     vm.emit('vehicleRemoved', 7)
 
-    const removedMsgs = wc.sent.filter((s) => s.channel === IpcEvents.VehicleRemoved)
+    const removedMsgs = wc.sent.filter((s) => s.channel === 'vehicle:removed')
     expect(removedMsgs).toHaveLength(1)
     expect(removedMsgs[0].args[0]).toEqual({ vehicleId: 7 })
   })
@@ -166,9 +165,9 @@ describe('ipcBridge', () => {
   })
 
   it('registers IPC handlers on startup', () => {
-    expect(registeredHandlers.has(IpcChannels.VehicleArm)).toBe(true)
-    expect(registeredHandlers.has(IpcChannels.VehicleDisarm)).toBe(true)
-    expect(registeredHandlers.has(IpcChannels.VehicleGuidedTakeoff)).toBe(true)
+    expect(registeredHandlers.has('vehicle:arm')).toBe(true)
+    expect(registeredHandlers.has('vehicle:disarm')).toBe(true)
+    expect(registeredHandlers.has('vehicle:guidedTakeoff')).toBe(true)
     expect(registeredHandlers.has(IpcChannels.ParametersGetAll)).toBe(true)
     expect(registeredHandlers.has(IpcChannels.MissionLoad)).toBe(true)
     expect(registeredHandlers.has('actuator:motorTest')).toBe(true)
@@ -182,8 +181,8 @@ describe('ipcBridge', () => {
     cleanup()
 
     // Handlers removed after cleanup
-    expect(registeredHandlers.has(IpcChannels.VehicleArm)).toBe(false)
-    expect(registeredHandlers.has(IpcChannels.VehicleDisarm)).toBe(false)
+    expect(registeredHandlers.has('vehicle:arm')).toBe(false)
+    expect(registeredHandlers.has('vehicle:disarm')).toBe(false)
 
     // Interval no longer fires (add vehicle, advance timer, nothing sent)
     const vehicle = createMockVehicle(1, { core: { armed: true } })
@@ -201,7 +200,7 @@ describe('ipcBridge', () => {
 
     vi.advanceTimersByTime(34)
 
-    const deltaMsgs = wc.sent.filter((s) => s.channel === IpcEvents.VehicleDelta)
+    const deltaMsgs = wc.sent.filter((s) => s.channel === 'vehicle:delta')
     expect(deltaMsgs).toHaveLength(2)
     const vehicleIds = deltaMsgs.map((m) => m.args[0].vehicleId).sort()
     expect(vehicleIds).toEqual([1, 2])

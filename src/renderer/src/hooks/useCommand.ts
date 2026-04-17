@@ -29,88 +29,88 @@ export function useCommand(vehicleIdOverride?: number): {
   const vid = vehicleIdOverride ?? activeId ?? 1
 
   const arm = useCallback(() => {
-    return window.bridge?.arm(vid)
+    return window.bridge?.vehicleArm(vid)
   }, [vid])
 
   const forceArm = useCallback(() => {
-    return window.bridge?.forceArm(vid)
+    return window.bridge?.vehicleForceArm(vid)
   }, [vid])
 
   const disarm = useCallback(() => {
-    return window.bridge?.disarm(vid)
+    return window.bridge?.vehicleDisarm(vid)
   }, [vid])
 
   const setFlightMode = useCallback(
     (modeName: string) => {
-      return window.bridge?.setFlightMode(vid, modeName)
+      return window.bridge?.vehicleSetFlightMode(vid, modeName)
     },
     [vid]
   )
 
   const guidedTakeoff = useCallback(
     (altitude: number) => {
-      return window.bridge?.guidedTakeoff(vid, altitude)
+      return window.bridge?.vehicleGuidedTakeoff(vid, altitude)
     },
     [vid]
   )
 
   const guidedRTL = useCallback(() => {
-    return window.bridge?.guidedRTL(vid)
+    return window.bridge?.vehicleGuidedRTL(vid)
   }, [vid])
 
   const guidedLand = useCallback(() => {
-    return window.bridge?.guidedLand(vid)
+    return window.bridge?.vehicleGuidedLand(vid)
   }, [vid])
 
   const guidedGoto = useCallback(
     (lat: number, lon: number, alt: number) => {
-      return window.bridge?.guidedGoto(vid, lat, lon, alt)
+      return window.bridge?.vehicleGuidedGoto(vid, lat, lon, alt)
     },
     [vid]
   )
 
   const guidedPause = useCallback(() => {
-    return window.bridge?.guidedPause(vid)
+    return window.bridge?.vehicleGuidedPause(vid)
   }, [vid])
 
   const emergencyStop = useCallback(() => {
-    return window.bridge?.emergencyStop(vid)
+    return window.bridge?.vehicleEmergencyStop(vid)
   }, [vid])
 
   const guidedChangeAltitude = useCallback(
     (altitudeRel: number) => {
-      return window.bridge?.guidedChangeAltitude(vid, altitudeRel)
+      return window.bridge?.vehicleGuidedChangeAltitude(vid, altitudeRel)
     },
     [vid]
   )
 
   const guidedChangeHeading = useCallback(
     (headingDeg: number) => {
-      return window.bridge?.guidedChangeHeading(vid, headingDeg)
+      return window.bridge?.vehicleGuidedChangeHeading(vid, headingDeg)
     },
     [vid]
   )
 
   const guidedChangeSpeed = useCallback(
     (speed: number, speedType: 0 | 1) => {
-      return window.bridge?.guidedChangeSpeed(vid, speed, speedType)
+      return window.bridge?.vehicleGuidedChangeSpeed(vid, speed, speedType)
     },
     [vid]
   )
 
   const guidedOrbit = useCallback(
     (lat: number, lon: number, radius: number, altitudeRel: number) => {
-      return window.bridge?.guidedOrbit(vid, lat, lon, radius, altitudeRel)
+      return window.bridge?.vehicleGuidedOrbit(vid, lat, lon, radius, altitudeRel)
     },
     [vid]
   )
 
   const landingGearDeploy = useCallback(() => {
-    return window.bridge?.landingGearDeploy(vid)
+    return window.bridge?.vehicleLandingGearDeploy(vid)
   }, [vid])
 
   const landingGearRetract = useCallback(() => {
-    return window.bridge?.landingGearRetract(vid)
+    return window.bridge?.vehicleLandingGearRetract(vid)
   }, [vid])
 
   return {

@@ -58,7 +58,7 @@ export function StatusTextOverlay(): React.JSX.Element {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.bridge) return
-    const unsubscribe = window.bridge.onStatusText(({ severity, text }) => {
+    const unsubscribe = window.bridge.onVehicleStatusText(({ severity, text }) => {
       log.debug('sev=%d text=%s', severity, text)
       setMessages((prev) => {
         // Deduplicate: if same text + severity exists, bump its count and timestamp
