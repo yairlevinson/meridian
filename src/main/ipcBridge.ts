@@ -3,7 +3,6 @@ import type { VehicleManager } from './vehicle/VehicleManager'
 import type { VideoManager } from './video/VideoManager'
 import type { LinkManager } from './links/LinkManager'
 import { SerialPort } from 'serialport'
-import type { IpcHandler } from '@shared/ipc/geo'
 import { MavResult } from '@shared/ipc/MavCommandRequest'
 import { common } from 'mavlink-mappings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
@@ -976,28 +975,7 @@ export function startIpcBridge(
     })
   )
 
-  // Register all IPC command handlers
-  const handlers: IpcHandler[] = [
-    // Parameters: now owned by parametersModule (src/shared-types/ipc/modules/parameters.ts)
-    // Mission: now owned by missionModule (src/shared-types/ipc/modules/mission.ts)
-    // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
-    // Links + serial ports: now owned by linksModule (src/shared-types/ipc/modules/links.ts)
-    // (Calibration: now registered via registerIpcModule above)
-    // (RC Calibration: now registered via registerIpcModule above)
-    // (Firmware: now registered via registerIpcModule above)
-    // (Camera: now registered via registerIpcModule above)
-    // (Actuator testing: now registered via registerIpcModule above)
-    // (MAVLink Console: now registered via registerIpcModule above)
-    // (MAVLink Inspector: now registered via registerIpcModule above)
-    // (Forwarding: now registered via registerIpcModule above)
-    // (Radar: now registered via registerIpcModule above)
-    // (Settings: now registered via registerIpcModule above)
-    // (KML Import: now registered via registerIpcModule above)
-  ]
-
-  for (const { channel, handler } of handlers) {
-    ipcMain.handle(channel, (_event, ...args) => handler(...args))
-  }
+  // All IPC commands are now registered via registerIpcModule() above.
 
   // Settings IPC module (getAll/set + changed event)
   if (settingsManager) {
@@ -1027,8 +1005,5 @@ export function startIpcBridge(
     inspector.disable()
     clearInterval(interval)
     for (const dispose of disposers) dispose()
-    for (const { channel } of handlers) {
-      ipcMain.removeHandler(channel)
-    }
   }
 }

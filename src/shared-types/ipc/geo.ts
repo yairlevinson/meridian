@@ -21,10 +21,3 @@ export interface StreamRequest {
   id: number
   rate: number
 }
-
-/** IPC handler registration */
-export interface IpcHandler {
-  channel: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handler: (...args: any[]) => any
-}
