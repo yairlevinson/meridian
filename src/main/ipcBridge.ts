@@ -3,8 +3,6 @@ import type { VehicleManager } from './vehicle/VehicleManager'
 import type { VideoManager } from './video/VideoManager'
 import type { LinkManager } from './links/LinkManager'
 import { SerialPort } from 'serialport'
-import { MavResult } from '@shared/ipc/MavCommandRequest'
-import { common } from 'mavlink-mappings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { CameraMode } from '@shared/ipc/CameraTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
@@ -49,58 +47,6 @@ import type { AppSettings } from '@shared/ipc/AppSettings'
 import type { Parameter, ParameterLoadState } from '@shared/ipc/ParameterTypes'
 
 const log = createLogger('IPC')
-
-// PX4 custom_mode encoding: main_mode in bits 16-23, sub_mode in bits 24-31
-// See QGC px4_custom_mode.h
-const PX4_MODES: Record<string, number> = {
-  Manual: 1 << 16,
-  AltCtl: 2 << 16,
-  PosCtl: 3 << 16,
-  Stabilized: 7 << 16,
-  Acro: 5 << 16,
-  Offboard: 6 << 16,
-  Rattitude: 8 << 16,
-  Mission: (4 << 16) | (4 << 24),
-  Loiter: (4 << 16) | (3 << 24),
-  RTL: (4 << 16) | (5 << 24),
-  Land: (4 << 16) | (6 << 24),
-  Takeoff: (4 << 16) | (2 << 24)
-}
-
-function resolvePx4Mode(name: string): number {
-  return PX4_MODES[name] ?? -1
-}
-
-// ArduCopter name → custom_mode number
-const ARDUPILOT_MODES: Record<string, number> = {
-  Stabilize: 0,
-  Acro: 1,
-  AltHold: 2,
-  Auto: 3,
-  Guided: 4,
-  Loiter: 5,
-  RTL: 6,
-  Circle: 7,
-  Land: 9,
-  Drift: 11,
-  Sport: 13,
-  Flip: 14,
-  AutoTune: 15,
-  PosHold: 16,
-  Brake: 17,
-  Throw: 18,
-  Avoid: 19,
-  GuidedNoGPS: 20,
-  SmartRTL: 21
-}
-
-function resolveArduMode(name: string): number {
-  // Accept both named modes and numeric strings for backward compat
-  const num = ARDUPILOT_MODES[name]
-  if (num !== undefined) return num
-  const parsed = Number(name)
-  return Number.isFinite(parsed) ? parsed : -1
-}
 
 const TICK_RATE_MS = 33 // ~30 Hz
 
@@ -753,29 +699,8 @@ export function startIpcBridge(
               p7: req.param7
             })
         },
-        setFlightMode: async (vehicleId, modeName) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) return undefined
-          const pm = vehicle.parameterManager
-          const isPX4 = pm.getParameter('RC_MAP_FLTMODE') !== undefined
-          const customMode = isPX4 ? resolvePx4Mode(modeName) : resolveArduMode(modeName)
-          log.log(
-            `setFlightMode vehicleId=${vehicleId} mode=${modeName} isPX4=${isPX4} customMode=${customMode}`
-          )
-          if (customMode < 0) {
-            log.error(`setFlightMode: unknown mode name '${modeName}'`)
-            return MavResult.UNSUPPORTED
-          }
-          if (isPX4) {
-            // PX4 requires SET_MODE message (id 11), not DO_SET_MODE command
-            vehicle.sendSetMode(1, customMode) // 1 = MAV_MODE_FLAG_CUSTOM_MODE_ENABLED
-            return MavResult.ACCEPTED
-          }
-          return vehicle.commandQueue.sendCommand(common.MavCmd.DO_SET_MODE, vehicleId, 0, {
-            p1: 1,
-            p2: customMode
-          })
-        },
+        setFlightMode: async (vehicleId, modeName) =>
+          vehicleManager.getVehicle(vehicleId)?.setFlightModeByName(modeName),
         guidedTakeoff: async (vehicleId, altitude) =>
           vehicleManager.getVehicle(vehicleId)?.guidedTakeoff(altitude),
         guidedRTL: async (vehicleId) => {

@@ -17,7 +17,12 @@ import { MissionType, type MissionItem } from '@shared/ipc/MissionTypes'
 import { common } from 'mavlink-mappings'
 import { createGcsProtocol } from '../mavlink/constants'
 import { createLogger } from '../logger'
-import { getActionPlan, type AutopilotType, type ActionStep } from './commandSemantics'
+import {
+  dialectForAutopilot,
+  MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+  type ActionStep,
+  type VehicleDialect
+} from './dialect'
 
 const log = createLogger('Vehicle')
 
@@ -481,9 +486,34 @@ export class Vehicle extends EventEmitter {
 
   // ── Autopilot detection ─────────────────────────────────────────
 
-  /** Detect autopilot family from HEARTBEAT data */
-  private get autopilotType(): AutopilotType {
-    return this.state.getSnapshot().core.autopilot === 12 ? 'px4' : 'ardupilot'
+  /** Dialect for the currently-detected autopilot family (from HEARTBEAT). */
+  get dialect(): VehicleDialect {
+    return dialectForAutopilot(this.state.getSnapshot().core.autopilot)
+  }
+
+  /**
+   * Switch the vehicle to the named flight mode. Resolves the dialect-specific
+   * custom_mode and dispatches via either SET_MODE (PX4) or DO_SET_MODE (ArduPilot).
+   * Returns MavResult.UNSUPPORTED if the name is unknown for this autopilot.
+   */
+  async setFlightModeByName(name: string): Promise<MavResult> {
+    const dialect = this.dialect
+    const customMode = dialect.modeNameToCustomMode(name)
+    log.log(
+      `setFlightMode sysid=${this.sysid} mode=${name} dialect=${dialect.name} customMode=${customMode}`
+    )
+    if (customMode === null) {
+      log.error(`setFlightMode: unknown mode name '${name}' for ${dialect.name}`)
+      return MavResult.UNSUPPORTED
+    }
+    if (dialect.usesSetModeMessage) {
+      this.sendSetMode(MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, customMode)
+      return MavResult.ACCEPTED
+    }
+    return this.commandQueue.sendCommand(common.MavCmd.DO_SET_MODE, this.sysid, 0, {
+      p1: 1,
+      p2: customMode
+    })
   }
 
   // ── Action plan executor ──────────────────────────────────────
@@ -519,16 +549,16 @@ export class Vehicle extends EventEmitter {
   // ── Convenience command methods ─────────────────────────────────
 
   arm(): Promise<MavResult> {
-    return this.executePlan(getActionPlan(this.autopilotType, 'arm'))
+    return this.executePlan(this.dialect.planArm())
   }
 
   forceArm(): Promise<MavResult> {
     log.debug('forceArm: bypassing preflight checks')
-    return this.executePlan(getActionPlan(this.autopilotType, 'forceArm'))
+    return this.executePlan(this.dialect.planForceArm())
   }
 
   disarm(): Promise<MavResult> {
-    return this.executePlan(getActionPlan(this.autopilotType, 'disarm'))
+    return this.executePlan(this.dialect.planDisarm())
   }
 
   /** Send SET_MODE message (msg id 11) — used for PX4 which doesn't support DO_SET_MODE */
@@ -550,45 +580,44 @@ export class Vehicle extends EventEmitter {
     if (!currentAltMsl || currentAltMsl === 0) {
       log.warn('guidedTakeoff: no GPS altitude available')
     }
-    log.debug(
-      'guidedTakeoff %s: relAlt=%d currentMSL=%d',
-      this.autopilotType,
-      altitude,
-      currentAltMsl
-    )
-    return this.executePlan(
-      getActionPlan(this.autopilotType, 'takeoff', { altitude, currentAltMsl })
-    )
+    const dialect = this.dialect
+    log.debug('guidedTakeoff %s: relAlt=%d currentMSL=%d', dialect.name, altitude, currentAltMsl)
+    return this.executePlan(dialect.planTakeoff({ altitude, currentAltMsl }))
   }
 
   guidedRTL(): Promise<MavResult> {
-    log.debug('guidedRTL %s', this.autopilotType)
-    return this.executePlan(getActionPlan(this.autopilotType, 'rtl'))
+    const dialect = this.dialect
+    log.debug('guidedRTL %s', dialect.name)
+    return this.executePlan(dialect.planRtl())
   }
 
   guidedLand(): Promise<MavResult> {
-    log.debug('guidedLand %s', this.autopilotType)
-    return this.executePlan(getActionPlan(this.autopilotType, 'land'))
+    const dialect = this.dialect
+    log.debug('guidedLand %s', dialect.name)
+    return this.executePlan(dialect.planLand())
   }
 
   guidedGoto(lat: number, lon: number, alt: number): Promise<MavResult> {
-    log.debug('guidedGoto %s: lat=%f lon=%f alt=%f', this.autopilotType, lat, lon, alt)
-    return this.executePlan(getActionPlan(this.autopilotType, 'goto', { lat, lon, alt }))
+    const dialect = this.dialect
+    log.debug('guidedGoto %s: lat=%f lon=%f alt=%f', dialect.name, lat, lon, alt)
+    return this.executePlan(dialect.planGoto({ lat, lon, alt }))
   }
 
   guidedPause(): Promise<MavResult> {
-    log.debug('guidedPause %s', this.autopilotType)
-    return this.executePlan(getActionPlan(this.autopilotType, 'pause'))
+    const dialect = this.dialect
+    log.debug('guidedPause %s', dialect.name)
+    return this.executePlan(dialect.planPause())
   }
 
   missionStart(): Promise<MavResult> {
-    log.debug('missionStart %s', this.autopilotType)
-    return this.executePlan(getActionPlan(this.autopilotType, 'missionStart'))
+    const dialect = this.dialect
+    log.debug('missionStart %s', dialect.name)
+    return this.executePlan(dialect.planMissionStart())
   }
 
   emergencyStop(): Promise<MavResult> {
     log.debug('emergencyStop')
-    return this.executePlan(getActionPlan(this.autopilotType, 'emergencyStop'))
+    return this.executePlan(this.dialect.planEmergencyStop())
   }
 
   /**
@@ -605,15 +634,9 @@ export class Vehicle extends EventEmitter {
     const altMsl = snap.home.alt + newAltRel
     const lat = snap.gps.lat
     const lon = snap.gps.lon
-    log.debug(
-      'guidedChangeAltitude %s: newAltRel=%f altMsl=%f',
-      this.autopilotType,
-      newAltRel,
-      altMsl
-    )
-    return this.executePlan(
-      getActionPlan(this.autopilotType, 'changeAltitude', { lat, lon, altMsl })
-    )
+    const dialect = this.dialect
+    log.debug('guidedChangeAltitude %s: newAltRel=%f altMsl=%f', dialect.name, newAltRel, altMsl)
+    return this.executePlan(dialect.planChangeAltitude({ lat, lon, altMsl }))
   }
 
   /**
@@ -622,26 +645,23 @@ export class Vehicle extends EventEmitter {
    */
   guidedChangeHeading(headingDeg: number): Promise<MavResult> {
     const wrapped = ((headingDeg % 360) + 360) % 360
+    const dialect = this.dialect
     let yawRateLimit = 0
-    if (this.autopilotType === 'ardupilot') {
+    if (dialect.name === 'ardupilot') {
       const p = this.parameterManager.getParameter('ATC_RATE_Y_MAX')
       if (p && typeof p.value === 'number' && p.value > 0) yawRateLimit = p.value
     }
-    log.debug('guidedChangeHeading %s: heading=%f', this.autopilotType, wrapped)
-    return this.executePlan(
-      getActionPlan(this.autopilotType, 'changeHeading', {
-        headingDeg: wrapped,
-        yawRateLimit
-      })
-    )
+    log.debug('guidedChangeHeading %s: heading=%f', dialect.name, wrapped)
+    return this.executePlan(dialect.planChangeHeading({ headingDeg: wrapped, yawRateLimit }))
   }
 
   /**
    * Change flight speed. `speedType`: 0 = airspeed, 1 = groundspeed (MAV_CMD_DO_CHANGE_SPEED).
    */
   guidedChangeSpeed(speed: number, speedType: 0 | 1 = 1): Promise<MavResult> {
-    log.debug('guidedChangeSpeed %s: type=%d speed=%f', this.autopilotType, speedType, speed)
-    return this.executePlan(getActionPlan(this.autopilotType, 'changeSpeed', { speedType, speed }))
+    const dialect = this.dialect
+    log.debug('guidedChangeSpeed %s: type=%d speed=%f', dialect.name, speedType, speed)
+    return this.executePlan(dialect.planChangeSpeed({ speedType, speed }))
   }
 
   /**
@@ -655,27 +675,26 @@ export class Vehicle extends EventEmitter {
       return Promise.resolve(MavResult.TEMPORARILY_REJECTED)
     }
     const altMsl = snap.home.alt + altRel
+    const dialect = this.dialect
     log.debug(
       'guidedOrbit %s: center=(%f,%f) radius=%f altMsl=%f',
-      this.autopilotType,
+      dialect.name,
       lat,
       lon,
       radius,
       altMsl
     )
-    return this.executePlan(
-      getActionPlan(this.autopilotType, 'orbit', { lat, lon, radius, altMsl })
-    )
+    return this.executePlan(dialect.planOrbit({ lat, lon, radius, altMsl }))
   }
 
   landingGearDeploy(): Promise<MavResult> {
     log.debug('landingGearDeploy')
-    return this.executePlan(getActionPlan(this.autopilotType, 'landingGear', { state: 0 }))
+    return this.executePlan(this.dialect.planLandingGear({ state: 0 }))
   }
 
   landingGearRetract(): Promise<MavResult> {
     log.debug('landingGearRetract')
-    return this.executePlan(getActionPlan(this.autopilotType, 'landingGear', { state: 1 }))
+    return this.executePlan(this.dialect.planLandingGear({ state: 1 }))
   }
 
   private consoleProtocol = createGcsProtocol()

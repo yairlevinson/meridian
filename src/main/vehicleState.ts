@@ -21,69 +21,9 @@ import type {
   CameraGroup,
   ServoOutputGroup
 } from '@shared/ipc/VehicleState'
+import { dialectForAutopilot } from './vehicle/dialect'
 
 export type { VehicleSnapshot, VehicleDelta, VehicleGroupName }
-
-// ArduCopter custom mode → display name
-const COPTER_MODE_NAMES: Record<number, string> = {
-  0: 'Stabilize',
-  1: 'Acro',
-  2: 'AltHold',
-  3: 'Auto',
-  4: 'Guided',
-  5: 'Loiter',
-  6: 'RTL',
-  7: 'Circle',
-  9: 'Land',
-  11: 'Drift',
-  13: 'Sport',
-  14: 'Flip',
-  15: 'AutoTune',
-  16: 'PosHold',
-  17: 'Brake',
-  18: 'Throw',
-  19: 'Avoid',
-  20: 'GuidedNoGPS',
-  21: 'SmartRTL'
-}
-
-// PX4 main mode is bits 16-23, sub-mode is bits 24-31
-const PX4_MODE_NAMES: Record<number, Record<number, string>> = {
-  1: { 0: 'Manual' },
-  2: { 0: 'AltCtl' },
-  3: { 0: 'PosCtl' },
-  4: {
-    1: 'Auto:Ready',
-    2: 'Auto:Takeoff',
-    3: 'Auto:Loiter',
-    4: 'Auto:Mission',
-    5: 'Auto:RTL',
-    6: 'Auto:Land'
-  },
-  5: { 1: 'Acro' },
-  6: { 0: 'Offboard' },
-  7: { 0: 'Stabilized' },
-  8: { 0: 'Rattitude' }
-}
-
-function px4ModeName(customMode: number): string {
-  const mainMode = (customMode >> 16) & 0xff
-  const subMode = (customMode >> 24) & 0xff
-  const sub = PX4_MODE_NAMES[mainMode]
-  if (sub) {
-    return sub[subMode] ?? sub[0] ?? `PX4:${mainMode}.${subMode}`
-  }
-  return `Unknown (${customMode})`
-}
-
-function copterModeName(customMode: number): string {
-  // ArduPilot modes fit in a small range (0-21)
-  if (customMode <= 21) {
-    return COPTER_MODE_NAMES[customMode] ?? `Unknown (${customMode})`
-  }
-  // Large values are likely PX4 custom_mode bitfield
-  return px4ModeName(customMode)
-}
 
 // ── Default group factories ─────────────────────────────────────
 function defaultCore(): CoreGroup {
@@ -332,11 +272,12 @@ export class VehicleState {
   }
 
   private _handleHeartbeat(hb: minimal.Heartbeat): void {
+    const dialect = dialectForAutopilot(hb.autopilot)
     this.state.core = {
       ...this.state.core,
       armed: !!(hb.baseMode & minimal.MavModeFlag.SAFETY_ARMED),
       flightMode: hb.customMode,
-      flightModeName: copterModeName(hb.customMode),
+      flightModeName: dialect.customModeToName(hb.customMode),
       vehicleType: hb.type,
       autopilot: hb.autopilot,
       systemStatus: hb.systemStatus,
