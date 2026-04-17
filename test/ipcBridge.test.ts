@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { EventEmitter } from 'events'
-import { IpcChannels } from '../src/shared-types/ipc/channels'
 
 // ── Mock electron ipcMain + BrowserWindow ───────────────────────
 const registeredHandlers = new Map<string, (...args: any[]) => any>()
@@ -168,7 +167,7 @@ describe('ipcBridge', () => {
     expect(registeredHandlers.has('vehicle:arm')).toBe(true)
     expect(registeredHandlers.has('vehicle:disarm')).toBe(true)
     expect(registeredHandlers.has('vehicle:guidedTakeoff')).toBe(true)
-    expect(registeredHandlers.has(IpcChannels.ParametersGetAll)).toBe(true)
+    expect(registeredHandlers.has('parameters:getAll')).toBe(true)
     expect(registeredHandlers.has('mission:load')).toBe(true)
     expect(registeredHandlers.has('actuator:motorTest')).toBe(true)
     expect(registeredHandlers.has('actuator:servoTest')).toBe(true)

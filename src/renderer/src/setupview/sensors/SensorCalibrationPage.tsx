@@ -201,7 +201,7 @@ export function SensorCalibrationPage(): React.JSX.Element {
   const handleOrientationSave = useCallback(async () => {
     const bridge = window.bridge
     if (!bridge) return
-    await bridge.setParameter(1, orientationParam, orientation)
+    await bridge.parametersSet(1, orientationParam, orientation)
     setOrientationDirty(false)
   }, [orientation, orientationParam])
 

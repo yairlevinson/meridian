@@ -19,11 +19,7 @@ export enum IpcChannels {
   RallyWrite = 'rally:write',
   RallyRemoveAll = 'rally:removeAll',
 
-  // Parameters
-  ParametersRefresh = 'parameters:refresh',
-  ParametersSet = 'parameters:set',
-  ParametersGet = 'parameters:get',
-  ParametersGetAll = 'parameters:getAll',
+  // Parameters: now owned by parametersModule (src/shared-types/ipc/modules/parameters.ts)
 
   // FTP
   FtpDownload = 'ftp:download',

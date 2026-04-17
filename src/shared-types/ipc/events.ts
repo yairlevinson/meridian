@@ -7,10 +7,8 @@ export enum IpcEvents {
 
   // Link state change: now owned by linksModule (src/shared-types/ipc/modules/links.ts)
 
-  /** Parameter load progress */
-  ParametersProgress = 'parameters:progress',
-  ParametersReady = 'parameters:ready',
-  ParameterChanged = 'parameter:changed',
+  // Parameter events: now owned by parametersModule
+  //   (src/shared-types/ipc/modules/parameters.ts)
 
   // Mission protocol events: now owned by missionModule
   //   (src/shared-types/ipc/modules/mission.ts)

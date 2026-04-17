@@ -15,7 +15,7 @@ test.describe.serial('PX4 SITL Parameters', () => {
 
     // Wait for parametersReady event via polling
     await expect(async () => {
-      const params = (await page.evaluate(() => window.bridge.getParameters(1))) as any[]
+      const params = (await page.evaluate(() => window.bridge.parametersGetAll(1))) as any[]
       expect(params).toBeTruthy()
       expect(params.length).toBeGreaterThan(100)
     }).toPass({ timeout: SITL_TIMEOUTS.paramDownload })
@@ -26,7 +26,7 @@ test.describe.serial('PX4 SITL Parameters', () => {
     await waitConnected(page)
     // Wait for a substantial portion of params to be downloaded
     await waitParameters(page, 500)
-    const params = (await page.evaluate(() => window.bridge.getParameters(1))) as any[]
+    const params = (await page.evaluate(() => window.bridge.parametersGetAll(1))) as any[]
     expect(params.length).toBeGreaterThan(500)
 
     // Check that parameter objects have the expected structure
@@ -62,7 +62,7 @@ test.describe.serial('PX4 SITL Parameters', () => {
     await waitConnected(page)
     await waitParameters(page)
     // Use MPC_XY_VEL_MAX — safe to change, doesn't affect SITL stability
-    const params = (await page.evaluate(() => window.bridge.getParameters(1))) as any[]
+    const params = (await page.evaluate(() => window.bridge.parametersGetAll(1))) as any[]
     const param = params.find((p: any) => p.name === 'MPC_XY_VEL_MAX')
 
     if (!param) {
@@ -75,7 +75,7 @@ test.describe.serial('PX4 SITL Parameters', () => {
     const testValue = originalValue === 12 ? 10 : 12
 
     // Set new value
-    await page.evaluate(({ name, val }) => window.bridge.setParameter(1, name, val), {
+    await page.evaluate(({ name, val }) => window.bridge.parametersSet(1, name, val), {
       name: 'MPC_XY_VEL_MAX',
       val: testValue
     })
@@ -84,13 +84,13 @@ test.describe.serial('PX4 SITL Parameters', () => {
     await page.waitForTimeout(2000)
 
     // Read back
-    const updatedParams = (await page.evaluate(() => window.bridge.getParameters(1))) as any[]
+    const updatedParams = (await page.evaluate(() => window.bridge.parametersGetAll(1))) as any[]
     const updated = updatedParams.find((p: any) => p.name === 'MPC_XY_VEL_MAX')
     expect(updated).toBeTruthy()
     expect(updated.value).toBeCloseTo(testValue, 0)
 
     // Restore original value
-    await page.evaluate(({ name, val }) => window.bridge.setParameter(1, name, val), {
+    await page.evaluate(({ name, val }) => window.bridge.parametersSet(1, name, val), {
       name: 'MPC_XY_VEL_MAX',
       val: originalValue
     })
@@ -100,7 +100,7 @@ test.describe.serial('PX4 SITL Parameters', () => {
     test.setTimeout(SITL_TIMEOUTS.paramDownload)
     await waitConnected(page)
     await waitParameters(page, 500)
-    const params = (await page.evaluate(() => window.bridge.getParameters(1))) as any[]
+    const params = (await page.evaluate(() => window.bridge.parametersGetAll(1))) as any[]
     // PX4 typically has 700-1200 parameters
     expect(params.length).toBeGreaterThan(500)
     expect(params.length).toBeLessThan(2000)

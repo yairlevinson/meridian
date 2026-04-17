@@ -224,7 +224,7 @@ export async function ensureDisarmed(page: Page): Promise<void> {
 /** Wait for parameters to be downloaded from PX4. */
 export async function waitParameters(page: Page, minCount = 100): Promise<void> {
   await expect(async () => {
-    const params = (await page.evaluate(() => window.bridge.getParameters(1))) as any[]
+    const params = (await page.evaluate(() => window.bridge.parametersGetAll(1))) as any[]
     expect(params.length).toBeGreaterThan(minCount)
   }).toPass({ timeout: SITL_TIMEOUTS.paramDownload })
 }

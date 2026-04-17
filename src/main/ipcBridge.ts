@@ -3,8 +3,6 @@ import type { VehicleManager } from './vehicle/VehicleManager'
 import type { VideoManager } from './video/VideoManager'
 import type { LinkManager } from './links/LinkManager'
 import { SerialPort } from 'serialport'
-import { IpcChannels } from '@shared/ipc/channels'
-import { IpcEvents } from '@shared/ipc/events'
 import type { IpcHandler } from '@shared/ipc/geo'
 import { MavResult } from '@shared/ipc/MavCommandRequest'
 import { common } from 'mavlink-mappings'
@@ -34,6 +32,7 @@ import { actuatorModule } from '@shared/ipc/modules/actuator'
 import { linksModule } from '@shared/ipc/modules/links'
 import { vehicleModule } from '@shared/ipc/modules/vehicle'
 import { missionModule } from '@shared/ipc/modules/mission'
+import { parametersModule } from '@shared/ipc/modules/parameters'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
 import type {
   CalibrationState,
@@ -48,6 +47,7 @@ import type {
   InspectorFieldsPayload
 } from '@shared/ipc/MavInspectorTypes'
 import type { AppSettings } from '@shared/ipc/AppSettings'
+import type { Parameter, ParameterLoadState } from '@shared/ipc/ParameterTypes'
 
 const log = createLogger('IPC')
 
@@ -104,14 +104,6 @@ function resolveArduMode(name: string): number {
 }
 
 const TICK_RATE_MS = 33 // ~30 Hz
-
-/** Send an event to all open BrowserWindows */
-function broadcast(channel: string, ...args: unknown[]): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    const wc = win.webContents
-    if (!wc.isDestroyed()) wc.send(channel, ...args)
-  }
-}
 
 export function startIpcBridge(
   vehicleManager: VehicleManager,
@@ -185,6 +177,15 @@ export function startIpcBridge(
   let emitMissionComplete: (p: { vehicleId: number; items: MissionItem[] }) => void = () => {}
   let emitMissionCurrentChanged: (p: { vehicleId: number; seq: number }) => void = () => {}
 
+  // Captured by parametersModule event wires so per-vehicle parameterManager events
+  // can fan out through the module's emit (registered below).
+  let emitParameterChanged: (p: { vehicleId: number; parameter: Parameter }) => void = () => {}
+  let emitParametersReady: (p: { vehicleId: number }) => void = () => {}
+  let emitParametersProgress: (p: {
+    vehicleId: number
+    loadState: ParameterLoadState
+  }) => void = () => {}
+
   // Inspector emits are populated by the mavInspectorModule event wires below.
   // They're no-ops until registration completes (all before any renderer-driven enable()).
   let emitInspectorSnapshot: (p: InspectorSnapshotPayload) => void = () => {}
@@ -228,15 +229,15 @@ export function startIpcBridge(
         emitMissionCurrentChanged({ vehicleId: sysid, seq })
       })
 
-      // Forward parameter events
+      // Forward parameter events via parametersModule's captured emits
       vehicle.parameterManager.on('parameterReceived', (param) => {
-        broadcast(IpcEvents.ParameterChanged, { vehicleId: sysid, parameter: param })
+        emitParameterChanged({ vehicleId: sysid, parameter: param })
       })
       vehicle.parameterManager.on('parametersReady', () => {
-        broadcast(IpcEvents.ParametersReady, { vehicleId: sysid })
+        emitParametersReady({ vehicleId: sysid })
       })
       vehicle.parameterManager.on('progress', (loadState) => {
-        broadcast(IpcEvents.ParametersProgress, { vehicleId: sysid, loadState })
+        emitParametersProgress({ vehicleId: sysid, loadState })
       })
 
       // Forward STATUSTEXT
@@ -933,40 +934,51 @@ export function startIpcBridge(
     })
   )
 
+  disposers.push(
+    registerIpcModule(parametersModule, {
+      commands: {
+        getAll: (vehicleId) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) return []
+          return vehicle.parameterManager.getAllParameters()
+        },
+        set: (vehicleId, name, value) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) return
+          vehicle.parameterManager.setParameter(name, value)
+        },
+        refresh: (vehicleId) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) return
+          vehicle.parameterManager.requestAllParameters()
+        }
+      },
+      events: {
+        changed: (emit) => {
+          emitParameterChanged = emit
+          return () => {
+            emitParameterChanged = () => {}
+          }
+        },
+        ready: (emit) => {
+          emitParametersReady = emit
+          return () => {
+            emitParametersReady = () => {}
+          }
+        },
+        progress: (emit) => {
+          emitParametersProgress = emit
+          return () => {
+            emitParametersProgress = () => {}
+          }
+        }
+      }
+    })
+  )
+
   // Register all IPC command handlers
   const handlers: IpcHandler[] = [
-    {
-      channel: IpcChannels.ParametersRefresh,
-      handler: (...args: unknown[]) => {
-        const vehicleId = args[0] as number
-        const vehicle = vehicleManager.getVehicle(vehicleId)
-        if (!vehicle) return
-        vehicle.parameterManager.requestAllParameters()
-      }
-    },
-    {
-      channel: IpcChannels.ParametersSet,
-      handler: (...args: unknown[]) => {
-        const req = args[0] as {
-          vehicleId: number
-          componentId: number
-          name: string
-          value: number
-        }
-        const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        if (!vehicle) return
-        vehicle.parameterManager.setParameter(req.name, req.value)
-      }
-    },
-    {
-      channel: IpcChannels.ParametersGetAll,
-      handler: (...args: unknown[]) => {
-        const vehicleId = args[0] as number
-        const vehicle = vehicleManager.getVehicle(vehicleId)
-        if (!vehicle) return []
-        return vehicle.parameterManager.getAllParameters()
-      }
-    }
+    // Parameters: now owned by parametersModule (src/shared-types/ipc/modules/parameters.ts)
     // Mission: now owned by missionModule (src/shared-types/ipc/modules/mission.ts)
     // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
     // Links + serial ports: now owned by linksModule (src/shared-types/ipc/modules/links.ts)

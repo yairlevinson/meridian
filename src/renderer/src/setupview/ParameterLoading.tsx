@@ -11,7 +11,7 @@ export function ParameterLoading(): React.JSX.Element {
   const showProgress = hasVehicle && totalCount > 0
 
   const handleRetry = (): void => {
-    window.bridge?.refreshParameters?.(activeVehicleId ?? 1)
+    window.bridge?.parametersRefresh?.(activeVehicleId ?? 1)
   }
 
   return (

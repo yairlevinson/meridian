@@ -57,13 +57,13 @@ export function ParameterEditorPage(): React.JSX.Element {
     const bridge = window.bridge
     if (!bridge) return
     for (const [name, value] of pendingChanges) {
-      await bridge.setParameter(vehicleId, name, value)
+      await bridge.parametersSet(vehicleId, name, value)
     }
     setPendingChanges(new Map())
   }, [pendingChanges, vehicleId])
 
   const handleRefresh = useCallback(() => {
-    window.bridge?.refreshParameters(vehicleId)
+    window.bridge?.parametersRefresh(vehicleId)
   }, [vehicleId])
 
   const isLoading = !loadState.parametersReady && loadState.totalCount > 0

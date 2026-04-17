@@ -259,13 +259,13 @@ function PX4FlightModesPage(): React.JSX.Element {
   const handleSave = useCallback(async () => {
     const bridge = window.bridge
     if (!bridge) return
-    await bridge.setParameter(vehicleId, 'RC_MAP_FLTMODE', modeChannel)
+    await bridge.parametersSet(vehicleId, 'RC_MAP_FLTMODE', modeChannel)
     for (let i = 0; i < 6; i++) {
-      await bridge.setParameter(vehicleId, `COM_FLTMODE${i + 1}`, modes[i]!)
+      await bridge.parametersSet(vehicleId, `COM_FLTMODE${i + 1}`, modes[i]!)
     }
     for (const [param, value] of switchValues) {
       if (value !== (savedSwitchValues.get(param) ?? 0)) {
-        await bridge.setParameter(vehicleId, param, value)
+        await bridge.parametersSet(vehicleId, param, value)
       }
     }
     setHasChanges(false)
@@ -460,13 +460,13 @@ function ArduPilotFlightModesPage(): React.JSX.Element {
   const handleSave = useCallback(async () => {
     const bridge = window.bridge
     if (!bridge) return
-    await bridge.setParameter(vehicleId, chParam, modeChannel)
+    await bridge.parametersSet(vehicleId, chParam, modeChannel)
     for (let i = 0; i < 6; i++) {
-      await bridge.setParameter(vehicleId, `${modeParamPrefix}${i + 1}`, modes[i]!)
+      await bridge.parametersSet(vehicleId, `${modeParamPrefix}${i + 1}`, modes[i]!)
     }
     if (showSimple) {
-      await bridge.setParameter(vehicleId, 'SIMPLE', simpleBitmask)
-      await bridge.setParameter(vehicleId, 'SUPER_SIMPLE', superSimpleBitmask)
+      await bridge.parametersSet(vehicleId, 'SIMPLE', simpleBitmask)
+      await bridge.parametersSet(vehicleId, 'SUPER_SIMPLE', superSimpleBitmask)
     }
     setHasChanges(false)
   }, [

@@ -33,7 +33,7 @@ export function OutputConfigSection(): React.JSX.Element {
     const bridge = window.bridge
     if (!bridge) return
     for (const [name, value] of Object.entries(edits)) {
-      await bridge.setParameter(vehicleId, name, value)
+      await bridge.parametersSet(vehicleId, name, value)
     }
     setEdits({})
   }, [vehicleId, edits])

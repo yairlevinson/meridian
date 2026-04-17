@@ -48,7 +48,7 @@ function PX4AirframePage({ vehicleId }: { vehicleId: number }): React.JSX.Elemen
     const bridge = window.bridge
     if (!bridge || selectedId === savedAutostart) return
     setConfirming(true)
-    await bridge.setParameter(vehicleId, 'SYS_AUTOSTART', selectedId)
+    await bridge.parametersSet(vehicleId, 'SYS_AUTOSTART', selectedId)
     setConfirming(false)
   }, [vehicleId, selectedId, savedAutostart])
 
@@ -160,8 +160,8 @@ function ArduPilotAirframePage({ vehicleId }: { vehicleId: number }): React.JSX.
   const handleSave = useCallback(async () => {
     const bridge = window.bridge
     if (!bridge) return
-    await bridge.setParameter(vehicleId, 'FRAME_CLASS', frameClass)
-    await bridge.setParameter(vehicleId, 'FRAME_TYPE', frameType)
+    await bridge.parametersSet(vehicleId, 'FRAME_CLASS', frameClass)
+    await bridge.parametersSet(vehicleId, 'FRAME_TYPE', frameType)
   }, [vehicleId, frameClass, frameType])
 
   const currentClassDef = ARDU_FRAME_CLASSES.find((c) => c.value === frameClass)

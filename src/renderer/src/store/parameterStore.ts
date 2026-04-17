@@ -44,7 +44,7 @@ setTimeout(() => {
   const bridge = window.bridge
   if (!bridge) return
 
-  bridge.onParameterChanged?.((payload) => {
+  bridge.onParametersChanged?.((payload) => {
     useParameterStore.getState().updateParameter(payload.parameter)
   })
 

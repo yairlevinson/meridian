@@ -40,7 +40,7 @@ function setupServoParams(channelCount: number): void {
 const mockSetParameter = vi.fn().mockResolvedValue(undefined)
 
 beforeEach(() => {
-  ;(window as any).bridge = { setParameter: mockSetParameter }
+  ;(window as any).bridge = { parametersSet: mockSetParameter }
   mockSetParameter.mockClear()
   useParameterStore.setState({
     parameters: new Map(),
