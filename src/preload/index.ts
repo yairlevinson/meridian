@@ -12,7 +12,6 @@ import type {
   MagCalProgress,
   MagCalReport,
   RcCalibrationState,
-  FlightModeConfig,
   FirmwareUpgradeState
 } from '../shared-types/ipc/SetupTypes'
 import type { CameraState } from '../shared-types/ipc/CameraTypes'
@@ -139,10 +138,6 @@ export interface Bridge
   onRcCalibrationStateChanged: (
     cb: (payload: { vehicleId: number; state: RcCalibrationState }) => void
   ) => () => void
-
-  // Flight Modes
-  flightModesGet: (vehicleId: number) => Promise<FlightModeConfig>
-  flightModesSet: (vehicleId: number, config: FlightModeConfig) => Promise<void>
 
   // Firmware
   firmwareUploadFile: (vehicleId: number, filePath: string) => Promise<void>
@@ -437,11 +432,6 @@ const bridge: Bridge = {
       ipcRenderer.removeListener(IpcEvents.RcCalibrationStateChanged, handler)
     }
   },
-
-  // Flight Modes
-  flightModesGet: (vehicleId) => ipcRenderer.invoke(IpcChannels.FlightModesGet, vehicleId),
-  flightModesSet: (vehicleId, config) =>
-    ipcRenderer.invoke(IpcChannels.FlightModesSet, { vehicleId, config }),
 
   // Firmware
   firmwareUploadFile: (vehicleId, filePath) =>

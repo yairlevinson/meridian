@@ -92,17 +92,6 @@ export interface RcCalibrationState {
   currentStick?: string
 }
 
-/** Flight mode configuration */
-export interface FlightModeConfig {
-  modeChannel: number
-  modes: Array<{
-    slot: number
-    modeNumber: number
-    modeName: string
-  }>
-  activeSlot: number
-}
-
 /** Firmware upgrade status */
 export enum FirmwareUpgradeStatus {
   Idle = 'idle',

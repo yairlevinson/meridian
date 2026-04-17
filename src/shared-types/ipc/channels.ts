@@ -54,11 +54,6 @@ export enum IpcChannels {
   ParametersGet = 'parameters:get',
   ParametersGetAll = 'parameters:getAll',
 
-  // Signing
-  SigningAddKey = 'signing:addKey',
-  SigningRemoveKey = 'signing:removeKey',
-  SigningEnable = 'signing:enable',
-
   // FTP
   FtpDownload = 'ftp:download',
   FtpUpload = 'ftp:upload',
@@ -100,10 +95,6 @@ export enum IpcChannels {
   RcCalibrationNextStep = 'rcCalibration:nextStep',
   RcCalibrationCancel = 'rcCalibration:cancel',
   RcCalibrationSave = 'rcCalibration:save',
-
-  // Flight Modes
-  FlightModesGet = 'flightModes:get',
-  FlightModesSet = 'flightModes:set',
 
   // Firmware
   FirmwareUploadFile = 'firmware:uploadFile',
