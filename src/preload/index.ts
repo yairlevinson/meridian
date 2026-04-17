@@ -18,10 +18,12 @@ import type {
 import type { CameraState } from '../shared-types/ipc/CameraTypes'
 import type { ForwardingState } from '../shared-types/ipc/ForwardingTypes'
 import type { AppSettings } from '../shared-types/ipc/AppSettings'
-import type { RadarState } from '../shared-types/ipc/RadarTypes'
 import type { KmlImportResult } from '../shared-types/ipc/OverlayTypes'
+import { radarModule } from '../shared-types/ipc/modules/radar'
+import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
+import { bindIpcModule } from './moduleBridge'
 
-export interface Bridge {
+export interface Bridge extends ModuleBridge<typeof radarModule> {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
@@ -195,12 +197,8 @@ export interface Bridge {
     cb: (payload: import('../shared-types/ipc/MavInspectorTypes').InspectorFieldsPayload) => void
   ) => () => void
 
-  // Radar
-  radarEnable: () => Promise<void>
-  radarDisable: () => Promise<void>
-  radarGetState: () => Promise<RadarState>
-  radarSetSimPosition: (lat: number, lon: number) => Promise<void>
-  onRadarStateChanged: (cb: (state: RadarState) => void) => () => void
+  // Radar: generated from radarModule (radarEnable, radarDisable, radarGetState,
+  //   radarSetSimPosition, onRadarStateChanged)
 
   // Settings
   settingsGetAll: () => Promise<AppSettings>
@@ -224,6 +222,7 @@ export interface Bridge {
 }
 
 const bridge: Bridge = {
+  ...bindIpcModule(radarModule),
   onVehicleDelta: (cb) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: VehicleDeltaPayload): void =>
       cb(payload)
@@ -581,19 +580,7 @@ const bridge: Bridge = {
     }
   },
 
-  // Radar
-  radarEnable: () => ipcRenderer.invoke(IpcChannels.RadarEnable),
-  radarDisable: () => ipcRenderer.invoke(IpcChannels.RadarDisable),
-  radarGetState: () => ipcRenderer.invoke(IpcChannels.RadarGetState),
-  radarSetSimPosition: (lat, lon) =>
-    ipcRenderer.invoke(IpcChannels.RadarSetSimPosition, { lat, lon }),
-  onRadarStateChanged: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, state: RadarState): void => cb(state)
-    ipcRenderer.on(IpcEvents.RadarStateChanged, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.RadarStateChanged, handler)
-    }
-  },
+  // Radar methods are spread in from bindIpcModule(radarModule) below.
 
   // Settings
   settingsGetAll: () => ipcRenderer.invoke(IpcChannels.SettingsGetAll),

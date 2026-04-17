@@ -24,6 +24,8 @@ import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 import type { SettingsManager } from './settings/SettingsManager'
 import type { RadarManager } from './radar/RadarManager'
 import { createLogger } from './logger'
+import { registerIpcModule } from './ipc/registerIpcModule'
+import { radarModule } from '@shared/ipc/modules/radar'
 
 const log = createLogger('IPC')
 
@@ -223,13 +225,34 @@ export function startIpcBridge(
     disposers.push(() => forwarder.removeListener('stateChanged', onForwardingStateChanged))
   }
 
-  // Forward radar state changes to all renderer windows
+  // Radar IPC module (commands + stateChanged event)
   if (radarManager) {
-    const onRadarStateChanged = (state: unknown): void => {
-      broadcast(IpcEvents.RadarStateChanged, state)
-    }
-    radarManager.on('stateChanged', onRadarStateChanged)
-    disposers.push(() => radarManager.removeListener('stateChanged', onRadarStateChanged))
+    const rm = radarManager
+    disposers.push(
+      registerIpcModule(radarModule, {
+        commands: {
+          enable: async () => {
+            rm.enable()
+          },
+          disable: async () => {
+            rm.disable()
+          },
+          getState: async () => rm.getState(),
+          setSimPosition: async (lat, lon) => {
+            rm.setSimulationPosition(lat, lon)
+          }
+        },
+        events: {
+          stateChanged: (emit) => {
+            const handler = (state: unknown): void => emit(state as ReturnType<typeof rm.getState>)
+            rm.on('stateChanged', handler)
+            return () => {
+              rm.removeListener('stateChanged', handler)
+            }
+          }
+        }
+      })
+    )
   }
 
   // Delta tick: iterate all vehicles, broadcast to all windows
@@ -825,30 +848,7 @@ export function startIpcBridge(
       }
     },
 
-    // Radar
-    {
-      channel: IpcChannels.RadarEnable,
-      handler: () => radarManager?.enable()
-    },
-    {
-      channel: IpcChannels.RadarDisable,
-      handler: () => radarManager?.disable()
-    },
-    {
-      channel: IpcChannels.RadarGetState,
-      handler: () =>
-        radarManager?.getState() ?? {
-          enabled: false,
-          units: [],
-          tracks: [],
-          simulationActive: false
-        }
-    },
-    {
-      channel: IpcChannels.RadarSetSimPosition,
-      handler: (req: { lat: number; lon: number }) =>
-        radarManager?.setSimulationPosition(req.lat, req.lon)
-    },
+    // (Radar: now registered via registerIpcModule above)
 
     // Settings
     {
