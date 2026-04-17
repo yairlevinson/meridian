@@ -21,6 +21,7 @@ import { settingsModule } from '../shared-types/ipc/modules/settings'
 import { kmlModule } from '../shared-types/ipc/modules/kml'
 import { mavConsoleModule } from '../shared-types/ipc/modules/mavConsole'
 import { mavInspectorModule } from '../shared-types/ipc/modules/mavInspector'
+import { popoutModule } from '../shared-types/ipc/modules/popout'
 import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
 import { bindIpcModule } from './moduleBridge'
 
@@ -31,7 +32,8 @@ export interface Bridge
     ModuleBridge<typeof settingsModule>,
     ModuleBridge<typeof kmlModule>,
     ModuleBridge<typeof mavConsoleModule>,
-    ModuleBridge<typeof mavInspectorModule> {
+    ModuleBridge<typeof mavInspectorModule>,
+    ModuleBridge<typeof popoutModule> {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
@@ -180,10 +182,7 @@ export interface Bridge
   ) => Promise<void>
   servoTest: (vehicleId: number, servoInstance: number, pwmValue: number) => Promise<void>
 
-  // Popout windows
-  popoutOpen: (view: 'video' | 'map') => Promise<void>
-  popoutClose: (view: 'video' | 'map') => Promise<void>
-  onPopoutClosed: (cb: (payload: { view: string }) => void) => () => void
+  // Popout: generated from popoutModule (popoutOpen, popoutClose, onPopoutClosed)
 
   // MAVLink Inspector: generated from mavInspectorModule (mavInspectorEnable,
   //   mavInspectorDisable, mavInspectorSelect, mavInspectorDeselect,
@@ -503,17 +502,7 @@ const bridge: Bridge = {
   servoTest: (vehicleId, servoInstance, pwmValue) =>
     ipcRenderer.invoke(IpcChannels.ActuatorServoTest, { vehicleId, servoInstance, pwmValue }),
 
-  // Popout windows
-  popoutOpen: (view) => ipcRenderer.invoke(IpcChannels.PopoutOpen, view),
-  popoutClose: (view) => ipcRenderer.invoke(IpcChannels.PopoutClose, view),
-  onPopoutClosed: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, payload: { view: string }): void =>
-      cb(payload)
-    ipcRenderer.on(IpcEvents.PopoutClosed, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.PopoutClosed, handler)
-    }
-  },
+  // Popout methods are spread in from bindIpcModule(popoutModule) below.
 
   // MAVLink Inspector methods are spread in from bindIpcModule(mavInspectorModule) below.
 
@@ -530,7 +519,8 @@ const bridge: Bridge = {
   ...bindIpcModule(settingsModule),
   ...bindIpcModule(kmlModule),
   ...bindIpcModule(mavConsoleModule),
-  ...bindIpcModule(mavInspectorModule)
+  ...bindIpcModule(mavInspectorModule),
+  ...bindIpcModule(popoutModule)
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)

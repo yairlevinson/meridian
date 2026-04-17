@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, net, protocol, session } from 'electron'
+import { app, shell, BrowserWindow, net, protocol, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { MavLinkProtocolV2 } from 'node-mavlink'
@@ -17,6 +17,8 @@ import { mavLog } from './mavlink/trafficLog'
 import { SettingsManager } from './settings/SettingsManager'
 import { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 import { RadarManager } from './radar/RadarManager'
+import { registerIpcModule } from './ipc/registerIpcModule'
+import { popoutModule } from '@shared/ipc/modules/popout'
 import { createLogger } from './logger'
 
 const log = createLogger('main')
@@ -76,6 +78,8 @@ function createWindow(): BrowserWindow {
 // Track active popout windows by view name
 const popoutWindows = new Map<string, BrowserWindow>()
 
+let emitPopoutClosed: (payload: { view: string }) => void = () => {}
+
 function openPopoutWindow(view: string): BrowserWindow {
   // Close existing popout for the same view
   const existing = popoutWindows.get(view)
@@ -101,12 +105,7 @@ function openPopoutWindow(view: string): BrowserWindow {
 
   win.on('closed', () => {
     popoutWindows.delete(view)
-    // Notify all remaining windows that the popout was closed
-    for (const w of BrowserWindow.getAllWindows()) {
-      if (!w.webContents.isDestroyed()) {
-        w.webContents.send('popout:closed', { view })
-      }
-    }
+    emitPopoutClosed({ view })
   })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
@@ -290,12 +289,24 @@ app.whenReady().then(async () => {
   createWindow()
 
   // --- Popout windows ---
-  ipcMain.handle('popout:open', (_event, view: string) => {
-    openPopoutWindow(view)
-  })
-  ipcMain.handle('popout:close', (_event, view: string) => {
-    const win = popoutWindows.get(view)
-    if (win && !win.isDestroyed()) win.close()
+  registerIpcModule(popoutModule, {
+    commands: {
+      open: (view) => {
+        openPopoutWindow(view)
+      },
+      close: (view) => {
+        const win = popoutWindows.get(view)
+        if (win && !win.isDestroyed()) win.close()
+      }
+    },
+    events: {
+      closed: (emit) => {
+        emitPopoutClosed = emit
+        return () => {
+          emitPopoutClosed = () => {}
+        }
+      }
+    }
   })
 
   // --- Video streaming ---

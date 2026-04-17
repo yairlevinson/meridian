@@ -39,8 +39,7 @@ export enum IpcEvents {
   /** Video stream state changed */
   VideoStateChanged = 'video:stateChanged',
 
-  /** A popout window was closed */
-  PopoutClosed = 'popout:closed',
+  // Popout: now owned by popoutModule (src/shared-types/ipc/modules/popout.ts)
 
   /** Sensor calibration state changed */
   CalibrationStateChanged = 'calibration:stateChanged',

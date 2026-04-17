@@ -81,9 +81,7 @@ export enum IpcChannels {
   VideoStopRecording = 'video:stopRecording',
   VideoGetState = 'video:getState',
 
-  // Popout windows
-  PopoutOpen = 'popout:open',
-  PopoutClose = 'popout:close',
+  // Popout: now owned by popoutModule (src/shared-types/ipc/modules/popout.ts)
 
   // Calibration
   CalibrationStart = 'calibration:start',
