@@ -9,6 +9,18 @@ const MSG_SYS_STATUS = 1
 const MSG_SERVO_OUTPUT_RAW = 36
 const MSG_BATTERY_STATUS = 147
 const MSG_VFR_HUD = 74
+const MSG_GPS_RAW_INT = 24
+const MSG_HOME_POSITION = 242
+const MSG_RC_CHANNELS = 65
+const MSG_WIND = 168
+const MSG_RADIO_STATUS = 109
+const MSG_VIBRATION = 241
+const MSG_EXTENDED_SYS_STATE = 245
+const MSG_MISSION_CURRENT = 42
+const MSG_TERRAIN_REPORT = 136
+const MSG_CAMERA_INFORMATION = 259
+const MSG_CAMERA_SETTINGS = 260
+const MSG_CAMERA_CAPTURE_STATUS = 262
 
 describe('VehicleState — delta encoding', () => {
   let vs: VehicleState
@@ -394,5 +406,192 @@ describe('VehicleState — delta encoding', () => {
 
     // Should not be affected by mutation of d1
     expect(d2.servoOutput!.outputs[0]).toBe(1500)
+  })
+
+  // --- GPS_RAW_INT (24) ---
+
+  it('handles GPS_RAW_INT message', () => {
+    vs.handleMessage(MSG_GPS_RAW_INT, {
+      fixType: 3,
+      satellitesVisible: 12,
+      eph: 150,
+      epv: 200,
+      lat: 320000000,
+      lon: 348000000,
+      alt: 150000
+    })
+    const delta = vs.getDelta()
+    expect(delta.gpsRaw).toBeDefined()
+    expect(delta.gpsRaw?.fixType).toBe(3)
+    expect(delta.gpsRaw?.satelliteCount).toBe(12)
+    expect(delta.gpsRaw?.hdop).toBeCloseTo(1.5)
+    expect(delta.gpsRaw?.vdop).toBeCloseTo(2.0)
+    expect(delta.gpsRaw?.lat).toBeCloseTo(32.0, 4)
+  })
+
+  // --- HOME_POSITION (242) ---
+
+  it('handles HOME_POSITION message', () => {
+    vs.handleMessage(MSG_HOME_POSITION, {
+      latitude: 320000000,
+      longitude: 348000000,
+      altitude: 120000
+    })
+    const delta = vs.getDelta()
+    expect(delta.home).toBeDefined()
+    expect(delta.home?.lat).toBeCloseTo(32.0, 4)
+    expect(delta.home?.lon).toBeCloseTo(34.8, 4)
+    expect(delta.home?.alt).toBeCloseTo(120, 1)
+    expect(delta.home?.valid).toBe(true)
+  })
+
+  // --- RC_CHANNELS (65) ---
+
+  it('handles RC_CHANNELS message', () => {
+    vs.handleMessage(MSG_RC_CHANNELS, {
+      chancount: 4,
+      chan1Raw: 1100,
+      chan2Raw: 1200,
+      chan3Raw: 1300,
+      chan4Raw: 1400,
+      chan5Raw: 0,
+      rssi: 200
+    })
+    const delta = vs.getDelta()
+    expect(delta.rc).toBeDefined()
+    expect(delta.rc?.channels).toEqual([1100, 1200, 1300, 1400])
+    expect(delta.rc?.channelCount).toBe(4)
+    expect(delta.rc?.rssi).toBe(200)
+  })
+
+  it('rc channels array is a copy (not shared reference)', () => {
+    vs.handleMessage(MSG_RC_CHANNELS, {
+      chancount: 2,
+      chan1Raw: 1500,
+      chan2Raw: 1500,
+      rssi: 100
+    })
+    const d1 = vs.getDelta()
+    d1.rc!.channels[0] = 9999
+    vs.handleMessage(MSG_RC_CHANNELS, {
+      chancount: 2,
+      chan1Raw: 1500,
+      chan2Raw: 1500,
+      rssi: 100
+    })
+    const d2 = vs.getDelta()
+    expect(d2.rc!.channels[0]).toBe(1500)
+  })
+
+  // --- WIND (168) ---
+
+  it('handles WIND message', () => {
+    vs.handleMessage(MSG_WIND, { direction: 270, speed: 5.5, speed_z: 0.2 })
+    const delta = vs.getDelta()
+    expect(delta.wind?.direction).toBe(270)
+    expect(delta.wind?.speed).toBeCloseTo(5.5)
+    expect(delta.wind?.verticalSpeed).toBeCloseTo(0.2)
+  })
+
+  // --- RADIO_STATUS (109) ---
+
+  it('handles RADIO_STATUS message', () => {
+    vs.handleMessage(MSG_RADIO_STATUS, {
+      rssi: 180,
+      remrssi: 170,
+      txbuf: 90,
+      noise: 30,
+      remnoise: 35,
+      rxerrors: 2,
+      fixed: 1
+    })
+    const delta = vs.getDelta()
+    expect(delta.radio?.rssi).toBe(180)
+    expect(delta.radio?.remrssi).toBe(170)
+    expect(delta.radio?.txbuf).toBe(90)
+    expect(delta.radio?.rxerrors).toBe(2)
+  })
+
+  // --- VIBRATION (241) ---
+
+  it('handles VIBRATION message', () => {
+    vs.handleMessage(MSG_VIBRATION, {
+      vibrationX: 1.1,
+      vibrationY: 1.2,
+      vibrationZ: 1.3,
+      clipping0: 5,
+      clipping1: 6,
+      clipping2: 7
+    })
+    const delta = vs.getDelta()
+    expect(delta.vibration?.xVibration).toBeCloseTo(1.1)
+    expect(delta.vibration?.yVibration).toBeCloseTo(1.2)
+    expect(delta.vibration?.zVibration).toBeCloseTo(1.3)
+    expect(delta.vibration?.clipping0).toBe(5)
+  })
+
+  // --- EXTENDED_SYS_STATE (245) ---
+
+  it('handles EXTENDED_SYS_STATE message', () => {
+    vs.handleMessage(MSG_EXTENDED_SYS_STATE, { vtolState: 2, landedState: 1 })
+    const delta = vs.getDelta()
+    expect(delta.extendedState?.vtolState).toBe(2)
+    expect(delta.extendedState?.landedState).toBe(1)
+  })
+
+  // --- MISSION_CURRENT (42) ---
+
+  it('handles MISSION_CURRENT message', () => {
+    vs.handleMessage(MSG_MISSION_CURRENT, { seq: 7 })
+    const delta = vs.getDelta()
+    expect(delta.missionStatus?.currentIndex).toBe(7)
+  })
+
+  // --- TERRAIN_REPORT (136) ---
+
+  it('handles TERRAIN_REPORT message', () => {
+    vs.handleMessage(MSG_TERRAIN_REPORT, { terrainHeight: 50, currentHeight: 45 })
+    const delta = vs.getDelta()
+    expect(delta.terrain?.terrainAltitude).toBe(50)
+    expect(delta.terrain?.terrainValid).toBe(true)
+    expect(delta.terrain?.distanceToGround).toBe(45)
+  })
+
+  it('TERRAIN_REPORT with zero terrainHeight marks invalid', () => {
+    vs.handleMessage(MSG_TERRAIN_REPORT, { terrainHeight: 0, currentHeight: 10 })
+    const delta = vs.getDelta()
+    expect(delta.terrain?.terrainValid).toBe(false)
+  })
+
+  // --- CAMERA_* ---
+
+  it('CAMERA_INFORMATION sets discovered + capability flags', () => {
+    vs.handleMessage(MSG_CAMERA_INFORMATION, { flags: 3 }) // video|image
+    const delta = vs.getDelta()
+    expect(delta.camera?.discovered).toBe(true)
+    expect(delta.camera?.hasCapVideo).toBe(true)
+    expect(delta.camera?.hasCapImage).toBe(true)
+  })
+
+  it('CAMERA_SETTINGS updates mode', () => {
+    vs.handleMessage(MSG_CAMERA_SETTINGS, { modeId: 1 })
+    const delta = vs.getDelta()
+    expect(delta.camera?.mode).toBe(1)
+  })
+
+  it('CAMERA_CAPTURE_STATUS reflects recording + image status', () => {
+    vs.handleMessage(MSG_CAMERA_CAPTURE_STATUS, {
+      imageStatus: 1,
+      videoStatus: 1,
+      imageCount: 12,
+      recordingTimeMs: 5000,
+      availableCapacity: 2048
+    })
+    const delta = vs.getDelta()
+    expect(delta.camera?.isCapturingImage).toBe(true)
+    expect(delta.camera?.isRecordingVideo).toBe(true)
+    expect(delta.camera?.photoCount).toBe(12)
+    expect(delta.camera?.videoRecordingTimeMs).toBe(5000)
+    expect(delta.camera?.availableCapacityMib).toBe(2048)
   })
 })

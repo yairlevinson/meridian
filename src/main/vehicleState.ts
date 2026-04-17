@@ -21,6 +21,7 @@ import type {
   CameraGroup,
   ServoOutputGroup
 } from '@shared/ipc/VehicleState'
+import { DeltaGroup, type IDeltaGroup } from './state/DeltaGroup'
 import { dialectForAutopilot } from './vehicle/dialect'
 
 export type { VehicleSnapshot, VehicleDelta, VehicleGroupName }
@@ -168,32 +169,51 @@ const MSG_CAMERA_SETTINGS = 260
 const MSG_CAMERA_CAPTURE_STATUS = 262
 
 export class VehicleState {
-  private state: VehicleSnapshot = defaultSnapshot()
-  private dirty: Record<VehicleGroupName, boolean> = {
-    core: false,
-    attitude: false,
-    gps: false,
-    gpsRaw: false,
-    home: false,
-    battery: false,
-    rc: false,
-    vfrHud: false,
-    sysStatus: false,
-    wind: false,
-    radio: false,
-    vibration: false,
-    extendedState: false,
-    missionStatus: false,
-    terrain: false,
-    camera: false,
-    servoOutput: false
-  }
-  private dirtyCount = 0
+  private core = new DeltaGroup<CoreGroup>(defaultCore())
+  private attitude = new DeltaGroup<AttitudeGroup>(defaultAttitude())
+  private gps = new DeltaGroup<GpsGroup>(defaultGps())
+  private gpsRaw = new DeltaGroup<GpsRawGroup>(defaultGpsRaw())
+  private home = new DeltaGroup<HomeGroup>(defaultHome())
+  private battery = new DeltaGroup<BatteryGroup>(defaultBattery(), (b) => ({
+    ...b,
+    batteries: [...b.batteries]
+  }))
+  private rc = new DeltaGroup<RcGroup>(defaultRc(), (r) => ({ ...r, channels: [...r.channels] }))
+  private vfrHud = new DeltaGroup<VfrHudGroup>(defaultVfrHud())
+  private sysStatus = new DeltaGroup<SysStatusGroup>(defaultSysStatus())
+  private wind = new DeltaGroup<WindGroup>(defaultWind())
+  private radio = new DeltaGroup<RadioGroup>(defaultRadio())
+  private vibration = new DeltaGroup<VibrationGroup>(defaultVibration())
+  private extendedState = new DeltaGroup<ExtendedStateGroup>(defaultExtendedState())
+  private missionStatus = new DeltaGroup<MissionStatusGroup>(defaultMissionStatus())
+  private terrain = new DeltaGroup<TerrainGroup>(defaultTerrain())
+  private camera = new DeltaGroup<CameraGroup>(defaultCamera())
+  private servoOutput = new DeltaGroup<ServoOutputGroup>(defaultServoOutput(), (s) => ({
+    ...s,
+    outputs: [...s.outputs]
+  }))
 
-  private markDirty(group: VehicleGroupName): void {
-    if (!this.dirty[group]) {
-      this.dirty[group] = true
-      this.dirtyCount++
+  private readonly groups: Record<VehicleGroupName, IDeltaGroup>
+
+  constructor() {
+    this.groups = {
+      core: this.core,
+      attitude: this.attitude,
+      gps: this.gps,
+      gpsRaw: this.gpsRaw,
+      home: this.home,
+      battery: this.battery,
+      rc: this.rc,
+      vfrHud: this.vfrHud,
+      sysStatus: this.sysStatus,
+      wind: this.wind,
+      radio: this.radio,
+      vibration: this.vibration,
+      extendedState: this.extendedState,
+      missionStatus: this.missionStatus,
+      terrain: this.terrain,
+      camera: this.camera,
+      servoOutput: this.servoOutput
     }
   }
 
@@ -273,44 +293,37 @@ export class VehicleState {
 
   private _handleHeartbeat(hb: minimal.Heartbeat): void {
     const dialect = dialectForAutopilot(hb.autopilot)
-    this.state.core = {
-      ...this.state.core,
+    this.core.update({
       armed: !!(hb.baseMode & minimal.MavModeFlag.SAFETY_ARMED),
       flightMode: hb.customMode,
       flightModeName: dialect.customModeToName(hb.customMode),
       vehicleType: hb.type,
       autopilot: hb.autopilot,
-      systemStatus: hb.systemStatus,
-      seq: this.state.core.seq + 1
-    }
-    this.markDirty('core')
+      systemStatus: hb.systemStatus
+    })
   }
 
   private _handleSysStatus(ss: common.SysStatus): void {
-    this.state.sysStatus = {
+    this.sysStatus.update({
       onboardControlSensorsPresent: ss.onboardControlSensorsPresent,
       onboardControlSensorsEnabled: ss.onboardControlSensorsEnabled,
       onboardControlSensorsHealth: ss.onboardControlSensorsHealth,
       load: ss.load,
       dropRateComm: ss.dropRateComm,
-      errorsComm: ss.errorsComm,
-      seq: this.state.sysStatus.seq + 1
-    }
-    this.markDirty('sysStatus')
+      errorsComm: ss.errorsComm
+    })
   }
 
   private _handleGpsRawInt(gps: common.GpsRawInt): void {
-    this.state.gpsRaw = {
+    this.gpsRaw.update({
       fixType: gps.fixType,
       satelliteCount: gps.satellitesVisible,
       hdop: gps.eph / 100,
       vdop: gps.epv / 100,
       lat: gps.lat / 1e7,
       lon: gps.lon / 1e7,
-      alt: gps.alt / 1000,
-      seq: this.state.gpsRaw.seq + 1
-    }
-    this.markDirty('gpsRaw')
+      alt: gps.alt / 1000
+    })
   }
 
   /** Track whether we receive ATTITUDE_QUATERNION — if so, prefer it over ATTITUDE (like QGC). */
@@ -319,16 +332,14 @@ export class VehicleState {
   private _handleAttitude(att: common.Attitude): void {
     // If we're receiving ATTITUDE_QUATERNION, ignore ATTITUDE (QGC does the same)
     if (this._receivingAttitudeQuaternion) return
-    this.state.attitude = {
+    this.attitude.update({
       roll: att.roll,
       pitch: att.pitch,
       yaw: att.yaw,
       rollSpeed: att.rollspeed,
       pitchSpeed: att.pitchspeed,
-      yawSpeed: att.yawspeed,
-      seq: this.state.attitude.seq + 1
-    }
-    this.markDirty('attitude')
+      yawSpeed: att.yawspeed
+    })
   }
 
   private _handleAttitudeQuaternion(att: common.AttitudeQuaternion): void {
@@ -343,16 +354,14 @@ export class VehicleState {
     const pitch = Math.abs(sinp) >= 1 ? Math.sign(sinp) * (Math.PI / 2) : Math.asin(sinp)
     const yaw = Math.atan2(2 * (q1 * q4 + q2 * q3), 1 - 2 * (q3 * q3 + q4 * q4))
 
-    this.state.attitude = {
+    this.attitude.update({
       roll,
       pitch,
       yaw,
       rollSpeed: att.rollspeed,
       pitchSpeed: att.pitchspeed,
-      yawSpeed: att.yawspeed,
-      seq: this.state.attitude.seq + 1
-    }
-    this.markDirty('attitude')
+      yawSpeed: att.yawspeed
+    })
   }
 
   private _hasGlobalPosition = false
@@ -361,15 +370,15 @@ export class VehicleState {
     this._hasGlobalPosition = true
     // Derive heading from ATTITUDE.yaw (EKF output, high-rate, smooth) like QGC,
     // rather than GLOBAL_POSITION_INT.hdg which can jitter at lower update rates.
-    let hdg = this.state.gps.hdg
-    if (this.state.attitude.seq > 0) {
-      hdg = (this.state.attitude.yaw * 180) / Math.PI
+    let hdg = this.gps.snapshot().hdg
+    if (this.attitude.seq > 0) {
+      hdg = (this.attitude.snapshot().yaw * 180) / Math.PI
       if (hdg < 0) hdg += 360
     } else if (pos.hdg !== 65535) {
       hdg = pos.hdg / 100
     }
 
-    this.state.gps = {
+    this.gps.update({
       lat: pos.lat / 1e7,
       lon: pos.lon / 1e7,
       alt: pos.alt / 1000,
@@ -377,10 +386,8 @@ export class VehicleState {
       vx: pos.vx / 100,
       vy: pos.vy / 100,
       vz: pos.vz / 100,
-      hdg,
-      seq: this.state.gps.seq + 1
-    }
-    this.markDirty('gps')
+      hdg
+    })
   }
 
   /**
@@ -392,22 +399,20 @@ export class VehicleState {
     // Only use local position as fallback when GLOBAL_POSITION_INT isn't available
     if (this._hasGlobalPosition) return
 
-    const homeLat = this.state.home.lat
-    const homeLon = this.state.home.lon
-    const homeAlt = this.state.home.alt
-    if (homeLat === 0 && homeLon === 0) return // no home position yet
+    const home = this.home.snapshot()
+    if (home.lat === 0 && home.lon === 0) return // no home position yet
 
     // Convert NED meters to lat/lon degrees
     // 1 degree lat ≈ 111,320m, 1 degree lon ≈ 111,320m * cos(lat)
-    const lat = homeLat + pos.x / 111320
-    const lon = homeLon + pos.y / (111320 * Math.cos((homeLat * Math.PI) / 180))
-    const alt = homeAlt - pos.z // NED: z is down
+    const lat = home.lat + pos.x / 111320
+    const lon = home.lon + pos.y / (111320 * Math.cos((home.lat * Math.PI) / 180))
+    const alt = home.alt - pos.z // NED: z is down
 
     // Derive heading from ATTITUDE.yaw (vehicle nose) like QGC, not from
     // velocity atan2(vy,vx) which is course-over-ground and jitters during turns.
-    let hdg = this.state.gps.hdg
-    if (this.state.attitude.seq > 0) {
-      hdg = (this.state.attitude.yaw * 180) / Math.PI
+    let hdg = this.gps.snapshot().hdg
+    if (this.attitude.seq > 0) {
+      hdg = (this.attitude.snapshot().yaw * 180) / Math.PI
       if (hdg < 0) hdg += 360
     } else {
       // Fallback to velocity-derived heading when no attitude data yet
@@ -415,7 +420,7 @@ export class VehicleState {
       if (hdg < 0) hdg += 360
     }
 
-    this.state.gps = {
+    this.gps.update({
       lat,
       lon,
       alt,
@@ -423,10 +428,8 @@ export class VehicleState {
       vx: pos.vx,
       vy: pos.vy,
       vz: pos.vz,
-      hdg,
-      seq: this.state.gps.seq + 1
-    }
-    this.markDirty('gps')
+      hdg
+    })
   }
 
   private _handleRcChannelsRaw(rc: common.RcChannelsRaw): void {
@@ -440,13 +443,7 @@ export class VehicleState {
       rc.chan7Raw,
       rc.chan8Raw
     ]
-    this.state.rc = {
-      channels,
-      rssi: rc.rssi,
-      channelCount: 8,
-      seq: this.state.rc.seq + 1
-    }
-    this.markDirty('rc')
+    this.rc.update({ channels, rssi: rc.rssi, channelCount: 8 })
   }
 
   private _handleRcChannels(rc: common.RcChannels): void {
@@ -456,13 +453,7 @@ export class VehicleState {
       const val = rc[key]
       if (typeof val === 'number') channels.push(val)
     }
-    this.state.rc = {
-      channels,
-      rssi: rc.rssi,
-      channelCount: rc.chancount,
-      seq: this.state.rc.seq + 1
-    }
-    this.markDirty('rc')
+    this.rc.update({ channels, rssi: rc.rssi, channelCount: rc.chancount })
   }
 
   private _handleServoOutputRaw(srv: common.ServoOutputRaw): void {
@@ -472,29 +463,22 @@ export class VehicleState {
       const val = srv[key]
       if (typeof val === 'number') outputs.push(val)
     }
-    this.state.servoOutput = {
-      port: srv.port,
-      outputs,
-      seq: this.state.servoOutput.seq + 1
-    }
-    this.markDirty('servoOutput')
+    this.servoOutput.update({ port: srv.port, outputs })
   }
 
   private _handleVfrHud(hud: common.VfrHud): void {
-    this.state.vfrHud = {
+    this.vfrHud.update({
       airspeed: hud.airspeed,
       groundspeed: hud.groundspeed,
       heading: hud.heading,
       throttle: hud.throttle,
       altitude: hud.alt,
-      climbRate: hud.climb,
-      seq: this.state.vfrHud.seq + 1
-    }
-    this.markDirty('vfrHud')
+      climbRate: hud.climb
+    })
   }
 
   private _handleBatteryStatus(bat: common.BatteryStatus): void {
-    const existing = this.state.battery.batteries
+    const existing = this.battery.snapshot().batteries
     const idx = existing.findIndex((b) => b.id === bat.id)
 
     // Sum all valid cell voltages (matching QGC behaviour):
@@ -532,279 +516,157 @@ export class VehicleState {
     } else {
       batteries.push(instance)
     }
-    this.state.battery = { batteries, seq: this.state.battery.seq + 1 }
-    this.markDirty('battery')
+    this.battery.update({ batteries })
   }
 
   private _handleHomePosition(hp: common.HomePosition): void {
-    this.state.home = {
+    this.home.update({
       lat: hp.latitude / 1e7,
       lon: hp.longitude / 1e7,
       alt: hp.altitude / 1000,
-      valid: true,
-      seq: this.state.home.seq + 1
-    }
-    this.markDirty('home')
+      valid: true
+    })
   }
 
   private _handleExtendedSysState(ess: common.ExtendedSysState): void {
-    this.state.extendedState = {
-      vtolState: ess.vtolState,
-      landedState: ess.landedState,
-      seq: this.state.extendedState.seq + 1
-    }
-    this.markDirty('extendedState')
+    this.extendedState.update({ vtolState: ess.vtolState, landedState: ess.landedState })
   }
 
   private _handleVibration(vib: common.Vibration): void {
-    this.state.vibration = {
+    this.vibration.update({
       xVibration: vib.vibrationX,
       yVibration: vib.vibrationY,
       zVibration: vib.vibrationZ,
       clipping0: vib.clipping0,
       clipping1: vib.clipping1,
-      clipping2: vib.clipping2,
-      seq: this.state.vibration.seq + 1
-    }
-    this.markDirty('vibration')
+      clipping2: vib.clipping2
+    })
   }
 
   private _handleRadioStatus(rs: common.RadioStatus): void {
-    this.state.radio = {
+    this.radio.update({
       rssi: rs.rssi,
       remrssi: rs.remrssi,
       txbuf: rs.txbuf,
       noise: rs.noise,
       remnoise: rs.remnoise,
       rxerrors: rs.rxerrors,
-      fixed: rs.fixed,
-      seq: this.state.radio.seq + 1
-    }
-    this.markDirty('radio')
+      fixed: rs.fixed
+    })
   }
 
   private _handleWind(w: Record<string, number>): void {
-    this.state.wind = {
+    this.wind.update({
       direction: w['direction'] ?? 0,
       speed: w['speed'] ?? 0,
-      verticalSpeed: w['speed_z'] ?? 0,
-      seq: this.state.wind.seq + 1
-    }
-    this.markDirty('wind')
+      verticalSpeed: w['speed_z'] ?? 0
+    })
   }
 
   private _handleTerrainReport(tr: common.TerrainReport): void {
-    this.state.terrain = {
+    this.terrain.update({
       terrainAltitude: tr.terrainHeight,
       terrainValid: tr.terrainHeight !== 0,
-      distanceToGround: tr.currentHeight,
-      seq: this.state.terrain.seq + 1
-    }
-    this.markDirty('terrain')
+      distanceToGround: tr.currentHeight
+    })
   }
 
   private _handleMissionCurrent(mc: common.MissionCurrent): void {
-    this.state.missionStatus = {
-      ...this.state.missionStatus,
-      currentIndex: mc.seq,
-      seq: this.state.missionStatus.seq + 1
-    }
-    this.markDirty('missionStatus')
+    this.missionStatus.update({ currentIndex: mc.seq })
   }
 
   private _handleCameraInformation(ci: Record<string, unknown>): void {
     const flags = (ci['flags'] as number) ?? 0
-    this.state.camera = {
-      ...this.state.camera,
+    this.camera.update({
       discovered: true,
       hasCapVideo: !!(flags & 1), // CAMERA_CAP_FLAGS_CAPTURE_VIDEO
-      hasCapImage: !!(flags & 2), // CAMERA_CAP_FLAGS_CAPTURE_IMAGE
-      seq: this.state.camera.seq + 1
-    }
-    this.markDirty('camera')
+      hasCapImage: !!(flags & 2) // CAMERA_CAP_FLAGS_CAPTURE_IMAGE
+    })
   }
 
   private _handleCameraSettings(cs: Record<string, number>): void {
-    this.state.camera = {
-      ...this.state.camera,
-      mode: cs['modeId'] ?? 0,
-      seq: this.state.camera.seq + 1
-    }
-    this.markDirty('camera')
+    this.camera.update({ mode: cs['modeId'] ?? 0 })
   }
 
   private _handleCameraCaptureStatus(cs: Record<string, number>): void {
-    const imageStatus = cs['imageStatus'] ?? 0
-    const videoStatus = cs['videoStatus'] ?? 0
-    this.state.camera = {
-      ...this.state.camera,
-      isCapturingImage: imageStatus === 1 || imageStatus === 3,
-      isRecordingVideo: videoStatus === 1,
-      photoCount: cs['imageCount'] ?? this.state.camera.photoCount,
+    this.camera.update({
+      isCapturingImage: cs['imageStatus'] === 1 || cs['imageStatus'] === 3,
+      isRecordingVideo: cs['videoStatus'] === 1,
+      photoCount: cs['imageCount'] ?? this.camera.snapshot().photoCount,
       videoRecordingTimeMs: cs['recordingTimeMs'] ?? 0,
-      availableCapacityMib: cs['availableCapacity'] ?? 0,
-      seq: this.state.camera.seq + 1
-    }
-    this.markDirty('camera')
+      availableCapacityMib: cs['availableCapacity'] ?? 0
+    })
   }
 
   setFirmwareVersion(major: number, minor: number, patch: number): void {
-    if (
-      this.state.core.firmwareVersionMajor !== major ||
-      this.state.core.firmwareVersionMinor !== minor ||
-      this.state.core.firmwareVersionPatch !== patch
-    ) {
-      this.state.core = {
-        ...this.state.core,
-        firmwareVersionMajor: major,
-        firmwareVersionMinor: minor,
-        firmwareVersionPatch: patch,
-        seq: this.state.core.seq + 1
-      }
-      this.markDirty('core')
-    }
+    this.core.updateIfChanged({
+      firmwareVersionMajor: major,
+      firmwareVersionMinor: minor,
+      firmwareVersionPatch: patch
+    })
   }
 
   setSysId(sysid: number): void {
-    if (this.state.core.sysid !== sysid) {
-      this.state.core.sysid = sysid
-      this.state.core.seq++
-      this.markDirty('core')
-    }
+    this.core.updateIfChanged({ sysid })
   }
 
   setCompId(compid: number): void {
-    if (this.state.core.compid !== compid) {
-      this.state.core.compid = compid
-      this.state.core.seq++
-      this.markDirty('core')
-    }
+    this.core.updateIfChanged({ compid })
   }
 
   setCommunicationLost(lost: boolean): void {
-    if (this.state.core.communicationLost !== lost) {
-      this.state.core.communicationLost = lost
-      this.state.core.seq++
-      this.markDirty('core')
-    }
-  }
-
-  updateCamera(partial: Partial<CameraGroup>): void {
-    this.state.camera = {
-      ...this.state.camera,
-      ...partial,
-      seq: this.state.camera.seq + 1
-    }
-    this.markDirty('camera')
+    this.core.updateIfChanged({ communicationLost: lost })
   }
 
   setFlightModeName(name: string): void {
-    this.state.core.flightModeName = name
-    this.state.core.seq++
-    this.markDirty('core')
+    this.core.updateIfChanged({ flightModeName: name })
   }
 
   /** Fast O(1) check: are any groups dirty? */
   hasDirty(): boolean {
-    return this.dirtyCount > 0
+    for (const key in this.groups) {
+      if (this.groups[key as VehicleGroupName].dirty) return true
+    }
+    return false
   }
 
   /** Returns only changed groups and resets dirty flags. */
   getDelta(): VehicleDelta {
     const delta: VehicleDelta = {}
-    for (const key of Object.keys(this.dirty) as VehicleGroupName[]) {
-      if (this.dirty[key]) {
-        // Use a typed helper to copy group into delta without `any`
-        this._copyGroupToDelta(delta, key)
-        this.dirty[key] = false
+    for (const key in this.groups) {
+      const name = key as VehicleGroupName
+      const group = this.groups[name]
+      const snap = group.takeDelta()
+      if (snap !== null) {
+        ;(delta as Record<string, unknown>)[name] = snap
       }
     }
-    this.dirtyCount = 0
     return delta
-  }
-
-  private _copyGroupToDelta(delta: VehicleDelta, key: VehicleGroupName): void {
-    switch (key) {
-      case 'battery':
-        delta.battery = { ...this.state.battery, batteries: [...this.state.battery.batteries] }
-        break
-      case 'rc':
-        delta.rc = { ...this.state.rc, channels: [...this.state.rc.channels] }
-        break
-      case 'core':
-        delta.core = { ...this.state.core }
-        break
-      case 'attitude':
-        delta.attitude = { ...this.state.attitude }
-        break
-      case 'gps':
-        delta.gps = { ...this.state.gps }
-        break
-      case 'gpsRaw':
-        delta.gpsRaw = { ...this.state.gpsRaw }
-        break
-      case 'home':
-        delta.home = { ...this.state.home }
-        break
-      case 'vfrHud':
-        delta.vfrHud = { ...this.state.vfrHud }
-        break
-      case 'sysStatus':
-        delta.sysStatus = { ...this.state.sysStatus }
-        break
-      case 'wind':
-        delta.wind = { ...this.state.wind }
-        break
-      case 'radio':
-        delta.radio = { ...this.state.radio }
-        break
-      case 'vibration':
-        delta.vibration = { ...this.state.vibration }
-        break
-      case 'extendedState':
-        delta.extendedState = { ...this.state.extendedState }
-        break
-      case 'missionStatus':
-        delta.missionStatus = { ...this.state.missionStatus }
-        break
-      case 'terrain':
-        delta.terrain = { ...this.state.terrain }
-        break
-      case 'camera':
-        delta.camera = { ...this.state.camera }
-        break
-      case 'servoOutput':
-        delta.servoOutput = {
-          ...this.state.servoOutput,
-          outputs: [...this.state.servoOutput.outputs]
-        }
-        break
-    }
   }
 
   getSnapshot(): VehicleSnapshot {
     return {
-      core: { ...this.state.core },
-      attitude: { ...this.state.attitude },
-      gps: { ...this.state.gps },
-      gpsRaw: { ...this.state.gpsRaw },
-      home: { ...this.state.home },
-      battery: { ...this.state.battery, batteries: [...this.state.battery.batteries] },
-      rc: { ...this.state.rc, channels: [...this.state.rc.channels] },
-      vfrHud: { ...this.state.vfrHud },
-      sysStatus: { ...this.state.sysStatus },
-      wind: { ...this.state.wind },
-      radio: { ...this.state.radio },
-      vibration: { ...this.state.vibration },
-      extendedState: { ...this.state.extendedState },
-      missionStatus: { ...this.state.missionStatus },
-      terrain: { ...this.state.terrain },
-      camera: { ...this.state.camera },
-      servoOutput: { ...this.state.servoOutput, outputs: [...this.state.servoOutput.outputs] }
+      core: this.core.snapshot(),
+      attitude: this.attitude.snapshot(),
+      gps: this.gps.snapshot(),
+      gpsRaw: this.gpsRaw.snapshot(),
+      home: this.home.snapshot(),
+      battery: this.battery.snapshot(),
+      rc: this.rc.snapshot(),
+      vfrHud: this.vfrHud.snapshot(),
+      sysStatus: this.sysStatus.snapshot(),
+      wind: this.wind.snapshot(),
+      radio: this.radio.snapshot(),
+      vibration: this.vibration.snapshot(),
+      extendedState: this.extendedState.snapshot(),
+      missionStatus: this.missionStatus.snapshot(),
+      terrain: this.terrain.snapshot(),
+      camera: this.camera.snapshot(),
+      servoOutput: this.servoOutput.snapshot()
     }
   }
 
   getGroup<K extends VehicleGroupName>(key: K): VehicleSnapshot[K] {
-    return { ...this.state[key] }
+    return this.groups[key].snapshot() as VehicleSnapshot[K]
   }
 }
