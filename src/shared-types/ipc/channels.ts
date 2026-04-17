@@ -7,11 +7,7 @@ export enum IpcChannels {
 
   // Links + serial ports: now owned by linksModule (src/shared-types/ipc/modules/links.ts)
 
-  // Mission
-  MissionLoad = 'mission:load',
-  MissionWrite = 'mission:write',
-  MissionRemoveAll = 'mission:removeAll',
-  MissionGetItems = 'mission:getItems',
+  // Mission: now owned by missionModule (src/shared-types/ipc/modules/mission.ts)
 
   // GeoFence
   GeoFenceLoad = 'geofence:load',
@@ -43,11 +39,9 @@ export enum IpcChannels {
   MapFetchTile = 'map:fetchTile',
 
   // Settings: now owned by settingsModule (src/shared-types/ipc/modules/settings.ts)
-  SettingsGet = 'settings:get',
+  SettingsGet = 'settings:get'
 
-  // Mission file I/O
-  MissionSavePlan = 'mission:savePlan',
-  MissionOpenPlan = 'mission:openPlan'
+  // Mission file I/O: now owned by missionModule (src/shared-types/ipc/modules/mission.ts)
 
   // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
 

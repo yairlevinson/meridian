@@ -12,11 +12,8 @@ export enum IpcEvents {
   ParametersReady = 'parameters:ready',
   ParameterChanged = 'parameter:changed',
 
-  /** Mission protocol events */
-  MissionProgress = 'mission:progress',
-  MissionComplete = 'mission:complete',
-  MissionError = 'mission:error',
-  MissionCurrentChanged = 'mission:currentChanged',
+  // Mission protocol events: now owned by missionModule
+  //   (src/shared-types/ipc/modules/mission.ts)
 
   /** FTP progress */
   FtpProgress = 'ftp:progress',

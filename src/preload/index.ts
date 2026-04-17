@@ -17,6 +17,7 @@ import { cameraModule } from '../shared-types/ipc/modules/camera'
 import { actuatorModule } from '../shared-types/ipc/modules/actuator'
 import { linksModule } from '../shared-types/ipc/modules/links'
 import { vehicleModule } from '../shared-types/ipc/modules/vehicle'
+import { missionModule } from '../shared-types/ipc/modules/mission'
 import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
 import { bindIpcModule } from './moduleBridge'
 
@@ -36,32 +37,15 @@ export interface Bridge
     ModuleBridge<typeof cameraModule>,
     ModuleBridge<typeof actuatorModule>,
     ModuleBridge<typeof linksModule>,
-    ModuleBridge<typeof vehicleModule> {
+    ModuleBridge<typeof vehicleModule>,
+    ModuleBridge<typeof missionModule> {
   // Vehicle: generated from vehicleModule (vehicleArm, vehicleDisarm, vehicleGuidedTakeoff,
   //   ..., onVehicleAdded, onVehicleRemoved, onVehicleDelta, onVehicleStatusText)
+  // Mission: generated from missionModule (missionLoad, missionWrite, missionSavePlan,
+  //   missionOpenPlan, onMissionProgress, onMissionComplete, onMissionCurrentChanged)
   getParameters: (vehicleId: number) => Promise<unknown>
   setParameter: (vehicleId: number, name: string, value: number) => Promise<void>
   refreshParameters: (vehicleId: number) => Promise<void>
-  missionLoad: (vehicleId: number) => Promise<{
-    items: import('../shared-types/ipc/MissionTypes').MissionItem[]
-    error?: string
-  }>
-  missionWrite: (
-    vehicleId: number,
-    items: import('../shared-types/ipc/MissionTypes').MissionItem[]
-  ) => Promise<{ success: true } | { error: string }>
-  savePlan: (planData: unknown) => Promise<{ filePath: string } | { cancelled: true }>
-  openPlan: () => Promise<unknown>
-  onMissionProgress: (
-    cb: (payload: { vehicleId: number; current: number; total: number }) => void
-  ) => () => void
-  onMissionComplete: (
-    cb: (payload: {
-      vehicleId: number
-      items: import('../shared-types/ipc/MissionTypes').MissionItem[]
-    }) => void
-  ) => () => void
-  onMissionCurrentChanged: (cb: (payload: { vehicleId: number; seq: number }) => void) => () => void
 
   // Video: generated from videoModule (videoStart, videoStop, videoStartRecording,
   //   videoStopRecording, videoGetState, onVideoStateChanged)
@@ -117,47 +101,7 @@ const bridge: Bridge = {
   setParameter: (vehicleId, name, value) =>
     ipcRenderer.invoke(IpcChannels.ParametersSet, { vehicleId, componentId: 1, name, value }),
   refreshParameters: (vehicleId) => ipcRenderer.invoke(IpcChannels.ParametersRefresh, vehicleId),
-  missionLoad: (vehicleId) => ipcRenderer.invoke(IpcChannels.MissionLoad, vehicleId),
-  missionWrite: (vehicleId, items) =>
-    ipcRenderer.invoke(IpcChannels.MissionWrite, { vehicleId, items }),
-  savePlan: (planData) => ipcRenderer.invoke(IpcChannels.MissionSavePlan, planData),
-  openPlan: () => ipcRenderer.invoke(IpcChannels.MissionOpenPlan),
-  onMissionProgress: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; current: number; total: number }
-    ): void => cb(payload)
-    ipcRenderer.on('mission:progress', handler)
-    return () => {
-      ipcRenderer.removeListener('mission:progress', handler)
-    }
-  },
-  onMissionComplete: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; items: unknown[] }
-    ): void =>
-      cb(
-        payload as {
-          vehicleId: number
-          items: import('../shared-types/ipc/MissionTypes').MissionItem[]
-        }
-      )
-    ipcRenderer.on(IpcEvents.MissionComplete, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.MissionComplete, handler)
-    }
-  },
-  onMissionCurrentChanged: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; seq: number }
-    ): void => cb(payload)
-    ipcRenderer.on('mission:currentChanged', handler)
-    return () => {
-      ipcRenderer.removeListener('mission:currentChanged', handler)
-    }
-  },
+  // Mission methods are spread in from bindIpcModule(missionModule) below.
 
   // Video methods are spread in from bindIpcModule(videoModule) below.
 
@@ -225,7 +169,8 @@ const bridge: Bridge = {
   ...bindIpcModule(cameraModule),
   ...bindIpcModule(actuatorModule),
   ...bindIpcModule(linksModule),
-  ...bindIpcModule(vehicleModule)
+  ...bindIpcModule(vehicleModule),
+  ...bindIpcModule(missionModule)
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)

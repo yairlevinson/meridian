@@ -51,7 +51,7 @@ export function MissionSidebar(): React.JSX.Element {
             <div className={styles.emptyIcon}>+</div>
             <div className={styles.emptyTitle}>No waypoints yet</div>
             <div className={styles.emptyMsg}>Click the map to add your first waypoint</div>
-            <button className={styles.loadBtn} onClick={() => window.bridge?.openPlan?.()}>
+            <button className={styles.loadBtn} onClick={() => window.bridge?.missionOpenPlan?.()}>
               Load mission file
             </button>
           </div>

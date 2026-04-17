@@ -12,7 +12,7 @@ import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { CameraMode } from '@shared/ipc/CameraTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import { parseKmlFile } from './kml/KmlParser'
-import type { MissionItem, PlanFile } from '@shared/ipc/MissionTypes'
+import type { MissionItem } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
 import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 import type { SettingsManager } from './settings/SettingsManager'
@@ -33,6 +33,7 @@ import { cameraModule, type CameraImageCapturedPayload } from '@shared/ipc/modul
 import { actuatorModule } from '@shared/ipc/modules/actuator'
 import { linksModule } from '@shared/ipc/modules/links'
 import { vehicleModule } from '@shared/ipc/modules/vehicle'
+import { missionModule } from '@shared/ipc/modules/mission'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
 import type {
   CalibrationState,
@@ -174,6 +175,16 @@ export function startIpcBridge(
     text: string
   }) => void = () => {}
 
+  // Captured by missionModule event wires so per-vehicle missionManager events
+  // can fan out through the module's emit (registered below).
+  let emitMissionProgress: (p: {
+    vehicleId: number
+    current: number
+    total: number
+  }) => void = () => {}
+  let emitMissionComplete: (p: { vehicleId: number; items: MissionItem[] }) => void = () => {}
+  let emitMissionCurrentChanged: (p: { vehicleId: number; seq: number }) => void = () => {}
+
   // Inspector emits are populated by the mavInspectorModule event wires below.
   // They're no-ops until registration completes (all before any renderer-driven enable()).
   let emitInspectorSnapshot: (p: InspectorSnapshotPayload) => void = () => {}
@@ -208,13 +219,13 @@ export function startIpcBridge(
     const vehicle = vehicleManager.getVehicle(sysid)
     if (vehicle) {
       vehicle.missionManager.on('progress', (p: { current: number; total: number }) => {
-        broadcast('mission:progress', { vehicleId: sysid, ...p })
+        emitMissionProgress({ vehicleId: sysid, ...p })
       })
       vehicle.missionManager.on('loadComplete', (items: MissionItem[]) => {
-        broadcast(IpcEvents.MissionComplete, { vehicleId: sysid, items })
+        emitMissionComplete({ vehicleId: sysid, items })
       })
       vehicle.missionManager.on('currentChanged', (seq: number) => {
-        broadcast('mission:currentChanged', { vehicleId: sysid, seq })
+        emitMissionCurrentChanged({ vehicleId: sysid, seq })
       })
 
       // Forward parameter events
@@ -827,6 +838,101 @@ export function startIpcBridge(
     })
   )
 
+  // Mission IPC module — commands target a vehicle's missionManager; events
+  // are fanned out through the captured emits wired in onVehicleAdded above.
+  disposers.push(
+    registerIpcModule(missionModule, {
+      commands: {
+        load: async (vehicleId) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) return { items: [], error: 'No vehicle' }
+          return new Promise((resolve) => {
+            const mm = vehicle.missionManager
+            const onComplete = (items: MissionItem[]): void => {
+              clearTimeout(timeout)
+              mm.off('error', onError)
+              resolve({ items })
+            }
+            const onError = (code: number): void => {
+              clearTimeout(timeout)
+              mm.off('loadComplete', onComplete)
+              resolve({ items: [], error: `Error code ${code}` })
+            }
+            const timeout = setTimeout(() => {
+              mm.off('loadComplete', onComplete)
+              mm.off('error', onError)
+              resolve({ items: [], error: 'Timeout' })
+            }, 30000)
+            mm.once('loadComplete', onComplete)
+            mm.once('error', onError)
+            mm.loadFromVehicle()
+          })
+        },
+        write: async (vehicleId, items) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) return { error: 'No vehicle' }
+          return new Promise((resolve) => {
+            const mm = vehicle.missionManager
+            const onComplete = (): void => {
+              clearTimeout(timeout)
+              mm.off('error', onError)
+              resolve({ success: true })
+            }
+            const onError = (code: number): void => {
+              clearTimeout(timeout)
+              mm.off('writeComplete', onComplete)
+              resolve({ error: `Error code ${code}` })
+            }
+            const timeout = setTimeout(() => {
+              mm.off('writeComplete', onComplete)
+              mm.off('error', onError)
+              resolve({ error: 'Timeout' })
+            }, 30000)
+            mm.once('writeComplete', onComplete)
+            mm.once('error', onError)
+            mm.writeToVehicle(items)
+          })
+        },
+        savePlan: async (planData) => {
+          const result = await dialog.showSaveDialog({
+            filters: [{ name: 'Plan', extensions: ['plan'] }]
+          })
+          if (result.canceled || !result.filePath) return { cancelled: true as const }
+          await savePlanFile(result.filePath, planData)
+          return { filePath: result.filePath }
+        },
+        openPlan: async () => {
+          const result = await dialog.showOpenDialog({
+            filters: [{ name: 'Plan', extensions: ['plan'] }],
+            properties: ['openFile']
+          })
+          if (result.canceled || result.filePaths.length === 0) return { cancelled: true as const }
+          return loadPlanFile(result.filePaths[0]!)
+        }
+      },
+      events: {
+        progress: (emit) => {
+          emitMissionProgress = emit
+          return () => {
+            emitMissionProgress = () => {}
+          }
+        },
+        complete: (emit) => {
+          emitMissionComplete = emit
+          return () => {
+            emitMissionComplete = () => {}
+          }
+        },
+        currentChanged: (emit) => {
+          emitMissionCurrentChanged = emit
+          return () => {
+            emitMissionCurrentChanged = () => {}
+          }
+        }
+      }
+    })
+  )
+
   // Register all IPC command handlers
   const handlers: IpcHandler[] = [
     {
@@ -860,85 +966,8 @@ export function startIpcBridge(
         if (!vehicle) return []
         return vehicle.parameterManager.getAllParameters()
       }
-    },
-    {
-      channel: IpcChannels.MissionLoad,
-      handler: (vehicleId: number) => {
-        const vehicle = vehicleManager.getVehicle(vehicleId)
-        if (!vehicle) return Promise.resolve({ items: [], error: 'No vehicle' })
-        return new Promise((resolve) => {
-          const mm = vehicle.missionManager
-          const onComplete = (items: MissionItem[]): void => {
-            clearTimeout(timeout)
-            mm.off('error', onError)
-            resolve({ items })
-          }
-          const onError = (code: number): void => {
-            clearTimeout(timeout)
-            mm.off('loadComplete', onComplete)
-            resolve({ items: [], error: `Error code ${code}` })
-          }
-          const timeout = setTimeout(() => {
-            mm.off('loadComplete', onComplete)
-            mm.off('error', onError)
-            resolve({ items: [], error: 'Timeout' })
-          }, 30000)
-          mm.once('loadComplete', onComplete)
-          mm.once('error', onError)
-          mm.loadFromVehicle()
-        })
-      }
-    },
-    {
-      channel: IpcChannels.MissionWrite,
-      handler: (req: { vehicleId: number; items: MissionItem[] }) => {
-        const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        if (!vehicle) return Promise.resolve({ error: 'No vehicle' })
-        return new Promise((resolve) => {
-          const mm = vehicle.missionManager
-          const onComplete = (): void => {
-            clearTimeout(timeout)
-            mm.off('error', onError)
-            resolve({ success: true })
-          }
-          const onError = (code: number): void => {
-            clearTimeout(timeout)
-            mm.off('writeComplete', onComplete)
-            resolve({ error: `Error code ${code}` })
-          }
-          const timeout = setTimeout(() => {
-            mm.off('writeComplete', onComplete)
-            mm.off('error', onError)
-            resolve({ error: 'Timeout' })
-          }, 30000)
-          mm.once('writeComplete', onComplete)
-          mm.once('error', onError)
-          mm.writeToVehicle(req.items)
-        })
-      }
-    },
-    {
-      channel: IpcChannels.MissionSavePlan,
-      handler: async (planData: PlanFile) => {
-        const result = await dialog.showSaveDialog({
-          filters: [{ name: 'Plan', extensions: ['plan'] }]
-        })
-        if (result.canceled || !result.filePath) return { cancelled: true }
-        await savePlanFile(result.filePath, planData)
-        return { filePath: result.filePath }
-      }
-    },
-    {
-      channel: IpcChannels.MissionOpenPlan,
-      handler: async () => {
-        const result = await dialog.showOpenDialog({
-          filters: [{ name: 'Plan', extensions: ['plan'] }],
-          properties: ['openFile']
-        })
-        if (result.canceled || result.filePaths.length === 0) return { cancelled: true }
-        return loadPlanFile(result.filePaths[0]!)
-      }
     }
+    // Mission: now owned by missionModule (src/shared-types/ipc/modules/mission.ts)
     // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
     // Links + serial ports: now owned by linksModule (src/shared-types/ipc/modules/links.ts)
     // (Calibration: now registered via registerIpcModule above)

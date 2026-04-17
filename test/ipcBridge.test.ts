@@ -169,7 +169,7 @@ describe('ipcBridge', () => {
     expect(registeredHandlers.has('vehicle:disarm')).toBe(true)
     expect(registeredHandlers.has('vehicle:guidedTakeoff')).toBe(true)
     expect(registeredHandlers.has(IpcChannels.ParametersGetAll)).toBe(true)
-    expect(registeredHandlers.has(IpcChannels.MissionLoad)).toBe(true)
+    expect(registeredHandlers.has('mission:load')).toBe(true)
     expect(registeredHandlers.has('actuator:motorTest')).toBe(true)
     expect(registeredHandlers.has('actuator:servoTest')).toBe(true)
   })
