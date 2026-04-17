@@ -1,38 +1,72 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { IpcChannels } from '../src/shared-types/ipc/channels'
-import { IpcEvents } from '../src/shared-types/ipc/events'
+import { commandChannel, eventChannel, type IpcModuleSpec } from '../src/shared-types/ipc/ipcModule'
+import { radarModule } from '../src/shared-types/ipc/modules/radar'
+import { forwardingModule } from '../src/shared-types/ipc/modules/forwarding'
+import { settingsModule } from '../src/shared-types/ipc/modules/settings'
+import { kmlModule } from '../src/shared-types/ipc/modules/kml'
+import { mavConsoleModule } from '../src/shared-types/ipc/modules/mavConsole'
+import { mavInspectorModule } from '../src/shared-types/ipc/modules/mavInspector'
+import { popoutModule } from '../src/shared-types/ipc/modules/popout'
+import { videoModule } from '../src/shared-types/ipc/modules/video'
+import { calibrationModule } from '../src/shared-types/ipc/modules/calibration'
+import { rcCalibrationModule } from '../src/shared-types/ipc/modules/rcCalibration'
+import { firmwareModule } from '../src/shared-types/ipc/modules/firmware'
+import { cameraModule } from '../src/shared-types/ipc/modules/camera'
+import { actuatorModule } from '../src/shared-types/ipc/modules/actuator'
+import { linksModule } from '../src/shared-types/ipc/modules/links'
+import { vehicleModule } from '../src/shared-types/ipc/modules/vehicle'
+import { missionModule } from '../src/shared-types/ipc/modules/mission'
+import { parametersModule } from '../src/shared-types/ipc/modules/parameters'
+
+const allModules: IpcModuleSpec[] = [
+  radarModule,
+  forwardingModule,
+  settingsModule,
+  kmlModule,
+  mavConsoleModule,
+  mavInspectorModule,
+  popoutModule,
+  videoModule,
+  calibrationModule,
+  rcCalibrationModule,
+  firmwareModule,
+  cameraModule,
+  actuatorModule,
+  linksModule,
+  vehicleModule,
+  missionModule,
+  parametersModule
+]
+
+function allCommandChannels(): string[] {
+  return allModules.flatMap((m) => Object.keys(m.commands).map((k) => commandChannel(m.name, k)))
+}
+
+function allEventChannels(): string[] {
+  return allModules.flatMap((m) => Object.keys(m.events).map((k) => eventChannel(m.name, k)))
+}
 
 describe('IPC contract validation', () => {
-  it('IpcChannels enum has no duplicate values', () => {
-    const values = Object.values(IpcChannels)
-    const unique = new Set(values)
-    expect(unique.size).toBe(values.length)
+  it('command channels have no duplicates across modules', () => {
+    const channels = allCommandChannels()
+    expect(new Set(channels).size).toBe(channels.length)
   })
 
-  it('IpcEvents enum has no duplicate values', () => {
-    const values = Object.values(IpcEvents)
-    const unique = new Set(values)
-    expect(unique.size).toBe(values.length)
+  it('event channels have no duplicates across modules', () => {
+    const channels = allEventChannels()
+    expect(new Set(channels).size).toBe(channels.length)
   })
 
-  it('all IpcChannels values are non-empty strings', () => {
-    for (const value of Object.values(IpcChannels)) {
-      expect(typeof value).toBe('string')
-      expect(value.length).toBeGreaterThan(0)
+  it('all command channels follow namespace:action pattern', () => {
+    for (const channel of allCommandChannels()) {
+      expect(channel).toMatch(/^[a-zA-Z]+:[a-zA-Z]+$/)
     }
   })
 
-  it('all IpcEvents values are non-empty strings', () => {
-    for (const value of Object.values(IpcEvents)) {
-      expect(typeof value).toBe('string')
-      expect(value.length).toBeGreaterThan(0)
-    }
-  })
-
-  it('IpcChannels follow namespace:action pattern', () => {
-    for (const value of Object.values(IpcChannels)) {
-      expect(value).toMatch(/^[a-zA-Z]+:[a-zA-Z]+$/)
+  it('all event channels follow namespace:action pattern', () => {
+    for (const channel of allEventChannels()) {
+      expect(channel).toMatch(/^[a-zA-Z]+:[a-zA-Z]+$/)
     }
   })
 
