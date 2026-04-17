@@ -60,14 +60,8 @@ export enum IpcEvents {
   /** Image captured event */
   CameraImageCaptured = 'camera:imageCaptured',
 
-  /** MAVLink console data received from autopilot shell */
-  MavConsoleData = 'mavconsole:data',
-
   /** MAVLink Inspector: 1 Hz message list snapshot */
   MavInspectorSnapshot = 'mavInspector:snapshot',
   /** MAVLink Inspector: 5 Hz field values for selected message */
   MavInspectorFields = 'mavInspector:fields'
-
-  // Forwarding / Settings / Radar stateChanged events are now owned by their
-  // IPC modules (src/shared-types/ipc/modules/{forwarding,settings,radar}.ts).
 }

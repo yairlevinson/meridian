@@ -16,10 +16,11 @@ import type {
   FirmwareUpgradeState
 } from '../shared-types/ipc/SetupTypes'
 import type { CameraState } from '../shared-types/ipc/CameraTypes'
-import type { KmlImportResult } from '../shared-types/ipc/OverlayTypes'
 import { radarModule } from '../shared-types/ipc/modules/radar'
 import { forwardingModule } from '../shared-types/ipc/modules/forwarding'
 import { settingsModule } from '../shared-types/ipc/modules/settings'
+import { kmlModule } from '../shared-types/ipc/modules/kml'
+import { mavConsoleModule } from '../shared-types/ipc/modules/mavConsole'
 import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
 import { bindIpcModule } from './moduleBridge'
 
@@ -27,7 +28,9 @@ export interface Bridge
   extends
     ModuleBridge<typeof radarModule>,
     ModuleBridge<typeof forwardingModule>,
-    ModuleBridge<typeof settingsModule> {
+    ModuleBridge<typeof settingsModule>,
+    ModuleBridge<typeof kmlModule>,
+    ModuleBridge<typeof mavConsoleModule> {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
@@ -185,10 +188,6 @@ export interface Bridge
   popoutClose: (view: 'video' | 'map') => Promise<void>
   onPopoutClosed: (cb: (payload: { view: string }) => void) => () => void
 
-  // MAVLink Console
-  mavConsoleWrite: (vehicleId: number, text: string) => Promise<void>
-  onMavConsoleData: (cb: (payload: { vehicleId: number; text: string }) => void) => () => void
-
   // MAVLink Inspector
   mavInspectorEnable: () => Promise<void>
   mavInspectorDisable: () => Promise<void>
@@ -208,14 +207,6 @@ export interface Bridge
 
   // Renderer → main process logging (written to ~/meridian-app.log)
   log: (level: 'info' | 'warn' | 'error' | 'debug', tag: string, message: string) => void
-
-  // KML Import
-  kmlImport: () => Promise<KmlImportResult | { cancelled: true }>
-  kmlImportFromPath: (filePath: string) => Promise<KmlImportResult>
-
-  // MAVLink Forwarding: generated from forwardingModule (forwardingGetState,
-  //   forwardingAddTarget, forwardingRemoveTarget, forwardingSetEnabled,
-  //   forwardingSetTargetEnabled, onForwardingStateChanged)
 }
 
 const bridge: Bridge = {
@@ -540,20 +531,6 @@ const bridge: Bridge = {
     }
   },
 
-  // MAVLink Console
-  mavConsoleWrite: (vehicleId, text) =>
-    ipcRenderer.invoke(IpcChannels.MavConsoleWrite, { vehicleId, text }),
-  onMavConsoleData: (cb) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      payload: { vehicleId: number; text: string }
-    ): void => cb(payload)
-    ipcRenderer.on(IpcEvents.MavConsoleData, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.MavConsoleData, handler)
-    }
-  },
-
   // MAVLink Inspector
   mavInspectorEnable: () => ipcRenderer.invoke(IpcChannels.MavInspectorEnable),
   mavInspectorDisable: () => ipcRenderer.invoke(IpcChannels.MavInspectorDisable),
@@ -586,13 +563,10 @@ const bridge: Bridge = {
     ipcRenderer.send('renderer:log', { level, tag, message })
   },
 
-  // KML Import
-  kmlImport: () => ipcRenderer.invoke(IpcChannels.KmlImport),
-  kmlImportFromPath: (filePath) => ipcRenderer.invoke(IpcChannels.KmlImportFromPath, filePath),
-
-  // MAVLink Forwarding + Settings methods are spread in from bindIpcModule below.
   ...bindIpcModule(forwardingModule),
-  ...bindIpcModule(settingsModule)
+  ...bindIpcModule(settingsModule),
+  ...bindIpcModule(kmlModule),
+  ...bindIpcModule(mavConsoleModule)
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)

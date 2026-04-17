@@ -28,6 +28,8 @@ import { registerIpcModule } from './ipc/registerIpcModule'
 import { radarModule } from '@shared/ipc/modules/radar'
 import { forwardingModule } from '@shared/ipc/modules/forwarding'
 import { settingsModule } from '@shared/ipc/modules/settings'
+import { kmlModule } from '@shared/ipc/modules/kml'
+import { mavConsoleModule } from '@shared/ipc/modules/mavConsole'
 import type { AppSettings } from '@shared/ipc/AppSettings'
 
 const log = createLogger('IPC')
@@ -108,6 +110,10 @@ export function startIpcBridge(
   // Track disposers so shutdown can fully unwire
   const disposers: Array<() => void> = []
 
+  // Captured by mavConsoleModule event wire so per-vehicle consoleData can
+  // fan out through the module's emit (registered below).
+  let emitMavConsoleData: ((payload: { vehicleId: number; text: string }) => void) | null = null
+
   // Forward renderer logs to main process log file
   const rendererLog = createLogger('renderer')
   const onRendererLog = (
@@ -187,9 +193,12 @@ export function startIpcBridge(
       })
 
       // Forward MAVLink console data
-      vehicle.on('consoleData', (payload: { text: string }) => {
-        broadcast(IpcEvents.MavConsoleData, { vehicleId: sysid, ...payload })
-      })
+      const emitConsole = emitMavConsoleData
+      if (emitConsole) {
+        vehicle.on('consoleData', (payload: { text: string }) => {
+          emitConsole({ vehicleId: sysid, ...payload })
+        })
+      }
     }
   }
   vehicleManager.on('vehicleAdded', onVehicleAdded)
@@ -279,6 +288,46 @@ export function startIpcBridge(
       })
     )
   }
+
+  // KML IPC module (file-import commands, no events)
+  disposers.push(
+    registerIpcModule(kmlModule, {
+      commands: {
+        import: async () => {
+          const result = await dialog.showOpenDialog({
+            filters: [{ name: 'KML Files', extensions: ['kml'] }],
+            properties: ['openFile']
+          })
+          if (result.canceled || result.filePaths.length === 0) return { cancelled: true as const }
+          return parseKmlFile(result.filePaths[0]!)
+        },
+        importFromPath: async (filePath) => parseKmlFile(filePath)
+      },
+      events: {}
+    })
+  )
+
+  // MAVLink Console IPC module — commands target a vehicle; the `data` event
+  // is emitted from per-vehicle `consoleData` listeners attached in
+  // onVehicleAdded via the captured emit callback.
+  disposers.push(
+    registerIpcModule(mavConsoleModule, {
+      commands: {
+        write: async (vehicleId, text) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          vehicle?.sendConsoleText(text)
+        }
+      },
+      events: {
+        data: (emit) => {
+          emitMavConsoleData = emit
+          return () => {
+            emitMavConsoleData = null
+          }
+        }
+      }
+    })
+  )
 
   // Delta tick: iterate all vehicles, broadcast to all windows
   const interval = setInterval(() => {
@@ -803,15 +852,7 @@ export function startIpcBridge(
         )
       }
     },
-    // MAVLink Console
-    {
-      channel: IpcChannels.MavConsoleWrite,
-      handler: (req: { vehicleId: number; text: string }) => {
-        const vehicle = vehicleManager.getVehicle(req.vehicleId)
-        if (!vehicle) return
-        vehicle.sendConsoleText(req.text)
-      }
-    },
+    // (MAVLink Console: now registered via registerIpcModule above)
     // MAVLink Inspector
     {
       channel: IpcChannels.MavInspectorEnable,
@@ -847,27 +888,12 @@ export function startIpcBridge(
             }
           : null
       }
-    },
+    }
 
     // (Radar: now registered via registerIpcModule above)
     // (Settings: now registered via registerIpcModule above)
 
-    // KML Import
-    {
-      channel: IpcChannels.KmlImport,
-      handler: async () => {
-        const result = await dialog.showOpenDialog({
-          filters: [{ name: 'KML Files', extensions: ['kml'] }],
-          properties: ['openFile']
-        })
-        if (result.canceled || result.filePaths.length === 0) return { cancelled: true }
-        return parseKmlFile(result.filePaths[0]!)
-      }
-    },
-    {
-      channel: IpcChannels.KmlImportFromPath,
-      handler: (filePath: string) => parseKmlFile(filePath)
-    }
+    // (KML Import: now registered via registerIpcModule above)
   ]
 
   for (const { channel, handler } of handlers) {

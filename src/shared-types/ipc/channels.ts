@@ -125,21 +125,9 @@ export enum IpcChannels {
   ActuatorMotorTest = 'actuator:motorTest',
   ActuatorServoTest = 'actuator:servoTest',
 
-  // MAVLink Console
-  MavConsoleWrite = 'mavconsole:write',
-
   // MAVLink Inspector
   MavInspectorEnable = 'mavInspector:enable',
   MavInspectorDisable = 'mavInspector:disable',
   MavInspectorSelect = 'mavInspector:select',
-  MavInspectorDeselect = 'mavInspector:deselect',
-
-  // MAVLink Forwarding: now owned by forwardingModule
-  //   (src/shared-types/ipc/modules/forwarding.ts)
-
-  // Radar: now owned by radarModule (src/shared-types/ipc/modules/radar.ts)
-
-  // KML Import
-  KmlImport = 'kml:import',
-  KmlImportFromPath = 'kml:importFromPath'
+  MavInspectorDeselect = 'mavInspector:deselect'
 }
