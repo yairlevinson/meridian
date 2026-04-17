@@ -31,6 +31,8 @@ import { settingsModule } from '@shared/ipc/modules/settings'
 import { kmlModule } from '@shared/ipc/modules/kml'
 import { mavConsoleModule } from '@shared/ipc/modules/mavConsole'
 import { mavInspectorModule } from '@shared/ipc/modules/mavInspector'
+import { videoModule } from '@shared/ipc/modules/video'
+import type { VideoStreamState } from '@shared/ipc/VideoTypes'
 import type {
   InspectorSnapshotPayload,
   InspectorFieldsPayload
@@ -231,13 +233,37 @@ export function startIpcBridge(
     disposers.push(() => linkManager.removeListener('linkStateChanged', onLinkStateChanged))
   }
 
-  // Forward video state changes to all renderer windows
+  // Video IPC module (commands + stateChanged event)
   if (videoManager) {
-    const onVideoStateChanged = (state: unknown): void => {
-      broadcast(IpcEvents.VideoStateChanged, state)
-    }
-    videoManager.on('stateChanged', onVideoStateChanged)
-    disposers.push(() => videoManager.removeListener('stateChanged', onVideoStateChanged))
+    const vm = videoManager
+    disposers.push(
+      registerIpcModule(videoModule, {
+        commands: {
+          start: (sourceType, uri) => {
+            vm.start(sourceType as VideoSourceType, uri)
+          },
+          stop: () => {
+            vm.stop()
+          },
+          startRecording: (filePath) => {
+            vm.startRecording(filePath)
+          },
+          stopRecording: () => {
+            vm.stopRecording()
+          },
+          getState: () => vm.state
+        },
+        events: {
+          stateChanged: (emit) => {
+            const handler = (state: VideoStreamState): void => emit(state)
+            vm.on('stateChanged', handler)
+            return () => {
+              vm.removeListener('stateChanged', handler)
+            }
+          }
+        }
+      })
+    )
   }
 
   // Forwarding IPC module (commands + stateChanged event)
@@ -637,29 +663,8 @@ export function startIpcBridge(
         return loadPlanFile(result.filePaths[0]!)
       }
     },
-    // Video streaming
-    {
-      channel: IpcChannels.VideoStart,
-      handler: (req: { sourceType: string; uri: string }) => {
-        videoManager?.start(req.sourceType as VideoSourceType, req.uri)
-      }
-    },
-    {
-      channel: IpcChannels.VideoStop,
-      handler: () => videoManager?.stop()
-    },
-    {
-      channel: IpcChannels.VideoStartRecording,
-      handler: (filePath: string) => videoManager?.startRecording(filePath)
-    },
-    {
-      channel: IpcChannels.VideoStopRecording,
-      handler: () => videoManager?.stopRecording()
-    },
-    {
-      channel: IpcChannels.VideoGetState,
-      handler: () => videoManager?.state ?? null
-    },
+    // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
+
     // Serial port enumeration
     {
       channel: IpcChannels.SerialListPorts,

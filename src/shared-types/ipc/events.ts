@@ -36,8 +36,7 @@ export enum IpcEvents {
   LogData = 'log:data',
   LogProgress = 'log:progress',
 
-  /** Video stream state changed */
-  VideoStateChanged = 'video:stateChanged',
+  // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
 
   // Popout: now owned by popoutModule (src/shared-types/ipc/modules/popout.ts)
 

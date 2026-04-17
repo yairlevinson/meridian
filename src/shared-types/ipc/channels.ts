@@ -74,12 +74,7 @@ export enum IpcChannels {
   MissionSavePlan = 'mission:savePlan',
   MissionOpenPlan = 'mission:openPlan',
 
-  // Video streaming
-  VideoStart = 'video:start',
-  VideoStop = 'video:stop',
-  VideoStartRecording = 'video:startRecording',
-  VideoStopRecording = 'video:stopRecording',
-  VideoGetState = 'video:getState',
+  // Video: now owned by videoModule (src/shared-types/ipc/modules/video.ts)
 
   // Popout: now owned by popoutModule (src/shared-types/ipc/modules/popout.ts)
 

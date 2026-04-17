@@ -3,7 +3,6 @@ import type { VehicleDeltaPayload } from '../shared-types/ipc/VehicleState'
 import { IpcChannels } from '../shared-types/ipc/channels'
 import { IpcEvents } from '../shared-types/ipc/events'
 import type { MavCommandRequest } from '../shared-types/ipc/MavCommandRequest'
-import type { VideoStreamState } from '../shared-types/ipc/VideoTypes'
 import type { LinkConfig, LinkState, SerialPortInfo } from '../shared-types/ipc/LinkState'
 import type { Parameter, ParameterLoadState } from '../shared-types/ipc/ParameterTypes'
 import type {
@@ -22,6 +21,7 @@ import { kmlModule } from '../shared-types/ipc/modules/kml'
 import { mavConsoleModule } from '../shared-types/ipc/modules/mavConsole'
 import { mavInspectorModule } from '../shared-types/ipc/modules/mavInspector'
 import { popoutModule } from '../shared-types/ipc/modules/popout'
+import { videoModule } from '../shared-types/ipc/modules/video'
 import type { ModuleBridge } from '../shared-types/ipc/ipcModule'
 import { bindIpcModule } from './moduleBridge'
 
@@ -33,7 +33,8 @@ export interface Bridge
     ModuleBridge<typeof kmlModule>,
     ModuleBridge<typeof mavConsoleModule>,
     ModuleBridge<typeof mavInspectorModule>,
-    ModuleBridge<typeof popoutModule> {
+    ModuleBridge<typeof popoutModule>,
+    ModuleBridge<typeof videoModule> {
   onVehicleDelta: (cb: (payload: VehicleDeltaPayload) => void) => () => void
   onVehicleAdded: (cb: (payload: { vehicleId: number }) => void) => () => void
   onVehicleRemoved: (cb: (payload: { vehicleId: number }) => void) => () => void
@@ -95,13 +96,8 @@ export interface Bridge
   ) => () => void
   onMissionCurrentChanged: (cb: (payload: { vehicleId: number; seq: number }) => void) => () => void
 
-  // Video streaming
-  videoStart: (sourceType: string, uri: string) => Promise<void>
-  videoStop: () => Promise<void>
-  videoStartRecording: (filePath: string) => Promise<void>
-  videoStopRecording: () => Promise<void>
-  videoGetState: () => Promise<VideoStreamState>
-  onVideoStateChanged: (cb: (state: VideoStreamState) => void) => () => void
+  // Video: generated from videoModule (videoStart, videoStop, videoStartRecording,
+  //   videoStopRecording, videoGetState, onVideoStateChanged)
 
   // Links
   serialListPorts: () => Promise<SerialPortInfo[]>
@@ -322,19 +318,7 @@ const bridge: Bridge = {
     }
   },
 
-  // Video streaming
-  videoStart: (sourceType, uri) => ipcRenderer.invoke(IpcChannels.VideoStart, { sourceType, uri }),
-  videoStop: () => ipcRenderer.invoke(IpcChannels.VideoStop),
-  videoStartRecording: (filePath) => ipcRenderer.invoke(IpcChannels.VideoStartRecording, filePath),
-  videoStopRecording: () => ipcRenderer.invoke(IpcChannels.VideoStopRecording),
-  videoGetState: () => ipcRenderer.invoke(IpcChannels.VideoGetState),
-  onVideoStateChanged: (cb) => {
-    const handler = (_event: Electron.IpcRendererEvent, state: VideoStreamState): void => cb(state)
-    ipcRenderer.on(IpcEvents.VideoStateChanged, handler)
-    return () => {
-      ipcRenderer.removeListener(IpcEvents.VideoStateChanged, handler)
-    }
-  },
+  // Video methods are spread in from bindIpcModule(videoModule) below.
 
   // Links
   serialListPorts: () => ipcRenderer.invoke(IpcChannels.SerialListPorts),
@@ -520,7 +504,8 @@ const bridge: Bridge = {
   ...bindIpcModule(kmlModule),
   ...bindIpcModule(mavConsoleModule),
   ...bindIpcModule(mavInspectorModule),
-  ...bindIpcModule(popoutModule)
+  ...bindIpcModule(popoutModule),
+  ...bindIpcModule(videoModule)
 }
 
 contextBridge.exposeInMainWorld('bridge', bridge)
