@@ -20,6 +20,7 @@ import { RadarManager } from './radar/RadarManager'
 import { registerIpcModule } from './ipc/registerIpcModule'
 import { popoutModule } from '@shared/ipc/modules/popout'
 import { createLogger } from './logger'
+import { UtilityBridge } from './utility/UtilityBridge'
 
 const log = createLogger('main')
 
@@ -309,6 +310,15 @@ app.whenReady().then(async () => {
     }
   })
 
+  // --- Utility process spike (Phase 1: infra only, echo RPC) ---
+  const utilityBridge = new UtilityBridge()
+  utilityBridge.start()
+  // Fire-and-forget sanity check so the dev log proves end-to-end plumbing.
+  utilityBridge
+    .call<string>('echo', 'hello from main')
+    .then((reply) => log.log(`utility echo reply: ${reply}`))
+    .catch((err) => log.warn(`utility echo failed: ${err.message}`))
+
   // --- Video streaming ---
   const videoManager = new VideoManager()
   await videoManager.init()
@@ -468,6 +478,7 @@ app.whenReady().then(async () => {
     linkManager.disconnectAll()
     mavlinkProtocol.destroy()
     videoManager.destroy()
+    utilityBridge.stop()
   })
 
   app.on('activate', () => {

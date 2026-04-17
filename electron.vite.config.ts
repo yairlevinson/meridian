@@ -8,6 +8,14 @@ export default defineConfig({
       alias: {
         '@shared': resolve('src/shared-types')
       }
+    },
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/main/index.ts'),
+          utility: resolve('src/utility/index.ts')
+        }
+      }
     }
   },
   preload: {
