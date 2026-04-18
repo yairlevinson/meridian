@@ -24,6 +24,7 @@ services:
       - PX4_HOME_LAT=${PX4_HOME_LAT:-32.08}
       - PX4_HOME_LON=${PX4_HOME_LON:-34.78}
       - PX4_HOME_ALT=${PX4_HOME_ALT:-20}
+      - PX4_SIM_MODEL=${PX4_SIM_MODEL:-sihsim_airplane}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     healthcheck:

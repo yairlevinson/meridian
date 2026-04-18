@@ -69,7 +69,13 @@ def main():
     lock = threading.Lock()
 
     def start_gstreamer(width, height, gst_fmt):
-        """Start GStreamer pipeline: rawvideo → x264enc → rtph264pay → udpsink."""
+        """Pipeline: rawvideo → x264enc → h264parse (Annex B, config-in-stream) → udpsink.
+
+        Meridian's `UDP_H264` receiver reads each datagram as raw H.264 Annex B
+        bytes (no RTP depayloader). We therefore skip `rtph264pay` and make sure
+        the parser emits byte-stream format with SPS/PPS repeated periodically
+        so the decoder can sync mid-stream.
+        """
         cmd = [
             'gst-launch-1.0', '-q',
             'fdsrc', 'fd=0',
@@ -81,7 +87,8 @@ def main():
                  f'bitrate={args.bitrate}',
                  'speed-preset=ultrafast',
                  f'key-int-max={args.fps}',
-            '!', 'rtph264pay', 'config-interval=1', 'pt=96',
+            '!', 'h264parse', 'config-interval=1',
+            '!', 'video/x-h264,stream-format=byte-stream,alignment=au',
             '!', 'udpsink', f'host={args.host}', f'port={args.port}',
         ]
         print(f'[gz-video] Starting: {" ".join(cmd)}')

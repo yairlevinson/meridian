@@ -58,8 +58,9 @@ WORKDIR /px4
 EXPOSE 5760
 
 # SIH (Simulator-In-Hardware): PX4's built-in physics sim, no external
-# simulator needed. Airframe 10040 = sihsim_quadx.
-ENV PX4_SIM_MODEL=sihsim_quadx
+# simulator needed. Default airframe 10041 = sihsim_airplane (fixed-wing
+# interceptor profile). Override with PX4_SIM_MODEL=sihsim_quadx for quad.
+ENV PX4_SIM_MODEL=sihsim_airplane
 ENV PX4_SIM_SPEED_FACTOR=1
 
 # Configurable home position (defaults to Boston)

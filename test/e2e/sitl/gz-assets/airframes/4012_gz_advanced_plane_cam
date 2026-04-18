@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# @name Gazebo advanced plane (camera)
+#
+# @type Plane
+#
+# Inherits advanced_plane tuning and adds a forward-facing camera on
+# camera_link — picked up by the Meridian gz-video-bridge for FPV stream.
+#
+
+PX4_SIM_MODEL=${PX4_SIM_MODEL:=advanced_plane_cam}
+
+. ${R}etc/init.d-posix/airframes/4008_gz_advanced_plane

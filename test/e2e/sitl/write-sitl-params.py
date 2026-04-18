@@ -12,34 +12,53 @@ import struct
 import sys
 import os
 
-# Params that are SEEDED ONLY if not already set in parameters.bson.
-# Letting these persist allows users to change airframe via MAVLink/Meridian
-# and have the change survive container reboots.
-SEED_ONLY_PARAMS = {
-    # Airframe: SIH quadcopter (10040 = sihsim_quadx) as the initial default.
-    # 4001 is a Gazebo airframe — using it with PX4_SIM_MODEL=none
-    # causes PX4 to error "please install gz-garden".
-    'SYS_AUTOSTART': ('int32', 10040),
+# Resolve the active simulator model. The entrypoint may pass gz_<name> via
+# PX4_SIM_MODEL, or only PX4_GZ_MODEL (bare name). SIH containers set
+# PX4_SIM_MODEL directly (sihsim_*).
+_raw_model = os.environ.get('PX4_SIM_MODEL') or os.environ.get('PX4_GZ_MODEL') or 'sihsim_airplane'
+PX4_SIM_MODEL = _raw_model if _raw_model.startswith(('gz_', 'sihsim_')) else f'gz_{_raw_model}'
+IS_SIH = PX4_SIM_MODEL.startswith('sihsim_')
+IS_GZ = PX4_SIM_MODEL.startswith('gz_')
+
+# SYS_AUTOSTART must match the simulator model — PX4 reverts the param at
+# boot if the airframe doesn't match, so seeding the correct value avoids
+# one wasted boot cycle.
+SIM_MODEL_AUTOSTART = {
+    'sihsim_quadx': 10040,
+    'sihsim_airplane': 10041,
+    'sihsim_xvert': 10042,
+    'gz_x500': 4001,
+    'gz_x500_depth': 4002,
+    'gz_rc_cessna': 4003,
+    'gz_standard_vtol': 4004,
+    'gz_x500_vision': 4005,
+    'gz_px4vision': 4006,
+    'gz_advanced_plane': 4008,
+    'gz_r1_rover': 4009,
+    'gz_x500_mono_cam': 4010,
+    'gz_lawnmower': 4011,
+    # Meridian-custom composite model: advanced_plane + forward-facing camera.
+    # Airframe file shipped in the Docker image at 4012_gz_advanced_plane_cam.
+    'gz_advanced_plane_cam': 4012,
 }
 
-# Must match the params in gazeboLauncher.ts SITL_PARAMS, plus sensor
-# calibration needed for SIH to report healthy. These are overwritten on
-# every boot since they're health/connectivity requirements.
+# Seeded only on first boot, so user airframe changes via MAVLink survive reboots.
+SEED_ONLY_PARAMS = {}
+if PX4_SIM_MODEL in SIM_MODEL_AUTOSTART:
+    SEED_ONLY_PARAMS['SYS_AUTOSTART'] = ('int32', SIM_MODEL_AUTOSTART[PX4_SIM_MODEL])
+
+# Per-airframe tuning seeds — written only on first boot, then user can adjust.
+if PX4_SIM_MODEL in ('sihsim_airplane', 'gz_advanced_plane', 'gz_advanced_plane_cam', 'gz_rc_cessna'):
+    SEED_ONLY_PARAMS.update({
+        'FW_AIRSPD_TRIM': ('double', 90.0),
+        'FW_AIRSPD_MAX': ('double', 100.0),
+        'NAV_LOITER_RAD': ('double', 1200.0),
+    })
+
+# Overwritten every boot — health/connectivity requirements that must stay correct.
 SITL_PARAMS = {
     # SYS_AUTOCONFIG=0: don't reset params on boot
     'SYS_AUTOCONFIG': ('int32', 0),
-
-    # EKF tuning for SITL
-    'EKF2_MAG_TYPE': ('int32', 5),  # NONE — disable mag; SIH mag causes TIMEOUT spam
-    # EKF2_GPS_DELAY=0: SIH has zero sensor delay (default 110ms is for real hardware).
-    # PX4 docs explicitly recommend this for SIH-as-SITL.
-    'EKF2_GPS_DELAY': ('double', 0.0),
-
-    # SIH home position (Tel Aviv) — SIH uses these params, not PX4_HOME env var.
-    # LAT0/LON0 are INT32 in degE7 format in PX4 v1.15.x.
-    'SIH_LOC_LAT0': ('int32', 320800000),   # 32.08° N
-    'SIH_LOC_LON0': ('int32', 347800000),   # 34.78° E
-    'SIH_LOC_H0': ('double', 20.0),
 
     # Circuit breakers for SITL
     'CBRK_SUPPLY_CHK': ('int32', 894281),  # disable battery check
@@ -48,9 +67,10 @@ SITL_PARAMS = {
     # MAVLink: broadcast to GCS port
     'MAV_0_BROADCAST': ('int32', 1),
 
-    # Sensor calibration — SIH simulated sensors are perfectly aligned,
-    # so identity calibration values make them pass preflight checks.
-    # Accelerometer 0
+    # Sensor calibration — SIH and Gazebo both use perfectly-aligned simulated
+    # sensors with the same device IDs. Identity calibration makes preflight
+    # pass without running a real calibration flow (otherwise UI reports
+    # "needs calibration" and arming is denied).
     'CAL_ACC0_ID': ('int32', 1310988),
     'CAL_ACC0_XOFF': ('double', 0.0),
     'CAL_ACC0_YOFF': ('double', 0.0),
@@ -59,13 +79,11 @@ SITL_PARAMS = {
     'CAL_ACC0_YSCALE': ('double', 1.0),
     'CAL_ACC0_ZSCALE': ('double', 1.0),
     'CAL_ACC0_PRIO': ('int32', 75),
-    # Gyroscope 0
     'CAL_GYRO0_ID': ('int32', 1310988),
     'CAL_GYRO0_XOFF': ('double', 0.0),
     'CAL_GYRO0_YOFF': ('double', 0.0),
     'CAL_GYRO0_ZOFF': ('double', 0.0),
     'CAL_GYRO0_PRIO': ('int32', 75),
-    # Magnetometer 0
     'CAL_MAG0_ID': ('int32', 197388),
     'CAL_MAG0_XOFF': ('double', 0.0),
     'CAL_MAG0_YOFF': ('double', 0.0),
@@ -74,11 +92,42 @@ SITL_PARAMS = {
     'CAL_MAG0_YSCALE': ('double', 1.0),
     'CAL_MAG0_ZSCALE': ('double', 1.0),
     'CAL_MAG0_PRIO': ('int32', 75),
-    # Barometer 0
     'CAL_BARO0_ID': ('int32', 6620172),
     'CAL_BARO0_OFF': ('double', 0.0),
     'CAL_BARO0_PRIO': ('int32', 75),
 }
+
+if IS_SIH:
+    # SIH-specific: zero sensor delay (default 110ms is for real hardware)
+    # and SIH_LOC_* for home (SIH doesn't read PX4_HOME env).
+    SITL_PARAMS.update({
+        'EKF2_GPS_DELAY': ('double', 0.0),
+        'SIH_LOC_LAT0': ('int32', 320800000),   # 32.08° N
+        'SIH_LOC_LON0': ('int32', 347800000),   # 34.78° E
+        'SIH_LOC_H0': ('double', 20.0),
+    })
+
+if IS_GZ:
+    # Gazebo simulated motors don't publish esc_status with a valid arming
+    # state or an armed/current/throttle signal matching the failure-detector
+    # model, so FD_ESCS_EN + FD_ACT_EN trigger a false "ESC failure detected"
+    # immediately after arming and failsafe-disarm. Disable those checks for
+    # gz SITL. GPS/mag/EKF sensor tuning stays at PX4 defaults.
+    SITL_PARAMS.update({
+        'FD_ESCS_EN': ('int32', 0),
+        'FD_ACT_EN': ('int32', 0),
+    })
+
+# Per-airframe sensor/EKF overrides.
+if PX4_SIM_MODEL == 'sihsim_quadx':
+    # Quad: SIH mag floods TIMEOUT spam; safe to disable since GPS heading
+    # works once the quad spins up.
+    SITL_PARAMS['EKF2_MAG_TYPE'] = ('int32', 5)  # NONE
+elif PX4_SIM_MODEL in ('sihsim_airplane', 'gz_advanced_plane', 'gz_advanced_plane_cam', 'gz_rc_cessna'):
+    # Plane sits stationary on the ground — without mag the EKF can't
+    # initialise heading (GPS-derived heading needs motion), leading to
+    # "Preflight Fail: Yaw estimate error". Force mag-on (heading-only).
+    SITL_PARAMS['EKF2_MAG_TYPE'] = ('int32', 1)  # Heading-only
 
 
 def read_bson_params(filepath):

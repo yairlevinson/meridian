@@ -18,7 +18,13 @@ fi
 rm -f /tmp/px4_lock-* /tmp/px4-sock-*
 rm -f "$PX4_DATA/dataman"
 
-# Inject SITL parameters (MAV_0_BROADCAST, EKF tuning, sensor cal, etc.)
+# Configure PX4 Gazebo model. Must be exported before write-sitl-params.py so
+# the script picks the correct SYS_AUTOSTART and skips SIH-only params
+# (EKF2_GPS_DELAY=0, SIH_LOC_*) that break the Gazebo GPS pipeline.
+export PX4_SIM_MODEL="gz_${PX4_GZ_MODEL}"
+export PX4_GZ_MODEL="${PX4_GZ_MODEL}"
+
+# Inject SITL parameters (MAV_0_BROADCAST, circuit breakers, airframe autostart, etc.)
 python3 /write-sitl-params.py "$PX4_DATA"
 python3 /write-sitl-params.py /px4
 
@@ -37,10 +43,6 @@ fi
 
 # Add PX4's Gazebo model/world paths
 export GZ_SIM_RESOURCE_PATH="${GZ_SIM_RESOURCE_PATH:+$GZ_SIM_RESOURCE_PATH:}/px4/Tools/simulation/gz/models:/px4/Tools/simulation/gz/worlds"
-
-# Configure PX4 Gazebo model
-export PX4_SIM_MODEL="gz_${PX4_GZ_MODEL}"
-export PX4_GZ_MODEL="${PX4_GZ_MODEL}"
 
 # MAVProxy: bridge PX4 internal UDP → external TCP
 python3 -m MAVProxy.mavproxy \
