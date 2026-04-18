@@ -119,6 +119,8 @@ export interface VehicleDialect {
   planForceArm(): ActionStep[]
   planEmergencyStop(): ActionStep[]
   planTakeoff(p: TakeoffParams): ActionStep[]
+  /** Launch a vehicle from the ground (e.g. catapult/rail). Currently PX4-only. */
+  planLaunch?(): ActionStep[]
   planRtl(): ActionStep[]
   planLand(): ActionStep[]
   planMissionStart(): ActionStep[]

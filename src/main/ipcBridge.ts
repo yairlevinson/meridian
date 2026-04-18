@@ -11,7 +11,12 @@ import type { MissionItem } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
 import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 import type { SettingsManager } from './settings/SettingsManager'
-import type { RadarManager } from './radar/RadarManager'
+import type { RadarProxy } from './radar/RadarProxy'
+import type {
+  TargetTrackingManager,
+  TrackingEngagementChangedPayload,
+  TrackingEngagementLostPayload
+} from './tracking/TargetTrackingManager'
 import { createLogger } from './logger'
 import { registerIpcModule } from './ipc/registerIpcModule'
 import { radarModule } from '@shared/ipc/modules/radar'
@@ -56,7 +61,8 @@ export function startIpcBridge(
   linkManager?: LinkManager,
   forwarder?: MavlinkForwarder,
   settingsManager?: SettingsManager,
-  radarManager?: RadarManager
+  radarManager?: RadarProxy,
+  trackingManager?: TargetTrackingManager
 ): () => void {
   // Track disposers so shutdown can fully unwire
   const disposers: Array<() => void> = []
@@ -111,6 +117,8 @@ export function startIpcBridge(
     severity: number
     text: string
   }) => void = () => {}
+  let emitVehicleTrackingChanged: (p: TrackingEngagementChangedPayload) => void = () => {}
+  let emitVehicleTrackingLost: (p: TrackingEngagementLostPayload) => void = () => {}
 
   // Captured by missionModule event wires so per-vehicle missionManager events
   // can fan out through the module's emit (registered below).
@@ -732,7 +740,16 @@ export function startIpcBridge(
         landingGearDeploy: async (vehicleId) =>
           vehicleManager.getVehicle(vehicleId)?.landingGearDeploy(),
         landingGearRetract: async (vehicleId) =>
-          vehicleManager.getVehicle(vehicleId)?.landingGearRetract()
+          vehicleManager.getVehicle(vehicleId)?.landingGearRetract(),
+        trackingEngage: async (vehicleId, trackId) => {
+          if (!trackingManager) return { ok: false, error: 'Tracking manager not available' }
+          return trackingManager.engage(vehicleId, trackId)
+        },
+        trackingDisengage: async (vehicleId) => {
+          trackingManager?.disengage(vehicleId)
+        },
+        trackingGetEngagement: async (vehicleId) =>
+          trackingManager?.getEngagement(vehicleId) ?? null
       },
       events: {
         added: (emit) => {
@@ -758,10 +775,41 @@ export function startIpcBridge(
           return () => {
             emitVehicleStatusText = () => {}
           }
+        },
+        trackingChanged: (emit) => {
+          emitVehicleTrackingChanged = emit
+          return () => {
+            emitVehicleTrackingChanged = () => {}
+          }
+        },
+        trackingLost: (emit) => {
+          emitVehicleTrackingLost = emit
+          return () => {
+            emitVehicleTrackingLost = () => {}
+          }
         }
       }
     })
   )
+
+  // Wire tracking manager events to the captured emits. Must be after the
+  // vehicleModule registration so emits are bound (registerIpcModule invokes
+  // the event factories synchronously).
+  if (trackingManager) {
+    const tm = trackingManager
+    const onTrackingChanged = (p: TrackingEngagementChangedPayload): void => {
+      emitVehicleTrackingChanged(p)
+    }
+    const onTrackingLost = (p: TrackingEngagementLostPayload): void => {
+      emitVehicleTrackingLost(p)
+    }
+    tm.on('engagementChanged', onTrackingChanged)
+    tm.on('engagementLost', onTrackingLost)
+    disposers.push(() => {
+      tm.removeListener('engagementChanged', onTrackingChanged)
+      tm.removeListener('engagementLost', onTrackingLost)
+    })
+  }
 
   // Mission IPC module — commands target a vehicle's missionManager; events
   // are fanned out through the captured emits wired in onVehicleAdded above.

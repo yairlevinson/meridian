@@ -1,15 +1,18 @@
 import { EventEmitter } from 'events'
-import type { RadarState, RadarUnit, RadarTrack } from '@shared/ipc/RadarTypes'
+import type { RadarSettings, RadarState, RadarUnit, RadarTrack } from '@shared/ipc/RadarTypes'
 import type { RadarProvider } from './RadarProvider'
 import { RadarSimulator } from './RadarSimulator'
-import type { SettingsManager } from '../settings/SettingsManager'
 import { createLogger } from '../logger'
 
 const log = createLogger('RadarManager')
 
-const STALE_TRACK_MS = 10_000
 const EMIT_RATE_MS = 100
 
+/**
+ * Runs the radar provider and aggregates unit/track updates into a single
+ * debounced `stateChanged` event. Settings are pushed in from the main process
+ * (see `RadarProxy` on the main side) rather than read from disk.
+ */
 export class RadarManager extends EventEmitter {
   private _units = new Map<number, RadarUnit>()
   private _tracks = new Map<number, RadarTrack>()
@@ -18,28 +21,11 @@ export class RadarManager extends EventEmitter {
   private _enabled = false
   private _simulationActive = false
   private _dirty = false
-  private _settings: SettingsManager
+  private _settings: RadarSettings
 
-  private _onSettingsChanged = (key: string): void => {
-    if (key === 'radarEnabled') {
-      const enabled = this._settings.get('radarEnabled')
-      if (enabled && !this._enabled) this.enable()
-      else if (!enabled && this._enabled) this.disable()
-    }
-    if (key === 'radarRadiusMeters' && this._provider instanceof RadarSimulator) {
-      this._provider.setRadius(this._settings.get('radarRadiusMeters'))
-    }
-    if (key === 'radarSimulationEnabled' && this._enabled) {
-      // Restart radar to pick up new provider
-      this.disable()
-      this.enable()
-    }
-  }
-
-  constructor(settings: SettingsManager) {
+  constructor(initial: RadarSettings) {
     super()
-    this._settings = settings
-    settings.on('changed', this._onSettingsChanged)
+    this._settings = { ...initial }
   }
 
   get enabled(): boolean {
@@ -50,14 +36,15 @@ export class RadarManager extends EventEmitter {
     if (this._enabled) return
     this._enabled = true
 
-    const simEnabled = this._settings.get('radarSimulationEnabled')
-    if (simEnabled) {
+    if (this._settings.radarSimulationEnabled) {
       const sim = new RadarSimulator({
-        centerLat: this._settings.get('radarSimulationLat'),
-        centerLon: this._settings.get('radarSimulationLon'),
-        radiusMeters: this._settings.get('radarRadiusMeters'),
-        friendlyCount: this._settings.get('radarSimulationFriendlyCount'),
-        hostileCount: this._settings.get('radarSimulationHostileCount')
+        centerLat: this._settings.radarSimulationLat,
+        centerLon: this._settings.radarSimulationLon,
+        radiusMeters: this._settings.radarRadiusMeters,
+        friendlyCount: this._settings.radarSimulationFriendlyCount,
+        hostileCount: this._settings.radarSimulationHostileCount,
+        minSpeedMs: this._settings.radarSimulationMinSpeedMs,
+        maxSpeedMs: this._settings.radarSimulationMaxSpeedMs
       })
       this._attachProvider(sim)
       sim.start()
@@ -90,10 +77,51 @@ export class RadarManager extends EventEmitter {
   }
 
   setSimulationPosition(lat: number, lon: number): void {
-    this._settings.set('radarSimulationLat', lat)
-    this._settings.set('radarSimulationLon', lon)
+    this._settings.radarSimulationLat = lat
+    this._settings.radarSimulationLon = lon
     if (this._provider instanceof RadarSimulator) {
       this._provider.setCenter(lat, lon)
+    }
+  }
+
+  /**
+   * Apply a partial settings update. Mirrors the old SettingsManager `changed`
+   * listener: toggling `radarEnabled` drives enable/disable, radius changes
+   * flow through to the sim provider, and toggling `radarSimulationEnabled`
+   * while running forces a provider restart.
+   */
+  updateSettings(patch: Partial<RadarSettings>): void {
+    const prev = this._settings
+    this._settings = { ...prev, ...patch }
+
+    if ('radarEnabled' in patch) {
+      const enabled = this._settings.radarEnabled
+      if (enabled && !this._enabled) this.enable()
+      else if (!enabled && this._enabled) this.disable()
+    }
+    if (
+      'radarRadiusMeters' in patch &&
+      this._settings.radarRadiusMeters !== prev.radarRadiusMeters &&
+      this._provider instanceof RadarSimulator
+    ) {
+      this._provider.setRadius(this._settings.radarRadiusMeters)
+    }
+    if (
+      ('radarSimulationMinSpeedMs' in patch || 'radarSimulationMaxSpeedMs' in patch) &&
+      this._provider instanceof RadarSimulator
+    ) {
+      this._provider.setSpeedRange(
+        this._settings.radarSimulationMinSpeedMs,
+        this._settings.radarSimulationMaxSpeedMs
+      )
+    }
+    if (
+      'radarSimulationEnabled' in patch &&
+      this._settings.radarSimulationEnabled !== prev.radarSimulationEnabled &&
+      this._enabled
+    ) {
+      this.disable()
+      this.enable()
     }
   }
 
@@ -107,7 +135,6 @@ export class RadarManager extends EventEmitter {
   }
 
   destroy(): void {
-    this._settings.removeListener('changed', this._onSettingsChanged)
     this.disable()
     this.removeAllListeners()
   }
@@ -148,8 +175,9 @@ export class RadarManager extends EventEmitter {
 
   private _pruneStale(): void {
     const now = Date.now()
+    const staleMs = this._settings.radarTrackStaleMs
     for (const [id, track] of this._tracks) {
-      if (now - track.lastSeenMs > STALE_TRACK_MS) {
+      if (now - track.lastSeenMs > staleMs) {
         this._tracks.delete(id)
         this._dirty = true
       }

@@ -143,6 +143,15 @@ export class Px4Dialect implements VehicleDialect {
     ]
   }
 
+  planLaunch(): ActionStep[] {
+    // QGC PX4FirmwarePlugin::startTakeoff (plane path): mode → AUTO_TAKEOFF, then arm.
+    // PX4 firmware handles rail/catapult launch via LAUN_* params; no NAV_TAKEOFF needed.
+    return [
+      { type: 'mode', baseMode: MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, customMode: PX4_MODE.TAKEOFF },
+      { type: 'arm' }
+    ]
+  }
+
   planRtl(): ActionStep[] {
     // QGC PX4FirmwarePlugin::guidedModeRTL: mode switch to AUTO_RTL (no NAV_RETURN_TO_LAUNCH).
     return [{ type: 'mode', baseMode: MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, customMode: PX4_MODE.RTL }]

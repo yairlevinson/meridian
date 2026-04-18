@@ -4,6 +4,7 @@ import { useMission } from '../hooks/useMission'
 import { useTelemetry } from '../hooks/useVehicle'
 import { useMissionStore } from '../store/missionStore'
 import { FlightActionsMenu } from './FlightActionsMenu'
+import { isVehicleFlying } from '@shared/ipc/vehicleStatus'
 import styles from './FloatingActions.module.css'
 
 /* ── Icons ───────────────────────────────────────── */
@@ -122,6 +123,42 @@ function MissionIcon({ color }: { color: string }): React.JSX.Element {
   )
 }
 
+function ArmIcon({ color }: { color: string }): React.JSX.Element {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path
+        d="M12 2L4 6V12C4 17 7.5 20.5 12 22C16.5 20.5 20 17 20 12V6L12 2Z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <path
+        d="M9 12L11 14L15 10"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function DisarmIcon({ color }: { color: string }): React.JSX.Element {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3V12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <path
+        d="M5.5 7.5C3.5 9.5 3 13 5 16C7 19 11 20 14 18.5C17 17 19 13.5 18.5 10.5C18 8 16 6 13.5 5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  )
+}
+
 function StopIcon({ color }: { color: string }): React.JSX.Element {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -232,14 +269,21 @@ function ActionButton({
 /* ── Main Widget ─────────────────────────────────── */
 
 export function FloatingActions(): React.JSX.Element | null {
-  const { guidedTakeoff, guidedRTL, guidedLand, guidedPause, setFlightMode, emergencyStop } =
-    useCommand()
+  const {
+    arm,
+    disarm,
+    guidedTakeoff,
+    guidedRTL,
+    guidedLand,
+    guidedPause,
+    setFlightMode,
+    emergencyStop
+  } = useCommand()
   const { uploadMission } = useMission()
   const core = useTelemetry('core')
   const extState = useTelemetry('extendedState')
   const armed = core?.armed ?? false
-  // MAV_LANDED_STATE: 0=undefined, 1=on_ground, 2=in_air, 3=takeoff, 4=landing
-  const flying = armed && extState != null && extState.landedState >= 2
+  const flying = core != null && extState != null && isVehicleFlying(core, extState)
   const modeName = core?.flightModeName ?? ''
   const isAutoMission = modeName === 'Auto:Mission' || modeName === 'Auto'
   const waypointCount = useMissionStore((s) => s.editableWaypoints.length)
@@ -316,8 +360,16 @@ export function FloatingActions(): React.JSX.Element | null {
   const primary: Action[] = []
   const secondary: Action[] = []
 
-  if (!armed) {
-    // Pre-flight: Takeoff is the main action
+  if (!flying) {
+    if (!armed) {
+      primary.push({
+        key: 'arm',
+        icon: <ArmIcon color="#4a9eff" />,
+        label: 'Arm',
+        color: '#4a9eff',
+        onConfirm: () => arm()
+      })
+    }
     primary.push({
       key: 'takeoff',
       icon: <TakeoffIcon color="#4a9eff" />,
@@ -325,6 +377,35 @@ export function FloatingActions(): React.JSX.Element | null {
       color: '#4a9eff',
       onConfirm: doTakeoff
     })
+    // Secondary: Mission start (when not in auto mission)
+    if (!isAutoMission) {
+      secondary.push({
+        key: 'mission',
+        icon: <MissionIcon color="#44cc44" />,
+        label: uploading ? 'Upload...' : 'Mission',
+        color: '#44cc44',
+        onConfirm: startMission,
+        disabled: uploading
+      })
+    }
+    // While armed-but-not-flying give the pilot a Land button to ground
+    // gracefully (matches QGC behavior — Land is shown whenever armed).
+    if (armed) {
+      secondary.push({
+        key: 'disarm',
+        icon: <DisarmIcon color="#aaaaaa" />,
+        label: 'Disarm',
+        color: '#aaaaaa',
+        onConfirm: () => disarm()
+      })
+      secondary.push({
+        key: 'land',
+        icon: <LandIcon color="#ff5252" />,
+        label: 'Land',
+        color: '#ff5252',
+        onConfirm: () => guidedLand()
+      })
+    }
   } else {
     // In-flight primary: RTL, Land, Pause (most critical)
     primary.push({
@@ -349,26 +430,14 @@ export function FloatingActions(): React.JSX.Element | null {
       onConfirm: () => guidedPause()
     })
 
-    // Secondary: Mission start, Emergency Stop
-    if (!isAutoMission) {
-      secondary.push({
-        key: 'mission',
-        icon: <MissionIcon color="#44cc44" />,
-        label: uploading ? 'Upload...' : 'Mission',
-        color: '#44cc44',
-        onConfirm: startMission,
-        disabled: uploading
-      })
-    }
-    if (flying) {
-      secondary.push({
-        key: 'estop',
-        icon: <StopIcon color="#ff0000" />,
-        label: 'E-Stop',
-        color: '#ff0000',
-        onConfirm: () => emergencyStop()
-      })
-    }
+    // Secondary: Mission switch is suppressed while flying (per QGC). Only E-Stop.
+    secondary.push({
+      key: 'estop',
+      icon: <StopIcon color="#ff0000" />,
+      label: 'E-Stop',
+      color: '#ff0000',
+      onConfirm: () => emergencyStop()
+    })
   }
 
   return (

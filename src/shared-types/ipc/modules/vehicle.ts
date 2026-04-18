@@ -28,13 +28,25 @@ export const vehicleModule = defineIpcModule({
       number | undefined
     >(),
     landingGearDeploy: command<[vehicleId: number], number | undefined>(),
-    landingGearRetract: command<[vehicleId: number], number | undefined>()
+    landingGearRetract: command<[vehicleId: number], number | undefined>(),
+    trackingEngage: command<
+      [vehicleId: number, trackId: number],
+      { ok: boolean; error?: string }
+    >(),
+    trackingDisengage: command<[vehicleId: number], void>(),
+    trackingGetEngagement: command<[vehicleId: number], { trackId: number } | null>()
   },
   events: {
     added: event<{ vehicleId: number }>(),
     removed: event<{ vehicleId: number }>(),
     delta: event<VehicleDeltaPayload>(),
-    statusText: event<{ vehicleId: number; severity: number; text: string }>()
+    statusText: event<{ vehicleId: number; severity: number; text: string }>(),
+    trackingChanged: event<{ vehicleId: number; trackId: number | null }>(),
+    trackingLost: event<{
+      vehicleId: number
+      trackId: number
+      reason: 'stale' | 'mode-changed' | 'disarmed'
+    }>()
   }
 })
 

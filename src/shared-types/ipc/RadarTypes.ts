@@ -36,3 +36,21 @@ export interface RadarState {
   tracks: RadarTrack[]
   simulationActive: boolean
 }
+
+/**
+ * Subset of AppSettings relevant to the radar manager. Pushed from main to the
+ * utility process so the manager can configure itself without a SettingsManager
+ * dependency.
+ */
+export interface RadarSettings {
+  radarEnabled: boolean
+  radarRadiusMeters: number
+  radarTrackStaleMs: number
+  radarSimulationEnabled: boolean
+  radarSimulationFriendlyCount: number
+  radarSimulationHostileCount: number
+  radarSimulationLat: number
+  radarSimulationLon: number
+  radarSimulationMinSpeedMs: number
+  radarSimulationMaxSpeedMs: number
+}

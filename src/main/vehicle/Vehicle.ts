@@ -585,6 +585,16 @@ export class Vehicle extends EventEmitter {
     return this.executePlan(dialect.planTakeoff({ altitude, currentAltMsl }))
   }
 
+  async guidedLaunch(): Promise<MavResult | undefined> {
+    const dialect = this.dialect
+    if (!dialect.planLaunch) {
+      log.warn(`guidedLaunch: ${dialect.name} dialect does not support launch`)
+      return undefined
+    }
+    log.debug(`guidedLaunch ${dialect.name}`)
+    return this.executePlan(dialect.planLaunch())
+  }
+
   guidedRTL(): Promise<MavResult> {
     const dialect = this.dialect
     log.debug('guidedRTL %s', dialect.name)

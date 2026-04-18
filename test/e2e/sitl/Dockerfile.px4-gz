@@ -17,15 +17,22 @@ FROM ubuntu:22.04 AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# PX4 build dependencies only — Gazebo is NOT needed at build time.
-# PX4's SITL firmware (px4_sitl_default) is the same binary regardless of
-# which simulator is used. The gz_bridge plugin and model spawning happen
-# at runtime via PX4's rcS scripts when Gazebo is present in the PATH.
+# PX4 build dependencies + Gazebo Harmonic headers.
+# gz_bridge is a PX4 module that's only compiled when Gazebo dev headers are
+# present at build time — without them, PX4 silently skips it and the runtime
+# `gz_bridge start` call fails with "command not found".
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git cmake build-essential g++ python3 python3-pip python3-venv \
     python3-jinja2 python3-empy python3-packaging python3-jsonschema \
     python3-yaml python3-toml python3-numpy python3-requests \
     libxml2-dev libxslt1-dev ninja-build zip gawk \
+    ca-certificates curl gnupg lsb-release \
+    && curl -fsSL https://packages.osrfoundation.org/gazebo.gpg \
+       -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] \
+       http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+       > /etc/apt/sources.list.d/gazebo-stable.list \
+    && apt-get update && apt-get install -y --no-install-recommends gz-harmonic \
     && rm -rf /var/lib/apt/lists/*
 
 # Clone PX4 v1.15.4

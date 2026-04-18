@@ -1,27 +1,62 @@
 /**
  * Utility process entry point.
  *
- * Receives a MessagePort from the main process and serves a minimal RPC.
- * This is the Phase 1 skeleton for migrating the MAVLink stack off the
- * main process — only an `echo` method is wired for now to prove the
- * plumbing end-to-end.
+ * Receives a MessagePort from the main process and serves an RPC surface.
+ * Handlers run here — out of the main event loop — so things like the radar
+ * simulator's setInterval and (eventually) MAVLink parsing don't compete with
+ * window/IPC work for CPU.
  */
 import type { MessagePortMain } from 'electron'
-import type { UtilityRpcMessage } from '../shared-types/ipc/utilityRpc'
+import type { UtilityRpcMessage } from '@shared/ipc/utilityRpc'
+import type { RadarSettings } from '@shared/ipc/RadarTypes'
+import { RadarManager } from './radar/RadarManager'
+import { createLogger } from './logger'
+
+const log = createLogger('utility')
 
 type Handler = (...args: unknown[]) => unknown | Promise<unknown>
 
-const handlers: Record<string, Handler> = {
-  echo: (msg: unknown) => msg,
-  ping: () => 'pong'
+let radar: RadarManager | null = null
+let activePort: MessagePortMain | null = null
+
+function postEvent(channel: string, payload: unknown): void {
+  activePort?.postMessage({ kind: 'evt', channel, payload } satisfies UtilityRpcMessage)
 }
 
-function log(msg: string): void {
-  // eslint-disable-next-line no-console
-  console.log(`[utility] ${msg}`)
+function ensureRadar(initial?: RadarSettings): RadarManager {
+  if (!radar) {
+    if (!initial) throw new Error('radar: initial settings required on first call')
+    radar = new RadarManager(initial)
+    radar.on('stateChanged', (state) => postEvent('radar:stateChanged', state))
+  }
+  return radar
+}
+
+const handlers: Record<string, Handler> = {
+  echo: (msg: unknown) => msg,
+  ping: () => 'pong',
+
+  // --- Radar ---
+  'radar:init': (settings) => {
+    ensureRadar(settings as RadarSettings)
+  },
+  'radar:updateSettings': (patch) => {
+    ensureRadar().updateSettings(patch as Partial<RadarSettings>)
+  },
+  'radar:enable': () => {
+    ensureRadar().enable()
+  },
+  'radar:disable': () => {
+    ensureRadar().disable()
+  },
+  'radar:setSimPosition': (lat, lon) => {
+    ensureRadar().setSimulationPosition(lat as number, lon as number)
+  },
+  'radar:getState': () => ensureRadar().getState()
 }
 
 function install(port: MessagePortMain): void {
+  activePort = port
   port.on('message', async (event) => {
     const msg = event.data as UtilityRpcMessage
     if (msg.kind !== 'req') return
@@ -50,16 +85,16 @@ function install(port: MessagePortMain): void {
     }
   })
   port.start()
-  log('RPC port installed')
+  log.log('RPC port installed')
 }
 
 process.parentPort.once('message', (event) => {
   const [port] = event.ports
   if (!port) {
-    log('no MessagePort received — exiting')
+    log.error('no MessagePort received — exiting')
     process.exit(1)
   }
   install(port)
 })
 
-log('utility process booted')
+log.log('utility process booted')

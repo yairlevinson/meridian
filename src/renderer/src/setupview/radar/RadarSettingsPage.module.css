@@ -92,6 +92,23 @@
   outline: none;
 }
 
+.selectInput {
+  min-width: 180px;
+  padding: 6px 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  box-sizing: border-box;
+}
+
+.selectInput:focus {
+  border-color: var(--accent-blue);
+  outline: none;
+}
+
 .slider {
   width: 200px;
   accent-color: #00e676;

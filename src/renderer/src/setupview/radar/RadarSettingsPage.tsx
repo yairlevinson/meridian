@@ -7,7 +7,13 @@ export function RadarSettingsPage(): React.JSX.Element {
   const setSetting = useSettingsStore((s) => s.setSetting)
 
   const handleToggle = useCallback(
-    (key: 'radarSimulationEnabled') => {
+    (
+      key:
+        | 'radarSimulationEnabled'
+        | 'trackingAutoStopOnLost'
+        | 'trackingAutoStopOnModeChange'
+        | 'trackingAutoStopOnDisarm'
+    ) => {
       setSetting(key, !settings[key])
     },
     [settings, setSetting]
@@ -37,6 +43,74 @@ export function RadarSettingsPage(): React.JSX.Element {
             onChange={(e) => setSetting('radarRadiusMeters', Number(e.target.value))}
           />
           <span className={styles.sliderValue}>{radiusLabel}</span>
+        </div>
+        <div className={styles.row}>
+          <span className={styles.label}>Track stale timeout (s)</span>
+          <input
+            type="number"
+            className={styles.numberInput}
+            min={1}
+            max={120}
+            step={1}
+            value={Math.round(settings.radarTrackStaleMs / 1000)}
+            onChange={(e) =>
+              setSetting(
+                'radarTrackStaleMs',
+                Math.max(1000, Math.min(120000, Number(e.target.value) * 1000))
+              )
+            }
+          />
+        </div>
+        <div className={styles.hint}>
+          Tracks not updated within this window are pruned from the radar.
+        </div>
+      </div>
+
+      {/* Target tracking */}
+      <div className={styles.section}>
+        <div className={styles.sectionTitle}>Target Tracking</div>
+        <div className={styles.row}>
+          <span className={styles.label}>Altitude mode</span>
+          <select
+            className={styles.selectInput}
+            value={settings.trackingAltitudeMode}
+            onChange={(e) =>
+              setSetting(
+                'trackingAltitudeMode',
+                e.target.value as 'hold-engagement' | 'match-track' | 'follow-vehicle'
+              )
+            }
+          >
+            <option value="hold-engagement">Hold engagement alt</option>
+            <option value="match-track">Match track alt</option>
+            <option value="follow-vehicle">Follow vehicle alt</option>
+          </select>
+        </div>
+        <div className={styles.hint}>
+          Controls the altitude sent to the vehicle during tracking. Hold = captured at engage;
+          match = track's reported altitude; follow = vehicle's live altitude.
+        </div>
+
+        <div className={styles.row} style={{ marginTop: 14 }}>
+          <span className={styles.label}>Auto-disengage when track lost</span>
+          <button
+            className={`${styles.toggle} ${settings.trackingAutoStopOnLost ? styles.toggleOn : ''}`}
+            onClick={() => handleToggle('trackingAutoStopOnLost')}
+          />
+        </div>
+        <div className={styles.row}>
+          <span className={styles.label}>Auto-disengage on flight mode change</span>
+          <button
+            className={`${styles.toggle} ${settings.trackingAutoStopOnModeChange ? styles.toggleOn : ''}`}
+            onClick={() => handleToggle('trackingAutoStopOnModeChange')}
+          />
+        </div>
+        <div className={styles.row}>
+          <span className={styles.label}>Auto-disengage on disarm</span>
+          <button
+            className={`${styles.toggle} ${settings.trackingAutoStopOnDisarm ? styles.toggleOn : ''}`}
+            onClick={() => handleToggle('trackingAutoStopOnDisarm')}
+          />
         </div>
       </div>
 
@@ -114,6 +188,46 @@ export function RadarSettingsPage(): React.JSX.Element {
             </div>
             <div className={styles.hint}>
               Initial radar position. You can also drag the radar marker on the map overlay.
+            </div>
+
+            <div className={styles.row} style={{ marginTop: 14 }}>
+              <span className={styles.label}>Target speed min (m/s)</span>
+              <input
+                type="number"
+                className={styles.numberInput}
+                min={0}
+                max={200}
+                step={1}
+                value={settings.radarSimulationMinSpeedMs}
+                onChange={(e) => {
+                  const v = Math.max(0, Math.min(200, Number(e.target.value)))
+                  setSetting('radarSimulationMinSpeedMs', v)
+                  if (settings.radarSimulationMaxSpeedMs < v) {
+                    setSetting('radarSimulationMaxSpeedMs', v)
+                  }
+                }}
+              />
+            </div>
+            <div className={styles.row}>
+              <span className={styles.label}>Target speed max (m/s)</span>
+              <input
+                type="number"
+                className={styles.numberInput}
+                min={0}
+                max={200}
+                step={1}
+                value={settings.radarSimulationMaxSpeedMs}
+                onChange={(e) => {
+                  const v = Math.max(
+                    settings.radarSimulationMinSpeedMs,
+                    Math.min(200, Number(e.target.value))
+                  )
+                  setSetting('radarSimulationMaxSpeedMs', v)
+                }}
+              />
+            </div>
+            <div className={styles.hint}>
+              Each simulated track is assigned a random speed in this range.
             </div>
           </>
         )}

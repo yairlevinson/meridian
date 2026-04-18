@@ -16,7 +16,8 @@ import { VideoManager } from './video/VideoManager'
 import { mavLog } from './mavlink/trafficLog'
 import { SettingsManager } from './settings/SettingsManager'
 import { MavlinkForwarder } from './forwarding/MavlinkForwarder'
-import { RadarManager } from './radar/RadarManager'
+import { RadarProxy } from './radar/RadarProxy'
+import { TargetTrackingManager } from './tracking/TargetTrackingManager'
 import { registerIpcModule } from './ipc/registerIpcModule'
 import { popoutModule } from '@shared/ipc/modules/popout'
 import { createLogger } from './logger'
@@ -310,14 +311,9 @@ app.whenReady().then(async () => {
     }
   })
 
-  // --- Utility process spike (Phase 1: infra only, echo RPC) ---
+  // --- Utility process (hosts the radar simulator, eventually the MAVLink stack) ---
   const utilityBridge = new UtilityBridge()
   utilityBridge.start()
-  // Fire-and-forget sanity check so the dev log proves end-to-end plumbing.
-  utilityBridge
-    .call<string>('echo', 'hello from main')
-    .then((reply) => log.log(`utility echo reply: ${reply}`))
-    .catch((err) => log.warn(`utility echo failed: ${err.message}`))
 
   // --- Video streaming ---
   const videoManager = new VideoManager()
@@ -421,8 +417,11 @@ app.whenReady().then(async () => {
   forwarder.attachLinkManager(linkManager)
   forwarder.setVehicleWriteFn((buf) => writeToAllLinks(linkManager, buf))
 
-  // --- Radar ---
-  const radarManager = new RadarManager(settingsManager)
+  // --- Radar (runs in utility process) ---
+  const radarManager = new RadarProxy(utilityBridge, settingsManager)
+
+  // --- Target tracking ---
+  const trackingManager = new TargetTrackingManager(vehicleManager, radarManager, settingsManager)
 
   const cleanupIpcBridge = startIpcBridge(
     vehicleManager,
@@ -430,7 +429,8 @@ app.whenReady().then(async () => {
     linkManager,
     forwarder,
     settingsManager,
-    radarManager
+    radarManager,
+    trackingManager
   )
 
   // Auto-detect USB autopilot boards and connect via serial
@@ -471,6 +471,7 @@ app.whenReady().then(async () => {
   app.on('before-quit', () => {
     settingsManager.flush()
     clearInterval(heartbeatInterval)
+    trackingManager.destroy()
     radarManager.destroy()
     forwarder.destroy()
     cleanupIpcBridge()

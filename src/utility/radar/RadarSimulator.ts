@@ -29,6 +29,8 @@ export class RadarSimulator extends RadarProvider {
   private _radiusMeters: number
   private _friendlyCount: number
   private _hostileCount: number
+  private _minSpeedMs: number
+  private _maxSpeedMs: number
   private _tickRateHz = 4
 
   constructor(opts: {
@@ -37,6 +39,8 @@ export class RadarSimulator extends RadarProvider {
     radiusMeters: number
     friendlyCount: number
     hostileCount: number
+    minSpeedMs: number
+    maxSpeedMs: number
   }) {
     super()
     this._centerLat = opts.centerLat
@@ -44,6 +48,8 @@ export class RadarSimulator extends RadarProvider {
     this._radiusMeters = opts.radiusMeters
     this._friendlyCount = opts.friendlyCount
     this._hostileCount = opts.hostileCount
+    this._minSpeedMs = Math.max(0, opts.minSpeedMs)
+    this._maxSpeedMs = Math.max(this._minSpeedMs, opts.maxSpeedMs)
   }
 
   start(): void {
@@ -84,6 +90,17 @@ export class RadarSimulator extends RadarProvider {
     this._radiusMeters = meters
   }
 
+  setSpeedRange(minMs: number, maxMs: number): void {
+    this._minSpeedMs = Math.max(0, minMs)
+    this._maxSpeedMs = Math.max(this._minSpeedMs, maxMs)
+    // Re-clamp existing tracks into the new range so UI updates immediately
+    // rather than waiting for the random-walk to drift targets into bounds.
+    for (const t of this._tracks) {
+      if (t.speed < this._minSpeedMs) t.speed = this._minSpeedMs
+      else if (t.speed > this._maxSpeedMs) t.speed = this._maxSpeedMs
+    }
+  }
+
   private _initTracks(): void {
     this._tracks = []
     for (let i = 0; i < this._friendlyCount; i++) {
@@ -108,7 +125,7 @@ export class RadarSimulator extends RadarProvider {
       lon: this._centerLon + dLon,
       alt: 30 + Math.random() * 120,
       heading: Math.random() * 360,
-      speed: 80 + Math.random() * 120,
+      speed: this._minSpeedMs + Math.random() * (this._maxSpeedMs - this._minSpeedMs),
       baseStrength: -15 + Math.random() * 20,
       baseConfidence: 80 + Math.random() * 19
     }

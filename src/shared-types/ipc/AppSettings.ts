@@ -60,11 +60,20 @@ export interface AppSettings {
   // Radar
   radarEnabled: boolean
   radarRadiusMeters: number
+  radarTrackStaleMs: number
   radarSimulationEnabled: boolean
   radarSimulationFriendlyCount: number
   radarSimulationHostileCount: number
   radarSimulationLat: number
   radarSimulationLon: number
+  radarSimulationMinSpeedMs: number
+  radarSimulationMaxSpeedMs: number
+
+  // Target tracking
+  trackingAltitudeMode: 'hold-engagement' | 'match-track' | 'follow-vehicle'
+  trackingAutoStopOnLost: boolean
+  trackingAutoStopOnModeChange: boolean
+  trackingAutoStopOnDisarm: boolean
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -103,9 +112,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mavlinkForwardingTargets: [],
   radarEnabled: false,
   radarRadiusMeters: 5000,
+  radarTrackStaleMs: 10000,
   radarSimulationEnabled: false,
   radarSimulationFriendlyCount: 4,
   radarSimulationHostileCount: 3,
   radarSimulationLat: 32.1,
-  radarSimulationLon: 34.8
+  radarSimulationLon: 34.8,
+  radarSimulationMinSpeedMs: 15,
+  radarSimulationMaxSpeedMs: 35,
+  trackingAltitudeMode: 'hold-engagement',
+  trackingAutoStopOnLost: true,
+  trackingAutoStopOnModeChange: true,
+  trackingAutoStopOnDisarm: true
 }

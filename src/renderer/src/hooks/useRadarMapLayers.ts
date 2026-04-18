@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl'
 import { useRadarStore } from '../store/radarStore'
+import { useVehicleStore } from '../store/vehicleStore'
 import { useSettingsStore } from '../store/settingsStore'
 import type { RadarState, RadarTrack, RadarUnit } from '../../../shared-types/ipc/RadarTypes'
 
@@ -11,6 +12,7 @@ const RANGE_FILL_LAYER = 'radar-range-fill'
 const RANGE_STROKE_LAYER = 'radar-range-stroke'
 const TRACKS_LAYER = 'radar-tracks-symbols'
 const TRACKS_GLOW_LAYER = 'radar-tracks-glow'
+const TRACKS_TRACKED_RING_LAYER = 'radar-tracks-tracked-ring'
 const VELOCITY_LAYER = 'radar-velocity-lines'
 
 const FRIENDLY_ICON = 'radar-friendly'
@@ -110,7 +112,10 @@ function buildCirclePolygon(
   }
 }
 
-function buildTracksFC(tracks: RadarTrack[]): GeoJSON.FeatureCollection {
+function buildTracksFC(
+  tracks: RadarTrack[],
+  trackedTrackId: number | null
+): GeoJSON.FeatureCollection {
   return {
     type: 'FeatureCollection',
     features: tracks.map((t) => ({
@@ -124,7 +129,8 @@ function buildTracksFC(tracks: RadarTrack[]): GeoJSON.FeatureCollection {
         alt: t.alt,
         speed: Math.sqrt(t.vn ** 2 + t.ve ** 2),
         strength: t.strength,
-        confidence: t.confidence
+        confidence: t.confidence,
+        isTracked: trackedTrackId !== null && t.id === trackedTrackId
       }
     }))
   }
@@ -219,6 +225,21 @@ function addSourcesAndLayers(map: maplibregl.Map): void {
       }
     })
   }
+  if (!map.getLayer(TRACKS_TRACKED_RING_LAYER)) {
+    map.addLayer({
+      id: TRACKS_TRACKED_RING_LAYER,
+      type: 'circle',
+      source: TRACKS_SOURCE,
+      filter: ['==', ['get', 'isTracked'], true],
+      paint: {
+        'circle-radius': 20,
+        'circle-color': 'rgba(0,0,0,0)',
+        'circle-stroke-color': '#ffcc00',
+        'circle-stroke-width': 3,
+        'circle-stroke-opacity': 0.9
+      }
+    })
+  }
   if (!map.getLayer(TRACKS_LAYER)) {
     map.addLayer({
       id: TRACKS_LAYER,
@@ -260,6 +281,7 @@ function removeLayers(map: maplibregl.Map): void {
   for (const id of [
     VELOCITY_LAYER,
     TRACKS_LAYER,
+    TRACKS_TRACKED_RING_LAYER,
     TRACKS_GLOW_LAYER,
     RANGE_STROKE_LAYER,
     RANGE_FILL_LAYER
@@ -278,6 +300,7 @@ function updateSources(
   map: maplibregl.Map,
   radarState: RadarState | null,
   radiusMeters: number,
+  trackedTrackId: number | null,
   prevCircleKeyRef: { current: string }
 ): void {
   if (!radarState) return
@@ -292,7 +315,7 @@ function updateSources(
   }
 
   const inRange = filterByRadius(radarState.tracks, unit, radiusMeters)
-  ;(map.getSource(TRACKS_SOURCE) as GeoJSONSource)?.setData(buildTracksFC(inRange))
+  ;(map.getSource(TRACKS_SOURCE) as GeoJSONSource)?.setData(buildTracksFC(inRange, trackedTrackId))
   ;(map.getSource(VELOCITY_SOURCE) as GeoJSONSource)?.setData(
     buildVelocityFC(inRange, radiusMeters)
   )
@@ -307,6 +330,7 @@ function ensureRadarLayers(
   map: maplibregl.Map,
   radarStateRef: { current: RadarState | null },
   radiusRef: { current: number },
+  trackedTrackIdRef: { current: number | null },
   layersAddedRef: { current: boolean },
   prevCircleKeyRef: { current: string }
 ): () => void {
@@ -314,7 +338,13 @@ function ensureRadarLayers(
     if (layersAddedRef.current) return
     addSourcesAndLayers(map)
     layersAddedRef.current = true
-    updateSources(map, radarStateRef.current, radiusRef.current, prevCircleKeyRef)
+    updateSources(
+      map,
+      radarStateRef.current,
+      radiusRef.current,
+      trackedTrackIdRef.current,
+      prevCircleKeyRef
+    )
   }
 
   if (map.isStyleLoaded()) {
@@ -341,6 +371,8 @@ function ensureRadarLayers(
 export function useRadarMapLayers(map: maplibregl.Map | null): void {
   const radarState = useRadarStore((s) => s.state)
   const scopeView = useRadarStore((s) => s.scopeView)
+  const trackedByVehicle = useRadarStore((s) => s.trackedByVehicle)
+  const activeVehicleId = useVehicleStore((s) => s.activeVehicleId)
   const radiusMeters = useSettingsStore((s) => s.settings.radarRadiusMeters)
   const simEnabled = useSettingsStore((s) => s.settings.radarSimulationEnabled)
   const markerRef = useRef<maplibregl.Marker | null>(null)
@@ -348,12 +380,16 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
   const prevCircleKeyRef = useRef('')
   const radarStateRef = useRef<RadarState | null>(null)
   const radiusRef = useRef(radiusMeters)
+  const trackedTrackIdRef = useRef<number | null>(null)
 
   const active = radarState?.enabled && scopeView === 'map'
+  const trackedTrackId =
+    activeVehicleId !== null ? (trackedByVehicle.get(activeVehicleId) ?? null) : null
 
   // Keep refs in sync so ensureRadarLayers always has fresh data
   radarStateRef.current = radarState ?? null
   radiusRef.current = radiusMeters
+  trackedTrackIdRef.current = trackedTrackId
 
   // Manage layer lifecycle — add/remove when map or active changes
   useEffect(() => {
@@ -367,14 +403,21 @@ export function useRadarMapLayers(map: maplibregl.Map | null): void {
       return
     }
 
-    return ensureRadarLayers(map, radarStateRef, radiusRef, layersAddedRef, prevCircleKeyRef)
+    return ensureRadarLayers(
+      map,
+      radarStateRef,
+      radiusRef,
+      trackedTrackIdRef,
+      layersAddedRef,
+      prevCircleKeyRef
+    )
   }, [map, active])
 
-  // Update data when radar state or radius changes (no layer teardown)
+  // Update data when radar state, radius, or tracking selection changes
   useEffect(() => {
     if (!map || !active || !layersAddedRef.current) return
-    updateSources(map, radarState ?? null, radiusMeters, prevCircleKeyRef)
-  }, [map, active, radarState, radiusMeters])
+    updateSources(map, radarState ?? null, radiusMeters, trackedTrackId, prevCircleKeyRef)
+  }, [map, active, radarState, radiusMeters, trackedTrackId])
 
   // Track hover popup
   useEffect(() => {
