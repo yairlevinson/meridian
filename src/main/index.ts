@@ -349,17 +349,22 @@ app.whenReady().then(async () => {
   const mavlinkProtocol = new MavlinkProtocol()
   const linkManager = new LinkManager(mavlinkProtocol)
 
-  // Route all decoded messages to the VehicleManager
-  linkManager.on('message', (msg, link) => {
-    vehicleManager.handleMessage(msg, link.id)
-  })
-
-  // Track which link a vehicle came from
+  // Track which link a vehicle came from. Must populate BEFORE routing to
+  // VehicleManager: VehicleManager.handleMessage emits `vehicleAdded`
+  // synchronously on the first heartbeat, and the `vehicleAdded` handler
+  // reads this map to pick the vehicle's link. In TCP mode rootUdpLink is
+  // null, so the fallback would leave commandQueue.link unset and every
+  // subsequent command would fail with "No link available".
   const vehicleToLink = new Map<number, string>()
   linkManager.on('message', (msg, link) => {
     if (!vehicleToLink.has(msg.sysid)) {
       vehicleToLink.set(msg.sysid, link.id)
     }
+  })
+
+  // Route all decoded messages to the VehicleManager
+  linkManager.on('message', (msg, link) => {
+    vehicleManager.handleMessage(msg, link.id)
   })
 
   // --- Mode-specific link creation ---
