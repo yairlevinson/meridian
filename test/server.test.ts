@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { startMeridianServer, type MeridianServerHandle } from '../src/server/main'
 import { mkdtemp, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
@@ -68,6 +68,48 @@ describe('Meridian server skeleton', () => {
     const response = await fetch(`${handle.url}/api/map/providers`)
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ providers: getMapProviderInfos() })
+  })
+
+  it('proxies and caches map tiles', async () => {
+    const tileFetch = vi.fn(async () => {
+      return new Response(Buffer.from('tile-data'), {
+        status: 200,
+        headers: { 'content-type': 'image/png' }
+      })
+    })
+    handle = await startMeridianServer({ tileFetch: tileFetch as unknown as typeof fetch })
+
+    const first = await fetch(`${handle.url}/api/tiles/osm/3/4/5`)
+    const second = await fetch(`${handle.url}/api/tiles/osm/3/4/5`)
+
+    expect(first.status).toBe(200)
+    expect(first.headers.get('content-type')).toContain('image/png')
+    await expect(first.text()).resolves.toBe('tile-data')
+    expect(second.status).toBe(200)
+    await expect(second.text()).resolves.toBe('tile-data')
+    expect(tileFetch).toHaveBeenCalledTimes(1)
+    expect(tileFetch.mock.calls[0]?.[0]).toBe('https://tile.openstreetmap.org/3/4/5.png')
+  })
+
+  it('returns 404 for unknown tile providers', async () => {
+    handle = await startMeridianServer()
+
+    const response = await fetch(`${handle.url}/api/tiles/missing/3/4/5`)
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({ error: 'Unknown tile provider' })
+  })
+
+  it('returns 502 when upstream tile fetch fails', async () => {
+    const tileFetch = vi.fn(async () => {
+      throw new Error('offline')
+    })
+    handle = await startMeridianServer({ tileFetch: tileFetch as unknown as typeof fetch })
+
+    const response = await fetch(`${handle.url}/api/tiles/osm/3/4/5`)
+
+    expect(response.status).toBe(502)
+    await expect(response.json()).resolves.toEqual({ error: 'Tile fetch failed' })
   })
 
   it('serves static files when configured', async () => {
