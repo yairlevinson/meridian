@@ -36,6 +36,7 @@ import { vehicleModule } from '@shared/ipc/modules/vehicle'
 import { missionModule } from '@shared/ipc/modules/mission'
 import { parametersModule } from '@shared/ipc/modules/parameters'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
+import { VehicleTelemetryPublisher } from './vehicle/VehicleTelemetryPublisher'
 import type {
   CalibrationState,
   MagCalProgress,
@@ -50,10 +51,6 @@ import type {
 } from '@shared/ipc/MavInspectorTypes'
 import type { AppSettings } from '@shared/ipc/AppSettings'
 import type { Parameter, ParameterLoadState } from '@shared/ipc/ParameterTypes'
-
-const log = createLogger('IPC')
-
-const TICK_RATE_MS = 33 // ~30 Hz
 
 export function startIpcBridge(
   vehicleManager: VehicleManager,
@@ -162,10 +159,6 @@ export function startIpcBridge(
   }
   ipcMain.on('renderer:log', onRendererLog)
   disposers.push(() => ipcMain.removeListener('renderer:log', onRendererLog))
-
-  let sentCount = 0
-  let skippedCount = 0
-  let lastLogTime = Date.now()
 
   // Forward vehicle lifecycle events to all renderer windows
   const onVehicleAdded = (sysid: number): void => {
@@ -648,36 +641,10 @@ export function startIpcBridge(
   )
 
   // Delta tick: iterate all vehicles, broadcast to all windows
-  const interval = setInterval(() => {
-    const windows = BrowserWindow.getAllWindows()
-    if (windows.length === 0) return
-
-    let anySent = false
-    for (const vehicle of vehicleManager.getAllVehicles()) {
-      if (!vehicle.hasDirty()) continue
-      const delta = vehicle.getDelta()
-      emitVehicleDelta({ vehicleId: vehicle.sysid, delta, sentAt: Date.now() })
-      anySent = true
-    }
-
-    if (anySent) {
-      sentCount++
-    } else {
-      skippedCount++
-    }
-
-    const now = Date.now()
-    if (now - lastLogTime >= 5000) {
-      const total = sentCount + skippedCount
-      const skipPct = total > 0 ? ((skippedCount / total) * 100).toFixed(1) : '0.0'
-      log.log(
-        `sent=${sentCount} skipped=${skippedCount} skip_ratio=${skipPct}% vehicles=${vehicleManager.vehicleCount}`
-      )
-      sentCount = 0
-      skippedCount = 0
-      lastLogTime = now
-    }
-  }, TICK_RATE_MS)
+  const telemetryPublisher = new VehicleTelemetryPublisher(vehicleManager, {
+    shouldPublish: () => BrowserWindow.getAllWindows().length > 0
+  })
+  telemetryPublisher.on('delta', (payload) => emitVehicleDelta(payload))
 
   // Vehicle command + telemetry IPC module.
   // Commands target a vehicle via sysid; events (added/removed/delta/statusText)
@@ -976,7 +943,7 @@ export function startIpcBridge(
 
   return () => {
     inspector.disable()
-    clearInterval(interval)
+    telemetryPublisher.dispose()
     for (const dispose of disposers) dispose()
   }
 }

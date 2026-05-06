@@ -5,11 +5,13 @@ import { getMapProviderInfos } from '@shared/ipc/tileProviders'
 import { settingsModule } from '@shared/ipc/modules/settings'
 import { videoModule } from '@shared/ipc/modules/video'
 import { linksModule } from '@shared/ipc/modules/links'
+import { vehicleModule } from '@shared/ipc/modules/vehicle'
 import type { AppSettings } from '@shared/ipc/AppSettings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { SettingsManager } from '../main/settings/SettingsManager'
 import { VideoManager } from '../main/video/VideoManager'
 import type { MeridianRuntime } from '../main/runtime/MeridianRuntime'
+import { VehicleTelemetryPublisher } from '../main/vehicle/VehicleTelemetryPublisher'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 import { SerialPort } from 'serialport'
 
@@ -17,7 +19,10 @@ export interface MeridianServerOptions {
   port?: number
   host?: string
   staticDir?: string
-  runtime?: Pick<MeridianRuntime, 'settingsManager' | 'videoManager' | 'linkManager'>
+  runtime?: Pick<
+    MeridianRuntime,
+    'settingsManager' | 'videoManager' | 'linkManager' | 'vehicleManager' | 'trackingManager'
+  >
   settingsManager?: SettingsManager
   videoManager?: VideoManager
 }
@@ -41,6 +46,8 @@ export async function startMeridianServer(
   const ownsVideoManager = !options.videoManager && !options.runtime?.videoManager
   const videoManager = options.videoManager ?? options.runtime?.videoManager ?? new VideoManager()
   const linkManager = options.runtime?.linkManager ?? null
+  const vehicleManager = options.runtime?.vehicleManager ?? null
+  const trackingManager = options.runtime?.trackingManager ?? null
   if (ownsVideoManager) {
     await videoManager.init()
   }
@@ -112,6 +119,114 @@ export async function startMeridianServer(
   }
   linkManager?.on('linkStateChanged', onLinkStateChanged)
 
+  const requireVehicleManager = (): NonNullable<typeof vehicleManager> => {
+    if (!vehicleManager) throw new Error('VehicleManager not available')
+    return vehicleManager
+  }
+
+  realtime.registerModule(vehicleModule, {
+    commands: {
+      arm: async (vehicleId) => {
+        await requireVehicleManager().getVehicle(vehicleId)?.arm()
+      },
+      forceArm: async (vehicleId) => {
+        await requireVehicleManager().getVehicle(vehicleId)?.forceArm()
+      },
+      disarm: async (vehicleId) => {
+        await requireVehicleManager().getVehicle(vehicleId)?.disarm()
+      },
+      sendMavCommand: async (req) => {
+        await requireVehicleManager()
+          .getVehicle(req.vehicleId)
+          ?.commandQueue.sendCommand(req.command, req.vehicleId, req.componentId, {
+            p1: req.param1,
+            p2: req.param2,
+            p3: req.param3,
+            p4: req.param4,
+            p5: req.param5,
+            p6: req.param6,
+            p7: req.param7
+          })
+      },
+      setFlightMode: async (vehicleId, modeName) =>
+        requireVehicleManager().getVehicle(vehicleId)?.setFlightModeByName(modeName),
+      guidedTakeoff: async (vehicleId, altitude) =>
+        requireVehicleManager().getVehicle(vehicleId)?.guidedTakeoff(altitude),
+      guidedRTL: async (vehicleId) => {
+        await requireVehicleManager().getVehicle(vehicleId)?.guidedRTL()
+      },
+      guidedLand: async (vehicleId) => {
+        await requireVehicleManager().getVehicle(vehicleId)?.guidedLand()
+      },
+      guidedGoto: async (vehicleId, lat, lon, alt) => {
+        await requireVehicleManager().getVehicle(vehicleId)?.guidedGoto(lat, lon, alt)
+      },
+      guidedPause: async (vehicleId) => {
+        await requireVehicleManager().getVehicle(vehicleId)?.guidedPause()
+      },
+      missionStart: async (vehicleId) => {
+        await requireVehicleManager().getVehicle(vehicleId)?.missionStart()
+      },
+      emergencyStop: async (vehicleId) => {
+        await requireVehicleManager().getVehicle(vehicleId)?.emergencyStop()
+      },
+      guidedChangeAltitude: async (vehicleId, altitudeRel) =>
+        requireVehicleManager().getVehicle(vehicleId)?.guidedChangeAltitude(altitudeRel),
+      guidedChangeHeading: async (vehicleId, headingDeg) =>
+        requireVehicleManager().getVehicle(vehicleId)?.guidedChangeHeading(headingDeg),
+      guidedChangeSpeed: async (vehicleId, speed, speedType) =>
+        requireVehicleManager().getVehicle(vehicleId)?.guidedChangeSpeed(speed, speedType),
+      guidedOrbit: async (vehicleId, lat, lon, radius, altitudeRel) =>
+        requireVehicleManager().getVehicle(vehicleId)?.guidedOrbit(lat, lon, radius, altitudeRel),
+      landingGearDeploy: async (vehicleId) =>
+        requireVehicleManager().getVehicle(vehicleId)?.landingGearDeploy(),
+      landingGearRetract: async (vehicleId) =>
+        requireVehicleManager().getVehicle(vehicleId)?.landingGearRetract(),
+      trackingEngage: async (vehicleId, trackId) => {
+        if (!trackingManager) return { ok: false, error: 'Tracking manager not available' }
+        return trackingManager.engage(vehicleId, trackId)
+      },
+      trackingDisengage: async (vehicleId) => {
+        trackingManager?.disengage(vehicleId)
+      },
+      trackingGetEngagement: async (vehicleId) => trackingManager?.getEngagement(vehicleId) ?? null
+    }
+  })
+
+  let vehicleTelemetryPublisher: VehicleTelemetryPublisher | null = null
+  const vehicleStatusTextListeners = new Map<
+    number,
+    (payload: { severity: number; text: string }) => void
+  >()
+  const onVehicleAdded = (vehicleId: number): void => {
+    realtime.emitEvent('vehicle', 'added', { vehicleId })
+    const vehicle = vehicleManager?.getVehicle(vehicleId)
+    if (!vehicle || vehicleStatusTextListeners.has(vehicleId)) return
+    const onStatusText = (payload: { severity: number; text: string }): void => {
+      realtime.emitEvent('vehicle', 'statusText', { vehicleId, ...payload })
+    }
+    vehicleStatusTextListeners.set(vehicleId, onStatusText)
+    vehicle.on('statusText', onStatusText)
+  }
+  const onVehicleRemoved = (vehicleId: number): void => {
+    realtime.emitEvent('vehicle', 'removed', { vehicleId })
+    const listener = vehicleStatusTextListeners.get(vehicleId)
+    const vehicle = vehicleManager?.getVehicle(vehicleId)
+    if (listener && vehicle) vehicle.removeListener('statusText', listener)
+    vehicleStatusTextListeners.delete(vehicleId)
+  }
+  if (vehicleManager) {
+    vehicleManager.on('vehicleAdded', onVehicleAdded)
+    vehicleManager.on('vehicleRemoved', onVehicleRemoved)
+    vehicleTelemetryPublisher = new VehicleTelemetryPublisher(vehicleManager)
+    vehicleTelemetryPublisher.on('delta', (payload) => {
+      realtime.emitEvent('vehicle', 'delta', payload)
+    })
+    for (const vehicle of vehicleManager.getAllVehicles()) {
+      onVehicleAdded(vehicle.sysid)
+    }
+  }
+
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', `http://${host}`)
     if (req.method === 'GET' && url.pathname === '/api/health') {
@@ -156,6 +271,13 @@ export async function startMeridianServer(
       settingsManager.removeListener('changed', onSettingsChanged)
       videoManager.removeListener('stateChanged', onVideoStateChanged)
       linkManager?.removeListener('linkStateChanged', onLinkStateChanged)
+      vehicleManager?.removeListener('vehicleAdded', onVehicleAdded)
+      vehicleManager?.removeListener('vehicleRemoved', onVehicleRemoved)
+      for (const [vehicleId, listener] of vehicleStatusTextListeners) {
+        vehicleManager?.getVehicle(vehicleId)?.removeListener('statusText', listener)
+      }
+      vehicleStatusTextListeners.clear()
+      vehicleTelemetryPublisher?.dispose()
       await realtime.close()
       if (ownsVideoManager) {
         videoManager.destroy()

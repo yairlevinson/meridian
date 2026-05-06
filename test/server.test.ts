@@ -10,9 +10,37 @@ import { VideoManager } from '../src/main/video/VideoManager'
 import { WebSocket } from 'ws'
 import { LinkManager } from '../src/main/links/LinkManager'
 import { MavlinkProtocol } from '../src/main/mavlink/MavlinkProtocol'
+import { EventEmitter } from 'events'
 
 let handle: MeridianServerHandle | null = null
 let tempDir: string | null = null
+
+class FakeVehicle extends EventEmitter {
+  sysid = 1
+  private dirty = true
+
+  hasDirty(): boolean {
+    return this.dirty
+  }
+
+  getDelta(): unknown {
+    this.dirty = false
+    return { core: { sysid: this.sysid, armed: true } }
+  }
+}
+
+class FakeVehicleManager extends EventEmitter {
+  vehicle = new FakeVehicle()
+  vehicleCount = 1
+
+  getAllVehicles(): FakeVehicle[] {
+    return [this.vehicle]
+  }
+
+  getVehicle(vehicleId: number): FakeVehicle | undefined {
+    return vehicleId === this.vehicle.sysid ? this.vehicle : undefined
+  }
+}
 
 afterEach(async () => {
   if (handle) {
@@ -266,6 +294,73 @@ describe('Meridian server skeleton', () => {
       ok: false,
       error: 'LinkManager not available'
     })
+    ws.close()
+  })
+
+  it('returns a structured error for vehicle commands without a runtime vehicle manager', async () => {
+    handle = await startMeridianServer()
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const message = new Promise<unknown>((resolve) => {
+      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
+    })
+    ws.send(
+      JSON.stringify({
+        id: 'vehicle-1',
+        type: 'command',
+        module: 'vehicle',
+        command: 'arm',
+        args: [1]
+      })
+    )
+
+    await expect(message).resolves.toEqual({
+      id: 'vehicle-1',
+      type: 'reply',
+      ok: false,
+      error: 'VehicleManager not available'
+    })
+    ws.close()
+  })
+
+  it('publishes runtime vehicle lifecycle and delta events', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager,
+        trackingManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(JSON.stringify({ type: 'subscribe', topics: ['vehicle:added', 'vehicle:delta'] }))
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    vehicleManager.emit('vehicleAdded', 1)
+    await new Promise<void>((resolve) => setTimeout(resolve, 50))
+
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'vehicle:added',
+      payload: { vehicleId: 1 }
+    })
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: 'event',
+        topic: 'vehicle:delta',
+        payload: expect.objectContaining({
+          vehicleId: 1,
+          delta: { core: { sysid: 1, armed: true } }
+        })
+      })
+    )
     ws.close()
   })
 })
