@@ -12,6 +12,7 @@ import { LinkManager } from '../src/main/links/LinkManager'
 import { MavlinkProtocol } from '../src/main/mavlink/MavlinkProtocol'
 import { EventEmitter } from 'events'
 import { MissionType, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
+import { ParamValueType, type Parameter } from '../src/shared-types/ipc/ParameterTypes'
 
 let handle: MeridianServerHandle | null = null
 let tempDir: string | null = null
@@ -20,6 +21,7 @@ class FakeVehicle extends EventEmitter {
   sysid = 1
   private dirty = true
   missionManager = new FakeMissionManager()
+  parameterManager = new FakeParameterManager()
 
   hasDirty(): boolean {
     return this.dirty
@@ -28,6 +30,24 @@ class FakeVehicle extends EventEmitter {
   getDelta(): unknown {
     this.dirty = false
     return { core: { sysid: this.sysid, armed: true } }
+  }
+}
+
+class FakeParameterManager extends EventEmitter {
+  parameters: Parameter[] = []
+  setCalls: Array<{ name: string; value: number }> = []
+  refreshCount = 0
+
+  getAllParameters(): Parameter[] {
+    return this.parameters
+  }
+
+  setParameter(name: string, value: number): void {
+    this.setCalls.push({ name, value })
+  }
+
+  requestAllParameters(): void {
+    this.refreshCount++
   }
 }
 
@@ -516,6 +536,121 @@ describe('Meridian server skeleton', () => {
       result: { success: true }
     })
     expect(vehicleManager.vehicle.missionManager.writtenItems).toEqual([missionItem])
+
+    ws.close()
+  })
+
+  it('registers parameter RPC commands and events on the realtime socket', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    const parameter: Parameter = {
+      name: 'SYS_AUTOSTART',
+      value: 4001,
+      type: ParamValueType.INT32,
+      index: 0,
+      componentId: 1
+    }
+    const loadState = {
+      totalCount: 1,
+      receivedCount: 1,
+      loadProgress: 1,
+      parametersReady: true,
+      missingParameters: false,
+      missingIndices: [],
+      retryCount: 0,
+      pendingWrites: 0
+    }
+    vehicleManager.vehicle.parameterManager.parameters = [parameter]
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager,
+        trackingManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(
+      JSON.stringify({
+        type: 'subscribe',
+        topics: ['parameters:changed', 'parameters:ready', 'parameters:progress']
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    ws.send(
+      JSON.stringify({
+        id: 'parameters-get',
+        type: 'command',
+        module: 'parameters',
+        command: 'getAll',
+        args: [1]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'parameters-set',
+        type: 'command',
+        module: 'parameters',
+        command: 'set',
+        args: [1, 'SYS_AUTOSTART', 4002]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'parameters-refresh',
+        type: 'command',
+        module: 'parameters',
+        command: 'refresh',
+        args: [1]
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    vehicleManager.vehicle.parameterManager.emit('parameterReceived', parameter)
+    vehicleManager.vehicle.parameterManager.emit('progress', loadState)
+    vehicleManager.vehicle.parameterManager.emit('parametersReady')
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    expect(messages).toContainEqual({
+      id: 'parameters-get',
+      type: 'reply',
+      ok: true,
+      result: [parameter]
+    })
+    expect(messages).toContainEqual({
+      id: 'parameters-set',
+      type: 'reply',
+      ok: true
+    })
+    expect(messages).toContainEqual({
+      id: 'parameters-refresh',
+      type: 'reply',
+      ok: true
+    })
+    expect(vehicleManager.vehicle.parameterManager.setCalls).toEqual([
+      { name: 'SYS_AUTOSTART', value: 4002 }
+    ])
+    expect(vehicleManager.vehicle.parameterManager.refreshCount).toBe(1)
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'parameters:changed',
+      payload: { vehicleId: 1, parameter }
+    })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'parameters:progress',
+      payload: { vehicleId: 1, loadState }
+    })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'parameters:ready',
+      payload: { vehicleId: 1 }
+    })
 
     ws.close()
   })
