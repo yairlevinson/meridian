@@ -1,0 +1,108 @@
+// @vitest-environment node
+import { describe, expect, it, vi } from 'vitest'
+import { defineIpcModule, command, event } from '../src/shared-types/ipc/ipcModule'
+import { bindRpcModule } from '../src/renderer/src/transport/rpcBridge'
+import { RpcTransport } from '../src/renderer/src/transport/RpcTransport'
+import { RpcRealtimeServer } from '../src/server/realtime/RpcRealtimeServer'
+import { createServer } from 'http'
+import { WebSocket } from 'ws'
+
+const fakeModule = defineIpcModule({
+  name: 'fake',
+  commands: {
+    getValue: command<[id: number], string>()
+  },
+  events: {
+    changed: event<{ id: number }>()
+  }
+})
+
+describe('browser RPC bridge binding', () => {
+  it('generates command methods using existing bridge naming', async () => {
+    const transport = {
+      command: vi.fn(async () => 'ok'),
+      on: vi.fn()
+    }
+    const bridge = bindRpcModule(fakeModule, transport as any)
+
+    await expect(bridge.fakeGetValue(42)).resolves.toBe('ok')
+    expect(transport.command).toHaveBeenCalledWith('fake', 'getValue', [42])
+  })
+
+  it('generates event methods using existing bridge naming', () => {
+    const dispose = vi.fn()
+    const transport = {
+      command: vi.fn(),
+      on: vi.fn(() => dispose)
+    }
+    const bridge = bindRpcModule(fakeModule, transport as any)
+    const handler = vi.fn()
+
+    expect(bridge.onFakeChanged(handler)).toBe(dispose)
+    expect(transport.on).toHaveBeenCalledWith('fake:changed', handler)
+  })
+})
+
+async function startRealtimeFixture(): Promise<{
+  url: string
+  realtime: RpcRealtimeServer
+  close: () => Promise<void>
+}> {
+  const server = createServer()
+  const realtime = new RpcRealtimeServer()
+  realtime.attach(server)
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address()
+  const port = typeof address === 'object' && address ? address.port : 0
+  return {
+    url: `ws://127.0.0.1:${port}/realtime`,
+    realtime,
+    close: async () => {
+      await realtime.close()
+      await new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()))
+      })
+    }
+  }
+}
+
+describe('browser RPC bridge transport integration', () => {
+  it('calls commands through the realtime server', async () => {
+    const fixture = await startRealtimeFixture()
+    fixture.realtime.registerModule(fakeModule, {
+      commands: {
+        getValue: async (id) => `value:${id}`
+      }
+    })
+    const transport = new RpcTransport({
+      url: fixture.url,
+      WebSocketCtor: WebSocket as unknown as typeof globalThis.WebSocket
+    })
+    const bridge = bindRpcModule(fakeModule, transport)
+
+    await expect(bridge.fakeGetValue(7)).resolves.toBe('value:7')
+
+    transport.close()
+    await fixture.close()
+  })
+
+  it('receives subscribed events through the realtime server', async () => {
+    const fixture = await startRealtimeFixture()
+    const transport = new RpcTransport({
+      url: fixture.url,
+      WebSocketCtor: WebSocket as unknown as typeof globalThis.WebSocket
+    })
+    const bridge = bindRpcModule(fakeModule, transport)
+
+    const received = new Promise((resolve) => {
+      bridge.onFakeChanged(resolve)
+    })
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+    fixture.realtime.emitEvent('fake', 'changed', { id: 99 })
+
+    await expect(received).resolves.toEqual({ id: 99 })
+
+    transport.close()
+    await fixture.close()
+  })
+})
