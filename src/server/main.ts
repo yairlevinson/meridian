@@ -12,6 +12,7 @@ import { SettingsManager } from '../main/settings/SettingsManager'
 import { VideoManager } from '../main/video/VideoManager'
 import type { MeridianRuntime } from '../main/runtime/MeridianRuntime'
 import { VehicleTelemetryPublisher } from '../main/vehicle/VehicleTelemetryPublisher'
+import { registerCameraRpc } from './camera/CameraRpc'
 import { TileCache, serveMapTile } from './maps/TileProxy'
 import { registerMissionRpc } from './mission/MissionRpc'
 import { registerParameterRpc } from './parameters/ParameterRpc'
@@ -201,6 +202,7 @@ export async function startMeridianServer(
 
   const disposeMissionRpc = registerMissionRpc(realtime, vehicleManager)
   const disposeParameterRpc = registerParameterRpc(realtime, vehicleManager)
+  const disposeCameraRpc = registerCameraRpc(realtime, vehicleManager)
 
   let vehicleTelemetryPublisher: VehicleTelemetryPublisher | null = null
   const vehicleStatusTextListeners = new Map<
@@ -287,6 +289,7 @@ export async function startMeridianServer(
       linkManager?.removeListener('linkStateChanged', onLinkStateChanged)
       disposeMissionRpc()
       disposeParameterRpc()
+      disposeCameraRpc()
       vehicleManager?.removeListener('vehicleAdded', onVehicleAdded)
       vehicleManager?.removeListener('vehicleRemoved', onVehicleRemoved)
       for (const [vehicleId, listener] of vehicleStatusTextListeners) {

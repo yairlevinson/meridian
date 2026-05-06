@@ -13,6 +13,7 @@ import { MavlinkProtocol } from '../src/main/mavlink/MavlinkProtocol'
 import { EventEmitter } from 'events'
 import { MissionType, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
 import { ParamValueType, type Parameter } from '../src/shared-types/ipc/ParameterTypes'
+import { CameraMode, type CameraState } from '../src/shared-types/ipc/CameraTypes'
 
 let handle: MeridianServerHandle | null = null
 let tempDir: string | null = null
@@ -22,6 +23,7 @@ class FakeVehicle extends EventEmitter {
   private dirty = true
   missionManager = new FakeMissionManager()
   parameterManager = new FakeParameterManager()
+  cameraManager = new FakeCameraManager()
 
   hasDirty(): boolean {
     return this.dirty
@@ -30,6 +32,55 @@ class FakeVehicle extends EventEmitter {
   getDelta(): unknown {
     this.dirty = false
     return { core: { sysid: this.sysid, armed: true } }
+  }
+}
+
+const fakeCameraState: CameraState = {
+  discovered: true,
+  info: null,
+  mode: CameraMode.Photo,
+  captureStatus: null,
+  storage: null,
+  photoCount: 0,
+  isRecordingVideo: false,
+  isCapturingImage: false,
+  lastImageLat: 0,
+  lastImageLon: 0,
+  lastImageAlt: 0
+}
+
+class FakeCameraManager extends EventEmitter {
+  state: CameraState = fakeCameraState
+  calls: string[] = []
+  mode: number | null = null
+  formattedStorageId: number | undefined
+
+  handleCameraHeartbeat(): void {
+    this.calls.push('requestInfo')
+  }
+
+  takePhoto(): void {
+    this.calls.push('takePhoto')
+  }
+
+  stopCapture(): void {
+    this.calls.push('stopCapture')
+  }
+
+  startRecording(): void {
+    this.calls.push('startRecording')
+  }
+
+  stopRecording(): void {
+    this.calls.push('stopRecording')
+  }
+
+  setMode(mode: number): void {
+    this.mode = mode
+  }
+
+  formatStorage(storageId?: number): void {
+    this.formattedStorageId = storageId
   }
 }
 
@@ -650,6 +701,98 @@ describe('Meridian server skeleton', () => {
       type: 'event',
       topic: 'parameters:ready',
       payload: { vehicleId: 1 }
+    })
+
+    ws.close()
+  })
+
+  it('registers camera RPC commands and events on the realtime socket', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager,
+        trackingManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(
+      JSON.stringify({ type: 'subscribe', topics: ['camera:stateChanged', 'camera:imageCaptured'] })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    const sendCommand = (id: string, command: string, args: unknown[]): void => {
+      ws.send(JSON.stringify({ id, type: 'command', module: 'camera', command, args }))
+    }
+
+    sendCommand('camera-get', 'getState', [1])
+    sendCommand('camera-info', 'requestInfo', [1])
+    sendCommand('camera-photo', 'takePhoto', [1])
+    sendCommand('camera-stop-capture', 'stopCapture', [1])
+    sendCommand('camera-record-start', 'startRecording', [1])
+    sendCommand('camera-record-stop', 'stopRecording', [1])
+    sendCommand('camera-mode', 'setMode', [1, CameraMode.Video])
+    sendCommand('camera-format', 'formatStorage', [1, 2])
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    vehicleManager.vehicle.cameraManager.emit('stateChanged', fakeCameraState)
+    vehicleManager.vehicle.cameraManager.emit('imageCaptured', {
+      lat: 32,
+      lon: 34,
+      alt: 50,
+      imageIndex: 3,
+      captureResult: 0
+    })
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    expect(messages).toContainEqual({
+      id: 'camera-get',
+      type: 'reply',
+      ok: true,
+      result: fakeCameraState
+    })
+    for (const id of [
+      'camera-info',
+      'camera-photo',
+      'camera-stop-capture',
+      'camera-record-start',
+      'camera-record-stop',
+      'camera-mode',
+      'camera-format'
+    ]) {
+      expect(messages).toContainEqual({ id, type: 'reply', ok: true })
+    }
+    expect(vehicleManager.vehicle.cameraManager.calls).toEqual([
+      'requestInfo',
+      'takePhoto',
+      'stopCapture',
+      'startRecording',
+      'stopRecording'
+    ])
+    expect(vehicleManager.vehicle.cameraManager.mode).toBe(CameraMode.Video)
+    expect(vehicleManager.vehicle.cameraManager.formattedStorageId).toBe(2)
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'camera:stateChanged',
+      payload: { vehicleId: 1, state: fakeCameraState }
+    })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'camera:imageCaptured',
+      payload: {
+        vehicleId: 1,
+        lat: 32,
+        lon: 34,
+        alt: 50,
+        imageIndex: 3,
+        captureResult: 0
+      }
     })
 
     ws.close()
