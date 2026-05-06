@@ -11,6 +11,7 @@ import { WebSocket } from 'ws'
 import { LinkManager } from '../src/main/links/LinkManager'
 import { MavlinkProtocol } from '../src/main/mavlink/MavlinkProtocol'
 import { EventEmitter } from 'events'
+import { MissionType, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
 
 let handle: MeridianServerHandle | null = null
 let tempDir: string | null = null
@@ -18,6 +19,7 @@ let tempDir: string | null = null
 class FakeVehicle extends EventEmitter {
   sysid = 1
   private dirty = true
+  missionManager = new FakeMissionManager()
 
   hasDirty(): boolean {
     return this.dirty
@@ -26,6 +28,21 @@ class FakeVehicle extends EventEmitter {
   getDelta(): unknown {
     this.dirty = false
     return { core: { sysid: this.sysid, armed: true } }
+  }
+}
+
+class FakeMissionManager extends EventEmitter {
+  loadedItems: MissionItem[] = []
+  writtenItems: MissionItem[] | null = null
+
+  loadFromVehicle(): void {
+    this.emit('progress', { current: this.loadedItems.length, total: this.loadedItems.length })
+    this.emit('loadComplete', this.loadedItems)
+  }
+
+  writeToVehicle(items: MissionItem[]): void {
+    this.writtenItems = items
+    this.emit('writeComplete')
   }
 }
 
@@ -403,6 +420,103 @@ describe('Meridian server skeleton', () => {
         })
       })
     )
+    ws.close()
+  })
+
+  it('registers mission RPC commands and events on the realtime socket', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    const missionItem: MissionItem = {
+      seq: 0,
+      frame: 3,
+      command: 16,
+      current: true,
+      autocontinue: true,
+      param1: 0,
+      param2: 0,
+      param3: 0,
+      param4: 0,
+      x: 320000000,
+      y: 340000000,
+      z: 50,
+      missionType: MissionType.Mission
+    }
+    vehicleManager.vehicle.missionManager.loadedItems = [missionItem]
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager,
+        trackingManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(
+      JSON.stringify({
+        type: 'subscribe',
+        topics: ['mission:progress', 'mission:complete', 'mission:currentChanged']
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    ws.send(
+      JSON.stringify({
+        id: 'mission-load',
+        type: 'command',
+        module: 'mission',
+        command: 'load',
+        args: [1]
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+    vehicleManager.vehicle.missionManager.emit('currentChanged', 0)
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    expect(messages).toContainEqual({
+      id: 'mission-load',
+      type: 'reply',
+      ok: true,
+      result: { items: [missionItem] }
+    })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'mission:progress',
+      payload: { vehicleId: 1, current: 1, total: 1 }
+    })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'mission:complete',
+      payload: { vehicleId: 1, items: [missionItem] }
+    })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'mission:currentChanged',
+      payload: { vehicleId: 1, seq: 0 }
+    })
+
+    ws.send(
+      JSON.stringify({
+        id: 'mission-write',
+        type: 'command',
+        module: 'mission',
+        command: 'write',
+        args: [1, [missionItem]]
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    expect(messages).toContainEqual({
+      id: 'mission-write',
+      type: 'reply',
+      ok: true,
+      result: { success: true }
+    })
+    expect(vehicleManager.vehicle.missionManager.writtenItems).toEqual([missionItem])
+
     ws.close()
   })
 })
