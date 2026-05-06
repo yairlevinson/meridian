@@ -5,6 +5,8 @@ import { mkdtemp, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { getMapProviderInfos } from '../src/shared-types/ipc/tileProviders'
+import { SettingsManager } from '../src/main/settings/SettingsManager'
+import { WebSocket } from 'ws'
 
 let handle: MeridianServerHandle | null = null
 let tempDir: string | null = null
@@ -61,5 +63,55 @@ describe('Meridian server skeleton', () => {
 
     const response = await fetch(`${handle.url}/%2e%2e%2fpackage.json`)
     expect(response.status).toBe(403)
+  })
+
+  it('registers settings RPC commands on the realtime socket', async () => {
+    const settingsManager = new SettingsManager({ initial: { mapProvider: 'osm' } })
+    handle = await startMeridianServer({ settingsManager })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const message = new Promise<unknown>((resolve) => {
+      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
+    })
+    ws.send(
+      JSON.stringify({
+        id: 'settings-1',
+        type: 'command',
+        module: 'settings',
+        command: 'getAll',
+        args: []
+      })
+    )
+
+    await expect(message).resolves.toMatchObject({
+      id: 'settings-1',
+      type: 'reply',
+      ok: true,
+      result: { mapProvider: 'osm' }
+    })
+    ws.close()
+  })
+
+  it('publishes settings changed events to realtime subscribers', async () => {
+    const settingsManager = new SettingsManager()
+    handle = await startMeridianServer({ settingsManager })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    ws.send(JSON.stringify({ type: 'subscribe', topics: ['settings:changed'] }))
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+    const message = new Promise<unknown>((resolve) => {
+      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
+    })
+
+    settingsManager.set('mapProvider', 'google_satellite')
+
+    await expect(message).resolves.toEqual({
+      type: 'event',
+      topic: 'settings:changed',
+      payload: { key: 'mapProvider', value: 'google_satellite' }
+    })
+    ws.close()
   })
 })

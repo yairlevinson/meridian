@@ -2,12 +2,16 @@ import { createServer, type Server as HttpServer, type ServerResponse } from 'ht
 import { readFile, stat } from 'fs/promises'
 import { extname, join, resolve, sep } from 'path'
 import { getMapProviderInfos } from '@shared/ipc/tileProviders'
+import { settingsModule } from '@shared/ipc/modules/settings'
+import type { AppSettings } from '@shared/ipc/AppSettings'
+import { SettingsManager } from '../main/settings/SettingsManager'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 
 export interface MeridianServerOptions {
   port?: number
   host?: string
   staticDir?: string
+  settingsManager?: SettingsManager
 }
 
 export interface MeridianServerHandle {
@@ -24,6 +28,21 @@ export async function startMeridianServer(
   const host = options.host ?? '127.0.0.1'
   const realtime = new RpcRealtimeServer()
   const staticRoot = options.staticDir ? resolve(options.staticDir) : null
+  const settingsManager = options.settingsManager ?? new SettingsManager()
+
+  realtime.registerModule(settingsModule, {
+    commands: {
+      getAll: async () => settingsManager.getAll(),
+      set: async (key, value) => {
+        settingsManager.set(key as keyof AppSettings, value as never)
+      }
+    }
+  })
+
+  const onSettingsChanged = (key: string, value: unknown): void => {
+    realtime.emitEvent('settings', 'changed', { key, value })
+  }
+  settingsManager.on('changed', onSettingsChanged)
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', `http://${host}`)
@@ -66,6 +85,7 @@ export async function startMeridianServer(
     port,
     url: `http://${host}:${port}`,
     close: async () => {
+      settingsManager.removeListener('changed', onSettingsChanged)
       await realtime.close()
       await new Promise<void>((resolve, reject) => {
         server.close((err) => {
