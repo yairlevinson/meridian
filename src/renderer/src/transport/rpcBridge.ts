@@ -30,7 +30,17 @@ export function bindRpcModule<M extends IpcModuleSpec>(
 }
 
 export type BrowserRpcBridge = BridgeOf<typeof allIpcModules>
+export type BrowserRpcBridgeWithLog = BrowserRpcBridge & {
+  log: (level: 'info' | 'warn' | 'error' | 'debug', tag: string, message: string) => void
+}
 
-export function createBrowserRpcBridge(transport: RpcTransport): BrowserRpcBridge {
-  return Object.assign({}, ...allIpcModules.map((module) => bindRpcModule(module, transport)))
+export function createBrowserRpcBridge(transport: RpcTransport): BrowserRpcBridgeWithLog {
+  return Object.assign(
+    {
+      // rlog() already writes to the browser console. Server-side log forwarding
+      // can become an RPC command later without changing the renderer surface.
+      log: () => {}
+    },
+    ...allIpcModules.map((module) => bindRpcModule(module, transport))
+  )
 }

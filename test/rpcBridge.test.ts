@@ -1,8 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest'
 import { defineIpcModule, command, event } from '../src/shared-types/ipc/ipcModule'
-import { bindRpcModule } from '../src/renderer/src/transport/rpcBridge'
+import { bindRpcModule, createBrowserRpcBridge } from '../src/renderer/src/transport/rpcBridge'
 import { RpcTransport } from '../src/renderer/src/transport/RpcTransport'
+import {
+  installBrowserRpcBridge,
+  realtimeUrlFromServerUrl
+} from '../src/renderer/src/transport/installBrowserBridge'
 import { RpcRealtimeServer } from '../src/server/realtime/RpcRealtimeServer'
 import { createServer } from 'http'
 import { WebSocket } from 'ws'
@@ -40,6 +44,46 @@ describe('browser RPC bridge binding', () => {
 
     expect(bridge.onFakeChanged(handler)).toBe(dispose)
     expect(transport.on).toHaveBeenCalledWith('fake:changed', handler)
+  })
+
+  it('includes the renderer log compatibility method', () => {
+    const transport = {
+      command: vi.fn(),
+      on: vi.fn()
+    }
+    const bridge = bindRpcModule(fakeModule, transport as any)
+    expect('log' in bridge).toBe(false)
+
+    const fullBridge = createBrowserRpcBridge(transport as any)
+    expect(() => fullBridge.log('info', 'Test', 'hello')).not.toThrow()
+  })
+})
+
+describe('browser RPC bridge installer', () => {
+  it('builds realtime URLs from server URLs', () => {
+    expect(realtimeUrlFromServerUrl('http://localhost:8080')).toBe('ws://localhost:8080/realtime')
+    expect(realtimeUrlFromServerUrl('https://meridian.local/app', 'rt')).toBe(
+      'wss://meridian.local/rt'
+    )
+    expect(realtimeUrlFromServerUrl('ws://127.0.0.1:8080/realtime')).toBe(
+      'ws://127.0.0.1:8080/realtime'
+    )
+  })
+
+  it('installs window.bridge without replacing an existing bridge by default', () => {
+    const existing = { log: vi.fn() }
+    vi.stubGlobal('window', {
+      bridge: existing,
+      location: { origin: 'http://127.0.0.1:8080' }
+    })
+
+    const result = installBrowserRpcBridge({
+      WebSocketCtor: WebSocket as unknown as typeof globalThis.WebSocket
+    })
+
+    expect(result.bridge).toBe(existing)
+    expect(result.transport).toBeNull()
+    vi.unstubAllGlobals()
   })
 })
 
