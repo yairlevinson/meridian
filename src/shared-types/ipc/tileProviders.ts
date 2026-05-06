@@ -8,6 +8,15 @@ export interface TileProviderDef {
   maxZoom: number
 }
 
+export interface MapProviderInfo {
+  id: string
+  name: string
+  attribution: string
+  tileSize: number
+  maxZoom: number
+  offline: boolean
+}
+
 function quadkey(x: number, y: number, z: number): string {
   let key = ''
   for (let i = z; i > 0; i--) {
@@ -90,6 +99,17 @@ export function resolveTileUrl(tileUrl: string): string | null {
   const provider = tileProviders[providerName!]
   if (!provider) return null
   return provider.resolveUrl(parseInt(xStr!, 10), parseInt(yStr!, 10), parseInt(zStr!, 10))
+}
+
+export function getMapProviderInfos(): MapProviderInfo[] {
+  return Object.values(tileProviders).map((provider) => ({
+    id: provider.name,
+    name: provider.displayName,
+    attribution: provider.attribution,
+    tileSize: 256,
+    maxZoom: provider.maxZoom,
+    offline: false
+  }))
 }
 
 export { quadkey }

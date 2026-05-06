@@ -4,6 +4,7 @@ import { startMeridianServer, type MeridianServerHandle } from '../src/server/ma
 import { mkdtemp, rm, writeFile } from 'fs/promises'
 import { join } from 'path'
 import { tmpdir } from 'os'
+import { getMapProviderInfos } from '../src/shared-types/ipc/tileProviders'
 
 let handle: MeridianServerHandle | null = null
 let tempDir: string | null = null
@@ -28,12 +29,12 @@ describe('Meridian server skeleton', () => {
     await expect(response.json()).resolves.toEqual({ ok: true, service: 'meridian-server' })
   })
 
-  it('serves placeholder map provider metadata', async () => {
+  it('serves map provider metadata', async () => {
     handle = await startMeridianServer()
 
     const response = await fetch(`${handle.url}/api/map/providers`)
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({ providers: [] })
+    await expect(response.json()).resolves.toEqual({ providers: getMapProviderInfos() })
   })
 
   it('serves static files when configured', async () => {

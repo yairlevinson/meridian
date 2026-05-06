@@ -1,6 +1,7 @@
 import { createServer, type Server as HttpServer, type ServerResponse } from 'http'
 import { readFile, stat } from 'fs/promises'
 import { extname, join, resolve, sep } from 'path'
+import { getMapProviderInfos } from '@shared/ipc/tileProviders'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 
 export interface MeridianServerOptions {
@@ -34,7 +35,7 @@ export async function startMeridianServer(
 
     if (req.method === 'GET' && url.pathname === '/api/map/providers') {
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ providers: [] }))
+      res.end(JSON.stringify({ providers: getMapProviderInfos() }))
       return
     }
 
