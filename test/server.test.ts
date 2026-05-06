@@ -8,6 +8,8 @@ import { getMapProviderInfos } from '../src/shared-types/ipc/tileProviders'
 import { SettingsManager } from '../src/main/settings/SettingsManager'
 import { VideoManager } from '../src/main/video/VideoManager'
 import { WebSocket } from 'ws'
+import { LinkManager } from '../src/main/links/LinkManager'
+import { MavlinkProtocol } from '../src/main/mavlink/MavlinkProtocol'
 
 let handle: MeridianServerHandle | null = null
 let tempDir: string | null = null
@@ -96,10 +98,12 @@ describe('Meridian server skeleton', () => {
 
   it('can use managers supplied by a runtime-like object', async () => {
     const settingsManager = new SettingsManager({ initial: { mapProvider: 'bing_satellite' } })
+    const linkManager = new LinkManager(new MavlinkProtocol())
     handle = await startMeridianServer({
       runtime: {
         settingsManager,
-        videoManager: new VideoManager()
+        videoManager: new VideoManager(),
+        linkManager
       }
     })
 
@@ -125,6 +129,7 @@ describe('Meridian server skeleton', () => {
       result: { mapProvider: 'bing_satellite' }
     })
     ws.close()
+    linkManager.disconnectAll()
   })
 
   it('publishes settings changed events to realtime subscribers', async () => {
@@ -206,6 +211,60 @@ describe('Meridian server skeleton', () => {
       type: 'event',
       topic: 'video:stateChanged',
       payload: { sourceType: 'disabled', streaming: false }
+    })
+    ws.close()
+  })
+
+  it('registers links RPC commands on the realtime socket', async () => {
+    handle = await startMeridianServer()
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const message = new Promise<unknown>((resolve) => {
+      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
+    })
+    ws.send(
+      JSON.stringify({
+        id: 'links-1',
+        type: 'command',
+        module: 'links',
+        command: 'getAll',
+        args: []
+      })
+    )
+
+    await expect(message).resolves.toEqual({
+      id: 'links-1',
+      type: 'reply',
+      ok: true,
+      result: []
+    })
+    ws.close()
+  })
+
+  it('returns a structured error for link creation without a runtime link manager', async () => {
+    handle = await startMeridianServer()
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const message = new Promise<unknown>((resolve) => {
+      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
+    })
+    ws.send(
+      JSON.stringify({
+        id: 'links-2',
+        type: 'command',
+        module: 'links',
+        command: 'create',
+        args: [{ type: 'udp', name: 'Test UDP', listenPort: 15600 }]
+      })
+    )
+
+    await expect(message).resolves.toEqual({
+      id: 'links-2',
+      type: 'reply',
+      ok: false,
+      error: 'LinkManager not available'
     })
     ws.close()
   })

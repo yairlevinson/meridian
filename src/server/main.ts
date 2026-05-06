@@ -4,18 +4,20 @@ import { extname, join, resolve, sep } from 'path'
 import { getMapProviderInfos } from '@shared/ipc/tileProviders'
 import { settingsModule } from '@shared/ipc/modules/settings'
 import { videoModule } from '@shared/ipc/modules/video'
+import { linksModule } from '@shared/ipc/modules/links'
 import type { AppSettings } from '@shared/ipc/AppSettings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { SettingsManager } from '../main/settings/SettingsManager'
 import { VideoManager } from '../main/video/VideoManager'
 import type { MeridianRuntime } from '../main/runtime/MeridianRuntime'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
+import { SerialPort } from 'serialport'
 
 export interface MeridianServerOptions {
   port?: number
   host?: string
   staticDir?: string
-  runtime?: Pick<MeridianRuntime, 'settingsManager' | 'videoManager'>
+  runtime?: Pick<MeridianRuntime, 'settingsManager' | 'videoManager' | 'linkManager'>
   settingsManager?: SettingsManager
   videoManager?: VideoManager
 }
@@ -38,6 +40,7 @@ export async function startMeridianServer(
     options.settingsManager ?? options.runtime?.settingsManager ?? new SettingsManager()
   const ownsVideoManager = !options.videoManager && !options.runtime?.videoManager
   const videoManager = options.videoManager ?? options.runtime?.videoManager ?? new VideoManager()
+  const linkManager = options.runtime?.linkManager ?? null
   if (ownsVideoManager) {
     await videoManager.init()
   }
@@ -78,6 +81,36 @@ export async function startMeridianServer(
     realtime.emitEvent('video', 'stateChanged', state)
   }
   videoManager.on('stateChanged', onVideoStateChanged)
+
+  realtime.registerModule(linksModule, {
+    commands: {
+      create: async (config) => {
+        if (!linkManager) throw new Error('LinkManager not available')
+        const link = await linkManager.createLink(config)
+        return { id: link.id, status: link.status }
+      },
+      disconnect: async (id) => {
+        if (!linkManager) throw new Error('LinkManager not available')
+        linkManager.disconnectLink(id)
+      },
+      getAll: async () => linkManager?.getAllStates() ?? [],
+      listSerialPorts: async () => {
+        const ports = await SerialPort.list()
+        return ports.map((p) => ({
+          path: p.path,
+          manufacturer: p.manufacturer,
+          serialNumber: p.serialNumber,
+          vendorId: p.vendorId,
+          productId: p.productId
+        }))
+      }
+    }
+  })
+
+  const onLinkStateChanged = (): void => {
+    realtime.emitEvent('links', 'stateChanged', linkManager?.getAllStates() ?? [])
+  }
+  linkManager?.on('linkStateChanged', onLinkStateChanged)
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', `http://${host}`)
@@ -122,6 +155,7 @@ export async function startMeridianServer(
     close: async () => {
       settingsManager.removeListener('changed', onSettingsChanged)
       videoManager.removeListener('stateChanged', onVideoStateChanged)
+      linkManager?.removeListener('linkStateChanged', onLinkStateChanged)
       await realtime.close()
       if (ownsVideoManager) {
         videoManager.destroy()
