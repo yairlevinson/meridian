@@ -1,43 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import { commandChannel, eventChannel, type IpcModuleSpec } from '../src/shared-types/ipc/ipcModule'
-import { radarModule } from '../src/shared-types/ipc/modules/radar'
-import { forwardingModule } from '../src/shared-types/ipc/modules/forwarding'
-import { settingsModule } from '../src/shared-types/ipc/modules/settings'
-import { kmlModule } from '../src/shared-types/ipc/modules/kml'
-import { mavConsoleModule } from '../src/shared-types/ipc/modules/mavConsole'
-import { mavInspectorModule } from '../src/shared-types/ipc/modules/mavInspector'
-import { popoutModule } from '../src/shared-types/ipc/modules/popout'
-import { videoModule } from '../src/shared-types/ipc/modules/video'
-import { calibrationModule } from '../src/shared-types/ipc/modules/calibration'
-import { rcCalibrationModule } from '../src/shared-types/ipc/modules/rcCalibration'
-import { firmwareModule } from '../src/shared-types/ipc/modules/firmware'
-import { cameraModule } from '../src/shared-types/ipc/modules/camera'
-import { actuatorModule } from '../src/shared-types/ipc/modules/actuator'
-import { linksModule } from '../src/shared-types/ipc/modules/links'
-import { vehicleModule } from '../src/shared-types/ipc/modules/vehicle'
-import { missionModule } from '../src/shared-types/ipc/modules/mission'
-import { parametersModule } from '../src/shared-types/ipc/modules/parameters'
+import { allIpcModules } from '../src/shared-types/ipc/modules'
 
-const allModules: IpcModuleSpec[] = [
-  radarModule,
-  forwardingModule,
-  settingsModule,
-  kmlModule,
-  mavConsoleModule,
-  mavInspectorModule,
-  popoutModule,
-  videoModule,
-  calibrationModule,
-  rcCalibrationModule,
-  firmwareModule,
-  cameraModule,
-  actuatorModule,
-  linksModule,
-  vehicleModule,
-  missionModule,
-  parametersModule
-]
+const allModules: readonly IpcModuleSpec[] = allIpcModules
 
 function allCommandChannels(): string[] {
   return allModules.flatMap((m) => Object.keys(m.commands).map((k) => commandChannel(m.name, k)))

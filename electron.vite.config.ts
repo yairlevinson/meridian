@@ -13,6 +13,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
+          server: resolve('src/server/main.ts'),
           utility: resolve('src/utility/index.ts')
         }
       }
