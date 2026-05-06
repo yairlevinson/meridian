@@ -114,4 +114,65 @@ describe('Meridian server skeleton', () => {
     })
     ws.close()
   })
+
+  it('registers video RPC commands on the realtime socket', async () => {
+    handle = await startMeridianServer()
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const message = new Promise<unknown>((resolve) => {
+      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
+    })
+    ws.send(
+      JSON.stringify({
+        id: 'video-1',
+        type: 'command',
+        module: 'video',
+        command: 'getState',
+        args: []
+      })
+    )
+
+    await expect(message).resolves.toMatchObject({
+      id: 'video-1',
+      type: 'reply',
+      ok: true,
+      result: {
+        sourceType: 'disabled',
+        streaming: false,
+        recording: false,
+        error: null,
+        pipeline: 'ffmpeg'
+      }
+    })
+    ws.close()
+  })
+
+  it('publishes video state change events to realtime subscribers', async () => {
+    handle = await startMeridianServer()
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    ws.send(JSON.stringify({ type: 'subscribe', topics: ['video:stateChanged'] }))
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+    const message = new Promise<unknown>((resolve) => {
+      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
+    })
+    ws.send(
+      JSON.stringify({
+        id: 'video-2',
+        type: 'command',
+        module: 'video',
+        command: 'stop',
+        args: []
+      })
+    )
+
+    await expect(message).resolves.toMatchObject({
+      type: 'event',
+      topic: 'video:stateChanged',
+      payload: { sourceType: 'disabled', streaming: false }
+    })
+    ws.close()
+  })
 })

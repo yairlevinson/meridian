@@ -3,8 +3,11 @@ import { readFile, stat } from 'fs/promises'
 import { extname, join, resolve, sep } from 'path'
 import { getMapProviderInfos } from '@shared/ipc/tileProviders'
 import { settingsModule } from '@shared/ipc/modules/settings'
+import { videoModule } from '@shared/ipc/modules/video'
 import type { AppSettings } from '@shared/ipc/AppSettings'
+import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { SettingsManager } from '../main/settings/SettingsManager'
+import { VideoManager } from '../main/video/VideoManager'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 
 export interface MeridianServerOptions {
@@ -12,6 +15,7 @@ export interface MeridianServerOptions {
   host?: string
   staticDir?: string
   settingsManager?: SettingsManager
+  videoManager?: VideoManager
 }
 
 export interface MeridianServerHandle {
@@ -29,6 +33,11 @@ export async function startMeridianServer(
   const realtime = new RpcRealtimeServer()
   const staticRoot = options.staticDir ? resolve(options.staticDir) : null
   const settingsManager = options.settingsManager ?? new SettingsManager()
+  const ownsVideoManager = !options.videoManager
+  const videoManager = options.videoManager ?? new VideoManager()
+  if (ownsVideoManager) {
+    await videoManager.init()
+  }
 
   realtime.registerModule(settingsModule, {
     commands: {
@@ -43,6 +52,29 @@ export async function startMeridianServer(
     realtime.emitEvent('settings', 'changed', { key, value })
   }
   settingsManager.on('changed', onSettingsChanged)
+
+  realtime.registerModule(videoModule, {
+    commands: {
+      start: async (sourceType, uri) => {
+        videoManager.start(sourceType as VideoSourceType, uri)
+      },
+      stop: async () => {
+        videoManager.stop()
+      },
+      startRecording: async (filePath) => {
+        videoManager.startRecording(filePath)
+      },
+      stopRecording: async () => {
+        videoManager.stopRecording()
+      },
+      getState: async () => videoManager.state
+    }
+  })
+
+  const onVideoStateChanged = (state: unknown): void => {
+    realtime.emitEvent('video', 'stateChanged', state)
+  }
+  videoManager.on('stateChanged', onVideoStateChanged)
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', `http://${host}`)
@@ -86,7 +118,11 @@ export async function startMeridianServer(
     url: `http://${host}:${port}`,
     close: async () => {
       settingsManager.removeListener('changed', onSettingsChanged)
+      videoManager.removeListener('stateChanged', onVideoStateChanged)
       await realtime.close()
+      if (ownsVideoManager) {
+        videoManager.destroy()
+      }
       await new Promise<void>((resolve, reject) => {
         server.close((err) => {
           if (err) reject(err)
