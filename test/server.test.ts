@@ -6,6 +6,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 import { getMapProviderInfos } from '../src/shared-types/ipc/tileProviders'
 import { SettingsManager } from '../src/main/settings/SettingsManager'
+import { VideoManager } from '../src/main/video/VideoManager'
 import { WebSocket } from 'ws'
 
 let handle: MeridianServerHandle | null = null
@@ -89,6 +90,39 @@ describe('Meridian server skeleton', () => {
       type: 'reply',
       ok: true,
       result: { mapProvider: 'osm' }
+    })
+    ws.close()
+  })
+
+  it('can use managers supplied by a runtime-like object', async () => {
+    const settingsManager = new SettingsManager({ initial: { mapProvider: 'bing_satellite' } })
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager,
+        videoManager: new VideoManager()
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const message = new Promise<unknown>((resolve) => {
+      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
+    })
+    ws.send(
+      JSON.stringify({
+        id: 'settings-runtime',
+        type: 'command',
+        module: 'settings',
+        command: 'getAll',
+        args: []
+      })
+    )
+
+    await expect(message).resolves.toMatchObject({
+      id: 'settings-runtime',
+      type: 'reply',
+      ok: true,
+      result: { mapProvider: 'bing_satellite' }
     })
     ws.close()
   })

@@ -8,12 +8,14 @@ import type { AppSettings } from '@shared/ipc/AppSettings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import { SettingsManager } from '../main/settings/SettingsManager'
 import { VideoManager } from '../main/video/VideoManager'
+import type { MeridianRuntime } from '../main/runtime/MeridianRuntime'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 
 export interface MeridianServerOptions {
   port?: number
   host?: string
   staticDir?: string
+  runtime?: Pick<MeridianRuntime, 'settingsManager' | 'videoManager'>
   settingsManager?: SettingsManager
   videoManager?: VideoManager
 }
@@ -32,9 +34,10 @@ export async function startMeridianServer(
   const host = options.host ?? '127.0.0.1'
   const realtime = new RpcRealtimeServer()
   const staticRoot = options.staticDir ? resolve(options.staticDir) : null
-  const settingsManager = options.settingsManager ?? new SettingsManager()
-  const ownsVideoManager = !options.videoManager
-  const videoManager = options.videoManager ?? new VideoManager()
+  const settingsManager =
+    options.settingsManager ?? options.runtime?.settingsManager ?? new SettingsManager()
+  const ownsVideoManager = !options.videoManager && !options.runtime?.videoManager
+  const videoManager = options.videoManager ?? options.runtime?.videoManager ?? new VideoManager()
   if (ownsVideoManager) {
     await videoManager.init()
   }
