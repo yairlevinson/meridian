@@ -11,7 +11,7 @@ import {
 import { RpcRealtimeServer } from '../src/server/realtime/RpcRealtimeServer'
 import { VideoSourceType } from '../src/shared-types/ipc/VideoTypes'
 import { createServer } from 'http'
-import { WebSocket } from 'ws'
+import { WebSocket, WebSocketServer } from 'ws'
 
 const fakeModule = defineIpcModule({
   name: 'fake',
@@ -254,6 +254,50 @@ describe('browser RPC bridge transport integration', () => {
 
     transport.close()
     await fixture.close()
+  })
+
+  it('ignores malformed server frames and keeps handling later events', async () => {
+    const server = createServer()
+    const wss = new WebSocketServer({ noServer: true })
+    server.on('upgrade', (request, socket, head) => {
+      if (request.url !== '/realtime') return
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request)
+      })
+    })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const address = server.address()
+    const port = typeof address === 'object' && address ? address.port : 0
+
+    wss.once('connection', (ws) => {
+      ws.once('message', () => {
+        ws.send('not-json')
+        ws.send(
+          JSON.stringify({
+            type: 'event',
+            topic: 'fake:changed',
+            payload: { id: 5 }
+          })
+        )
+      })
+    })
+
+    const transport = new RpcTransport({
+      url: `ws://127.0.0.1:${port}/realtime`,
+      WebSocketCtor: WebSocket as unknown as typeof globalThis.WebSocket
+    })
+    const bridge = bindRpcModule(fakeModule, transport)
+    const received = new Promise((resolve) => {
+      bridge.onFakeChanged(resolve)
+    })
+
+    await expect(received).resolves.toEqual({ id: 5 })
+
+    transport.close()
+    await new Promise<void>((resolve) => wss.close(() => resolve()))
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve()))
+    })
   })
 
   it('publishes connection status transitions', async () => {

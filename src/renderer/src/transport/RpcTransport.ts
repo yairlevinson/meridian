@@ -70,7 +70,13 @@ export class RpcTransport {
       }, this.requestTimeoutMs)
 
       this.pending.set(id, { resolve, reject, timer })
-      this.send(message)
+      try {
+        this.send(message)
+      } catch (err) {
+        clearTimeout(timer)
+        this.pending.delete(id)
+        reject(err instanceof Error ? err : new Error(String(err)))
+      }
     })
   }
 
@@ -205,7 +211,12 @@ export class RpcTransport {
 
   private handleMessage(raw: unknown): void {
     if (typeof raw !== 'string') return
-    const message = JSON.parse(raw) as RpcServerMessage
+    let message: RpcServerMessage
+    try {
+      message = JSON.parse(raw) as RpcServerMessage
+    } catch {
+      return
+    }
 
     if (message.type === 'reply') {
       const pending = this.pending.get(message.id)
