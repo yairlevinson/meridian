@@ -92,18 +92,46 @@ async function waitForBridge(page: Page): Promise<void> {
   await page.waitForFunction(() => Boolean((window as unknown as { bridge?: unknown }).bridge))
 }
 
+function collectConsoleWarnings(page: Page): string[] {
+  const consoleMessages: string[] = []
+  page.on('console', (message) => {
+    if (message.type() === 'error' || message.type() === 'warning') {
+      consoleMessages.push(message.text())
+    }
+  })
+  return consoleMessages
+}
+
+function waitForVehicleAdded(page: Page): Promise<unknown> {
+  return page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const off = (window as any).bridge.onVehicleAdded((payload: unknown) => {
+          off()
+          resolve(payload)
+        })
+      })
+  )
+}
+
+function waitForVehicleDelta(page: Page): Promise<unknown> {
+  return page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const off = (window as any).bridge.onVehicleDelta((payload: unknown) => {
+          off()
+          resolve(payload)
+        })
+      })
+  )
+}
+
 test.describe('browser/server smoke', () => {
   test('loads the browser client and receives synthetic vehicle telemetry', async ({ page }) => {
     const udpPort = await freeUdpPort()
     const server = await startServerProcess(udpPort)
     const vehicle = new SyntheticVehicle(udpPort)
-    const consoleMessages: string[] = []
-
-    page.on('console', (message) => {
-      if (message.type() === 'error' || message.type() === 'warning') {
-        consoleMessages.push(message.text())
-      }
-    })
+    const consoleMessages = collectConsoleWarnings(page)
 
     try {
       await page.goto(server.url, { waitUntil: 'domcontentloaded' })
@@ -127,24 +155,8 @@ test.describe('browser/server smoke', () => {
         ])
       )
 
-      const vehicleAdded = page.evaluate(
-        () =>
-          new Promise((resolve) => {
-            const off = (window as any).bridge.onVehicleAdded((payload: unknown) => {
-              off()
-              resolve(payload)
-            })
-          })
-      )
-      const vehicleDelta = page.evaluate(
-        () =>
-          new Promise((resolve) => {
-            const off = (window as any).bridge.onVehicleDelta((payload: unknown) => {
-              off()
-              resolve(payload)
-            })
-          })
-      )
+      const vehicleAdded = waitForVehicleAdded(page)
+      const vehicleDelta = waitForVehicleDelta(page)
 
       await page.waitForTimeout(250)
       vehicle.startStreaming({ lat: 42.3898, lon: -71.1476, alt: 14 })
@@ -169,6 +181,63 @@ test.describe('browser/server smoke', () => {
       expect(consoleMessages.filter((message) => message.includes('tile://'))).toEqual([])
     } finally {
       vehicle.stop()
+      await stopServer(server)
+    }
+  })
+
+  test('publishes telemetry to two browser clients from one server runtime', async ({
+    context
+  }) => {
+    const udpPort = await freeUdpPort()
+    const server = await startServerProcess(udpPort)
+    const vehicle = new SyntheticVehicle(udpPort)
+    const pageA = await context.newPage()
+    const pageB = await context.newPage()
+    const consoleMessagesA = collectConsoleWarnings(pageA)
+    const consoleMessagesB = collectConsoleWarnings(pageB)
+
+    try {
+      await Promise.all([
+        pageA.goto(server.url, { waitUntil: 'domcontentloaded' }),
+        pageB.goto(server.url, { waitUntil: 'domcontentloaded' })
+      ])
+      await Promise.all([waitForBridge(pageA), waitForBridge(pageB)])
+
+      const addedA = waitForVehicleAdded(pageA)
+      const addedB = waitForVehicleAdded(pageB)
+      const deltaA = waitForVehicleDelta(pageA)
+      const deltaB = waitForVehicleDelta(pageB)
+
+      await pageA.waitForTimeout(250)
+      vehicle.startStreaming({ lat: 42.3898, lon: -71.1476, alt: 14 })
+
+      await expect(addedA).resolves.toEqual({ vehicleId: 1 })
+      await expect(addedB).resolves.toEqual({ vehicleId: 1 })
+      await expect(deltaA).resolves.toMatchObject({ vehicleId: 1 })
+      await expect(deltaB).resolves.toMatchObject({ vehicleId: 1 })
+
+      for (const page of [pageA, pageB]) {
+        await expect(async () => {
+          const currentLinks = await page.evaluate(async () => {
+            const bridge = (window as any).bridge
+            return bridge.linksGetAll()
+          })
+          expect(currentLinks).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                vehicleIds: expect.arrayContaining([1])
+              })
+            ])
+          )
+        }).toPass({ timeout: 10_000 })
+      }
+
+      expect(consoleMessagesA.filter((message) => message.includes('tile://'))).toEqual([])
+      expect(consoleMessagesB.filter((message) => message.includes('tile://'))).toEqual([])
+    } finally {
+      vehicle.stop()
+      await pageA.close().catch(() => {})
+      await pageB.close().catch(() => {})
       await stopServer(server)
     }
   })
