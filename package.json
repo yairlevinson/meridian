@@ -23,6 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:web": "playwright test test/e2e/server-browser-smoke.spec.ts",
     "test:e2e:sitl": "GC_E2E_SITL=1 playwright test",
     "test:e2e:sitl:external": "GC_E2E_SITL=1 GC_E2E_SITL_EXTERNAL=1 playwright test",
     "test:e2e:gazebo": "GC_E2E_SITL=1 GC_E2E_SITL_EXTERNAL=1 playwright test sitl-",
