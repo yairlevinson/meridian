@@ -186,17 +186,25 @@ describe('browser RPC bridge installer', () => {
 
 async function startRealtimeFixture(): Promise<{
   url: string
+  port: number
+  realtime: RpcRealtimeServer
+  close: () => Promise<void>
+}>
+async function startRealtimeFixture(port?: number): Promise<{
+  url: string
+  port: number
   realtime: RpcRealtimeServer
   close: () => Promise<void>
 }> {
   const server = createServer()
   const realtime = new RpcRealtimeServer()
   realtime.attach(server)
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  await new Promise<void>((resolve) => server.listen(port ?? 0, '127.0.0.1', resolve))
   const address = server.address()
-  const port = typeof address === 'object' && address ? address.port : 0
+  const boundPort = typeof address === 'object' && address ? address.port : 0
   return {
-    url: `ws://127.0.0.1:${port}/realtime`,
+    url: `ws://127.0.0.1:${boundPort}/realtime`,
+    port: boundPort,
     realtime,
     close: async () => {
       await realtime.close()
@@ -245,5 +253,49 @@ describe('browser RPC bridge transport integration', () => {
 
     transport.close()
     await fixture.close()
+  })
+
+  it('reconnects and resubscribes event-only clients', async () => {
+    const fixture = await startRealtimeFixture()
+    const transport = new RpcTransport({
+      url: fixture.url,
+      reconnectInitialDelayMs: 10,
+      reconnectMaxDelayMs: 25,
+      WebSocketCtor: WebSocket as unknown as typeof globalThis.WebSocket
+    })
+    const bridge = bindRpcModule(fakeModule, transport)
+
+    let resolveSecondEvent: ((payload: unknown) => void) | null = null
+    const firstEvent = new Promise((resolve) => {
+      bridge.onFakeChanged((payload) => {
+        if ((payload as { id: number }).id === 1) resolve(payload)
+        if ((payload as { id: number }).id === 2) resolveSecondEvent?.(payload)
+      })
+    })
+    const secondEvent = new Promise((resolve) => {
+      resolveSecondEvent = resolve
+    })
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+    fixture.realtime.emitEvent('fake', 'changed', { id: 1 })
+    await expect(firstEvent).resolves.toEqual({ id: 1 })
+
+    await fixture.close()
+    const restarted = await startRealtimeFixture(fixture.port)
+    const interval = setInterval(() => {
+      restarted.realtime.emitEvent('fake', 'changed', { id: 2 })
+    }, 25)
+
+    await expect(
+      Promise.race([
+        secondEvent,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timed out waiting for event after reconnect')), 1000)
+        )
+      ])
+    ).resolves.toEqual({ id: 2 })
+    clearInterval(interval)
+
+    transport.close()
+    await restarted.close()
   })
 })

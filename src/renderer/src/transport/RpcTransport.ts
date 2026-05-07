@@ -3,6 +3,8 @@ import type { RpcClientMessage, RpcEventMessage, RpcServerMessage } from '@share
 export interface RpcTransportOptions {
   url: string
   requestTimeoutMs?: number
+  reconnectInitialDelayMs?: number
+  reconnectMaxDelayMs?: number
   WebSocketCtor?: typeof WebSocket
 }
 
@@ -19,9 +21,14 @@ let nextRequestId = 0
 export class RpcTransport {
   private readonly url: string
   private readonly requestTimeoutMs: number
+  private readonly reconnectInitialDelayMs: number
+  private readonly reconnectMaxDelayMs: number
   private readonly WebSocketCtor: typeof WebSocket
   private socket: WebSocket | null = null
   private connectPromise: Promise<void> | null = null
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private reconnectDelayMs: number
+  private closed = false
   private pending = new Map<string, PendingRequest>()
   private eventHandlers = new Map<string, Set<EventHandler>>()
   private subscribedTopics = new Set<string>()
@@ -29,6 +36,9 @@ export class RpcTransport {
   constructor(options: RpcTransportOptions) {
     this.url = options.url
     this.requestTimeoutMs = options.requestTimeoutMs ?? 10_000
+    this.reconnectInitialDelayMs = options.reconnectInitialDelayMs ?? 500
+    this.reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? 5_000
+    this.reconnectDelayMs = this.reconnectInitialDelayMs
     this.WebSocketCtor = options.WebSocketCtor ?? WebSocket
   }
 
@@ -55,6 +65,7 @@ export class RpcTransport {
   }
 
   on(topic: string, handler: EventHandler): () => void {
+    this.closed = false
     let handlers = this.eventHandlers.get(topic)
     const shouldSubscribe = !handlers || handlers.size === 0
     if (!handlers) {
@@ -65,7 +76,9 @@ export class RpcTransport {
 
     if (shouldSubscribe) {
       this.subscribedTopics.add(topic)
-      void this.connect().then(() => this.send({ type: 'subscribe', topics: [topic] }))
+      void this.connect()
+        .then(() => this.send({ type: 'subscribe', topics: [topic] }))
+        .catch(() => this.scheduleReconnect())
     }
 
     return () => {
@@ -76,6 +89,7 @@ export class RpcTransport {
 
       this.eventHandlers.delete(topic)
       this.subscribedTopics.delete(topic)
+      if (this.subscribedTopics.size === 0) this.clearReconnectTimer()
       if (this.socket?.readyState === WebSocket.OPEN) {
         this.send({ type: 'unsubscribe', topics: [topic] })
       }
@@ -83,6 +97,8 @@ export class RpcTransport {
   }
 
   close(): void {
+    this.closed = true
+    this.clearReconnectTimer()
     for (const [id, pending] of this.pending) {
       clearTimeout(pending.timer)
       pending.reject(new Error(`RPC transport closed with pending request: ${id}`))
@@ -94,14 +110,18 @@ export class RpcTransport {
   }
 
   private connect(): Promise<void> {
+    this.closed = false
     if (this.socket?.readyState === WebSocket.OPEN) return Promise.resolve()
     if (this.connectPromise) return this.connectPromise
 
     this.connectPromise = new Promise((resolve, reject) => {
       const socket = new this.WebSocketCtor(this.url)
+      let settled = false
       this.socket = socket
 
       socket.onopen = () => {
+        settled = true
+        this.reconnectDelayMs = this.reconnectInitialDelayMs
         for (const topic of this.subscribedTopics) {
           this.send({ type: 'subscribe', topics: [topic] })
         }
@@ -111,21 +131,47 @@ export class RpcTransport {
       socket.onmessage = (event) => this.handleMessage(event.data)
 
       socket.onerror = () => {
-        reject(new Error(`RPC WebSocket error: ${this.url}`))
+        if (!settled) {
+          settled = true
+          reject(new Error(`RPC WebSocket error: ${this.url}`))
+        }
       }
 
       socket.onclose = () => {
+        const wasConnecting = this.connectPromise !== null && !settled
         this.socket = null
         this.connectPromise = null
+        if (wasConnecting) {
+          settled = true
+          reject(new Error(`RPC WebSocket closed before connecting: ${this.url}`))
+        }
         for (const [id, pending] of this.pending) {
           clearTimeout(pending.timer)
           pending.reject(new Error(`RPC transport disconnected with pending request: ${id}`))
         }
         this.pending.clear()
+        this.scheduleReconnect()
       }
     })
 
     return this.connectPromise
+  }
+
+  private scheduleReconnect(): void {
+    if (this.closed || this.reconnectTimer || this.subscribedTopics.size === 0) return
+
+    const delayMs = this.reconnectDelayMs
+    this.reconnectDelayMs = Math.min(this.reconnectDelayMs * 2, this.reconnectMaxDelayMs)
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
+      void this.connect().catch(() => this.scheduleReconnect())
+    }, delayMs)
+  }
+
+  private clearReconnectTimer(): void {
+    if (!this.reconnectTimer) return
+    clearTimeout(this.reconnectTimer)
+    this.reconnectTimer = null
   }
 
   private handleMessage(raw: unknown): void {
