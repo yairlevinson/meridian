@@ -2,27 +2,31 @@ import { createServer, type Server as HttpServer } from 'http'
 import { resolve } from 'path'
 import { SettingsManager } from '../main/settings/SettingsManager'
 import { VideoManager } from '../main/video/VideoManager'
-import type { MeridianRuntime } from '../main/runtime/MeridianRuntime'
 import { createHttpHandler } from './http/createHttpHandler'
 import { ServerRadarManager } from './operations/ServerRadarManager'
+import type { RadarManagerLike } from './operations/OperationsRpc'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 import { registerServerModules } from './realtime/registerServerModules'
+import { createServerRuntime, type ServerRuntime } from './runtime/ServerRuntime'
 
-export interface MeridianServerOptions {
-  port?: number
-  host?: string
-  staticDir?: string
-  tileFetch?: typeof fetch
-  runtime?: Pick<
-    MeridianRuntime,
+type MeridianServerRuntime = Partial<
+  Pick<
+    ServerRuntime,
     | 'settingsManager'
     | 'videoManager'
     | 'linkManager'
     | 'vehicleManager'
     | 'trackingManager'
     | 'forwarder'
-    | 'radarManager'
   >
+> & { radarManager?: RadarManagerLike }
+
+export interface MeridianServerOptions {
+  port?: number
+  host?: string
+  staticDir?: string
+  tileFetch?: typeof fetch
+  runtime?: MeridianServerRuntime
   settingsManager?: SettingsManager
   videoManager?: VideoManager
 }
@@ -50,8 +54,10 @@ export async function startMeridianServer(
   const vehicleManager = options.runtime?.vehicleManager ?? null
   const trackingManager = options.runtime?.trackingManager ?? null
   const forwarder = options.runtime?.forwarder ?? null
-  const ownsRadarManager = !options.runtime?.radarManager
-  const radarManager = options.runtime?.radarManager ?? new ServerRadarManager(settingsManager)
+  const ownedRadarManager = options.runtime?.radarManager
+    ? null
+    : new ServerRadarManager(settingsManager)
+  const radarManager = options.runtime?.radarManager ?? ownedRadarManager
   if (ownsVideoManager) {
     await videoManager.init()
   }
@@ -93,9 +99,7 @@ export async function startMeridianServer(
       disposeVideoWebSocket()
       disposeRealtimeUpgrade()
       await realtime.close()
-      if (ownsRadarManager) {
-        radarManager.destroy()
-      }
+      ownedRadarManager?.destroy()
       if (ownsVideoManager) {
         videoManager.destroy()
       }
@@ -109,16 +113,35 @@ export async function startMeridianServer(
   }
 }
 
-if (require.main === module) {
+async function startServerCli(): Promise<void> {
   const port = Number(process.env.MERIDIAN_SERVER_PORT ?? 8080)
   const host = process.env.MERIDIAN_SERVER_HOST ?? '127.0.0.1'
   const staticDir = process.env.MERIDIAN_STATIC_DIR ?? resolve(__dirname, '../renderer')
-  startMeridianServer({ port, host, staticDir })
-    .then((handle) => {
-      console.log(`Meridian server listening on ${handle.url}`)
-    })
-    .catch((err) => {
-      console.error(err)
-      process.exit(1)
-    })
+
+  const runtime = await createServerRuntime({
+    userDataPath: process.env.MERIDIAN_USER_DATA_DIR,
+    udpPort: Number(process.env.GC_UDP_PORT ?? 14550),
+    tcpLinks: process.env.GC_TCP_LINKS
+  })
+  const handle = await startMeridianServer({ port, host, staticDir, runtime })
+
+  const shutdown = async (): Promise<void> => {
+    await handle.close()
+    runtime.dispose()
+  }
+  process.once('SIGINT', () => {
+    void shutdown().finally(() => process.exit(0))
+  })
+  process.once('SIGTERM', () => {
+    void shutdown().finally(() => process.exit(0))
+  })
+
+  console.log(`Meridian server listening on ${handle.url}`)
+}
+
+if (require.main === module) {
+  startServerCli().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
 }

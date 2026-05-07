@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events'
 import type { VehicleManager } from '../vehicle/VehicleManager'
-import type { RadarProxy } from '../radar/RadarProxy'
 import type { SettingsManager } from '../settings/SettingsManager'
 import type { RadarState, RadarTrack } from '@shared/ipc/RadarTypes'
 import { isVehicleFlying } from '@shared/ipc/vehicleStatus'
@@ -23,6 +22,10 @@ export interface TrackingEngagementLostPayload {
   vehicleId: number
   trackId: number
   reason: TrackingLostReason
+}
+
+export type TrackingRadarSource = Pick<EventEmitter, 'on' | 'removeListener'> & {
+  getState: () => RadarState
 }
 
 interface Engagement {
@@ -73,7 +76,7 @@ function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number)
  */
 export class TargetTrackingManager extends EventEmitter {
   private _vehicleManager: VehicleManager
-  private _radarProxy: RadarProxy
+  private _radarProxy: TrackingRadarSource
   private _settings: SettingsManager
   private _engagements = new Map<number, Engagement>()
   private _latestHostileTracks = new Map<number, RadarTrack>()
@@ -99,7 +102,11 @@ export class TargetTrackingManager extends EventEmitter {
     }
   }
 
-  constructor(vehicleManager: VehicleManager, radarProxy: RadarProxy, settings: SettingsManager) {
+  constructor(
+    vehicleManager: VehicleManager,
+    radarProxy: TrackingRadarSource,
+    settings: SettingsManager
+  ) {
     super()
     this._vehicleManager = vehicleManager
     this._radarProxy = radarProxy

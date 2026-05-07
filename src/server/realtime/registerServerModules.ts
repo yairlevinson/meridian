@@ -7,7 +7,10 @@ import type { AppSettings } from '@shared/ipc/AppSettings'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
 import type { SettingsManager } from '../../main/settings/SettingsManager'
 import type { VideoManager } from '../../main/video/VideoManager'
-import type { MeridianRuntime } from '../../main/runtime/MeridianRuntime'
+import type { LinkManager } from '../../main/links/LinkManager'
+import type { MavlinkForwarder } from '../../main/forwarding/MavlinkForwarder'
+import type { TargetTrackingManager } from '../../main/tracking/TargetTrackingManager'
+import type { VehicleManager } from '../../main/vehicle/VehicleManager'
 import { VehicleTelemetryPublisher } from '../../main/vehicle/VehicleTelemetryPublisher'
 import { registerCameraRpc } from '../camera/CameraRpc'
 import { registerKmlRpc } from '../maps/KmlRpc'
@@ -25,10 +28,10 @@ export interface ServerModuleManagers {
   realtime: RpcRealtimeServer
   settingsManager: SettingsManager
   videoManager: VideoManager
-  linkManager: MeridianRuntime['linkManager'] | null
-  vehicleManager: MeridianRuntime['vehicleManager'] | null
-  trackingManager: MeridianRuntime['trackingManager'] | null
-  forwarder: MeridianRuntime['forwarder'] | null
+  linkManager: LinkManager | null
+  vehicleManager: VehicleManager | null
+  trackingManager: TargetTrackingManager | null
+  forwarder: MavlinkForwarder | null
   radarManager: RadarManagerLike | null
 }
 
