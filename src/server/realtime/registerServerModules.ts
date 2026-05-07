@@ -93,26 +93,23 @@ export function registerServerModules({
   ]
 
   let vehicleTelemetryPublisher: VehicleTelemetryPublisher | null = null
-  const vehicleStatusTextListeners = new Map<
-    number,
-    (payload: { severity: number; text: string }) => void
-  >()
+  const vehicleStatusTextDisposers = new Map<number, () => void>()
   const onVehicleAdded = (vehicleId: number): void => {
     realtime.emitEvent('vehicle', 'added', { vehicleId })
     const vehicle = vehicleManager?.getVehicle(vehicleId)
-    if (!vehicle || vehicleStatusTextListeners.has(vehicleId)) return
+    if (!vehicle || vehicleStatusTextDisposers.has(vehicleId)) return
     const onStatusText = (payload: { severity: number; text: string }): void => {
       realtime.emitEvent('vehicle', 'statusText', { vehicleId, ...payload })
     }
-    vehicleStatusTextListeners.set(vehicleId, onStatusText)
     vehicle.on('statusText', onStatusText)
+    vehicleStatusTextDisposers.set(vehicleId, () => {
+      vehicle.removeListener('statusText', onStatusText)
+    })
   }
   const onVehicleRemoved = (vehicleId: number): void => {
     realtime.emitEvent('vehicle', 'removed', { vehicleId })
-    const listener = vehicleStatusTextListeners.get(vehicleId)
-    const vehicle = vehicleManager?.getVehicle(vehicleId)
-    if (listener && vehicle) vehicle.removeListener('statusText', listener)
-    vehicleStatusTextListeners.delete(vehicleId)
+    vehicleStatusTextDisposers.get(vehicleId)?.()
+    vehicleStatusTextDisposers.delete(vehicleId)
   }
   if (vehicleManager) {
     vehicleManager.on('vehicleAdded', onVehicleAdded)
@@ -133,10 +130,8 @@ export function registerServerModules({
     for (const dispose of disposers) dispose()
     vehicleManager?.removeListener('vehicleAdded', onVehicleAdded)
     vehicleManager?.removeListener('vehicleRemoved', onVehicleRemoved)
-    for (const [vehicleId, listener] of vehicleStatusTextListeners) {
-      vehicleManager?.getVehicle(vehicleId)?.removeListener('statusText', listener)
-    }
-    vehicleStatusTextListeners.clear()
+    for (const dispose of vehicleStatusTextDisposers.values()) dispose()
+    vehicleStatusTextDisposers.clear()
     vehicleTelemetryPublisher?.dispose()
   }
 }

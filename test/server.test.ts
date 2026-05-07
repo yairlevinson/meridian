@@ -10,6 +10,8 @@ import { VideoManager } from '../src/main/video/VideoManager'
 import { WebSocket } from 'ws'
 import { LinkManager } from '../src/main/links/LinkManager'
 import { MavlinkProtocol } from '../src/main/mavlink/MavlinkProtocol'
+import { RpcRealtimeServer } from '../src/server/realtime/RpcRealtimeServer'
+import { registerServerModules } from '../src/server/realtime/registerServerModules'
 import { EventEmitter } from 'events'
 import type { DecodedMessage } from '../src/main/mavlink/MavlinkChannel'
 import { MissionType, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
@@ -287,15 +289,20 @@ class FakeMissionManager extends EventEmitter {
 
 class FakeVehicleManager extends EventEmitter {
   vehicle = new FakeVehicle()
-  vehicleCount = 1
+  vehicleActive = true
   onRawMessage?: (msg: DecodedMessage) => void
 
   getAllVehicles(): FakeVehicle[] {
-    return [this.vehicle]
+    return this.vehicleActive ? [this.vehicle] : []
   }
 
   getVehicle(vehicleId: number): FakeVehicle | undefined {
-    return vehicleId === this.vehicle.sysid ? this.vehicle : undefined
+    return this.vehicleActive && vehicleId === this.vehicle.sysid ? this.vehicle : undefined
+  }
+
+  removeVehicleBeforeEvent(): void {
+    this.vehicleActive = false
+    this.emit('vehicleRemoved', this.vehicle.sysid)
   }
 }
 
@@ -862,6 +869,32 @@ describe('Meridian server skeleton', () => {
       })
     )
     ws.close()
+  })
+
+  it('detaches server vehicle status listeners when lookup is already gone', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    const realtime = new RpcRealtimeServer()
+    const dispose = registerServerModules({
+      realtime,
+      settingsManager: new SettingsManager(),
+      videoManager: new VideoManager(),
+      linkManager: null,
+      vehicleManager,
+      trackingManager: null,
+      forwarder: null,
+      radarManager: null
+    })
+
+    try {
+      expect(vehicleManager.vehicle.listenerCount('statusText')).toBe(1)
+
+      vehicleManager.removeVehicleBeforeEvent()
+
+      expect(vehicleManager.vehicle.listenerCount('statusText')).toBe(0)
+    } finally {
+      dispose()
+      await realtime.close()
+    }
   })
 
   it('registers mission RPC commands and events on the realtime socket', async () => {
