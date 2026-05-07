@@ -17,8 +17,10 @@ import { CameraMode, type CameraState } from '../src/shared-types/ipc/CameraType
 import {
   CalibrationSensor,
   CalibrationStatus,
+  FirmwareUpgradeStatus,
   RcCalStep,
   type CalibrationState,
+  type FirmwareUpgradeState,
   type MagCalProgress,
   type MagCalReport,
   type RcCalibrationState
@@ -35,6 +37,18 @@ class FakeVehicle extends EventEmitter {
   cameraManager = new FakeCameraManager()
   calibrationManager = new FakeCalibrationManager()
   rcCalibrationManager = new FakeRcCalibrationManager()
+  firmwareManager = new FakeFirmwareManager()
+  state = {
+    getDelta: () => ({
+      core: {
+        firmwareVersionMajor: 1,
+        firmwareVersionMinor: 2,
+        firmwareVersionPatch: 3,
+        vehicleType: 2,
+        autopilot: 12
+      }
+    })
+  }
 
   hasDirty(): boolean {
     return this.dirty
@@ -100,6 +114,24 @@ class FakeRcCalibrationManager extends EventEmitter {
 
   async save(): Promise<void> {
     this.calls.push('save')
+  }
+}
+
+class FakeFirmwareManager extends EventEmitter {
+  uploadedFilePath: string | null = null
+  cancelled = false
+  rebooted = false
+
+  async uploadFile(filePath: string): Promise<void> {
+    this.uploadedFilePath = filePath
+  }
+
+  cancel(): void {
+    this.cancelled = true
+  }
+
+  async reboot(): Promise<void> {
+    this.rebooted = true
   }
 }
 
@@ -1012,6 +1044,100 @@ describe('Meridian server skeleton', () => {
       type: 'event',
       topic: 'rcCalibration:stateChanged',
       payload: { vehicleId: 1, state: fakeRcCalibrationState }
+    })
+
+    ws.close()
+  })
+
+  it('registers firmware RPC commands and events on the realtime socket', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    const upgradeState: FirmwareUpgradeState = {
+      status: FirmwareUpgradeStatus.Uploading,
+      progress: 0.5,
+      message: 'Uploading firmware.bin... 50%',
+      fileName: 'firmware.bin',
+      fileSize: 1024
+    }
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager,
+        trackingManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(JSON.stringify({ type: 'subscribe', topics: ['firmware:upgradeStateChanged'] }))
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    ws.send(
+      JSON.stringify({
+        id: 'firmware-board',
+        type: 'command',
+        module: 'firmware',
+        command: 'getBoardInfo',
+        args: [1]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'firmware-upload',
+        type: 'command',
+        module: 'firmware',
+        command: 'uploadFile',
+        args: [1, '/tmp/firmware.bin']
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'firmware-cancel',
+        type: 'command',
+        module: 'firmware',
+        command: 'cancel',
+        args: [1]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'firmware-reboot',
+        type: 'command',
+        module: 'firmware',
+        command: 'reboot',
+        args: [1]
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    vehicleManager.vehicle.firmwareManager.emit('stateChanged', upgradeState)
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    expect(messages).toContainEqual({
+      id: 'firmware-board',
+      type: 'reply',
+      ok: true,
+      result: {
+        firmwareVersionMajor: 1,
+        firmwareVersionMinor: 2,
+        firmwareVersionPatch: 3,
+        vehicleType: 2,
+        autopilot: 12
+      }
+    })
+    for (const id of ['firmware-upload', 'firmware-cancel', 'firmware-reboot']) {
+      expect(messages).toContainEqual({ id, type: 'reply', ok: true })
+    }
+    expect(vehicleManager.vehicle.firmwareManager.uploadedFilePath).toBe('/tmp/firmware.bin')
+    expect(vehicleManager.vehicle.firmwareManager.cancelled).toBe(true)
+    expect(vehicleManager.vehicle.firmwareManager.rebooted).toBe(true)
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'firmware:upgradeStateChanged',
+      payload: { vehicleId: 1, state: upgradeState }
     })
 
     ws.close()
