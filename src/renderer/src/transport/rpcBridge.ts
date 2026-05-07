@@ -9,9 +9,11 @@ import { rpcEventTopic } from '@shared/rpc'
 import { allIpcModules } from '@shared/ipc/modules'
 import type { PlanFile } from '@shared/ipc/MissionTypes'
 import type { PopoutView } from '@shared/ipc/modules/popout'
+import type { KmlImportResult } from '@shared/ipc/OverlayTypes'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
 import { RpcTransport } from './RpcTransport'
 import { openPlanFromBrowserFile, savePlanToBrowserDownload } from './browserPlanFiles'
+import { importKmlFromBrowserFile } from './browserKmlFiles'
 
 export function bindRpcModule<M extends IpcModuleSpec>(
   module: M,
@@ -56,6 +58,10 @@ interface BrowserPopoutBridge {
 interface BrowserMissionPlanBridge {
   missionSavePlan: (planData: PlanFile) => Promise<{ filePath: string } | { cancelled: true }>
   missionOpenPlan: () => Promise<PlanFile | { cancelled: true }>
+}
+
+interface BrowserKmlBridge {
+  kmlImport: () => Promise<KmlImportResult | { cancelled: true }>
 }
 
 function createBrowserPopoutBridge(): BrowserPopoutBridge {
@@ -145,6 +151,11 @@ function decorateBrowserMissionPlanBridge(bridge: BrowserRpcBridgeWithLog): void
   missionBridge.missionOpenPlan = openPlanFromBrowserFile
 }
 
+function decorateBrowserKmlBridge(bridge: BrowserRpcBridgeWithLog): void {
+  const kmlBridge = bridge as BrowserRpcBridgeWithLog & BrowserKmlBridge
+  kmlBridge.kmlImport = importKmlFromBrowserFile
+}
+
 export function createBrowserRpcBridge(
   transport: RpcTransport,
   options: BrowserRpcBridgeOptions = {}
@@ -161,5 +172,6 @@ export function createBrowserRpcBridge(
 
   decorateBrowserVideoBridge(bridge, options.videoWsUrl)
   decorateBrowserMissionPlanBridge(bridge)
+  decorateBrowserKmlBridge(bridge)
   return bridge
 }
