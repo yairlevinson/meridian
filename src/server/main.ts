@@ -13,6 +13,7 @@ import { VideoManager } from '../main/video/VideoManager'
 import type { MeridianRuntime } from '../main/runtime/MeridianRuntime'
 import { VehicleTelemetryPublisher } from '../main/vehicle/VehicleTelemetryPublisher'
 import { registerCameraRpc } from './camera/CameraRpc'
+import { registerKmlRpc } from './maps/KmlRpc'
 import { TileCache, serveMapTile } from './maps/TileProxy'
 import { registerMissionRpc } from './mission/MissionRpc'
 import { registerForwardingRpc, registerRadarRpc } from './operations/OperationsRpc'
@@ -70,6 +71,8 @@ export async function startMeridianServer(
   if (ownsVideoManager) {
     await videoManager.init()
   }
+
+  registerKmlRpc(realtime)
 
   realtime.registerModule(settingsModule, {
     commands: {

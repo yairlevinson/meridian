@@ -405,6 +405,67 @@ describe('Meridian server skeleton', () => {
     expect(response.status).toBe(403)
   })
 
+  it('registers KML importFromPath on the realtime socket', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'meridian-kml-'))
+    const kmlPath = join(tempDir, 'area.kml')
+    await writeFile(
+      kmlPath,
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <kml xmlns="http://www.opengis.net/kml/2.2">
+        <Document>
+          <Placemark>
+            <name>Survey Area</name>
+            <Polygon>
+              <outerBoundaryIs>
+                <LinearRing>
+                  <coordinates>34,32,0 34.1,32,0 34.1,32.1,0 34,32,0</coordinates>
+                </LinearRing>
+              </outerBoundaryIs>
+            </Polygon>
+          </Placemark>
+        </Document>
+      </kml>`
+    )
+    handle = await startMeridianServer()
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const message = new Promise<unknown>((resolve) => {
+      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
+    })
+    ws.send(
+      JSON.stringify({
+        id: 'kml-import-path',
+        type: 'command',
+        module: 'kml',
+        command: 'importFromPath',
+        args: [kmlPath]
+      })
+    )
+
+    await expect(message).resolves.toMatchObject({
+      id: 'kml-import-path',
+      type: 'reply',
+      ok: true,
+      result: {
+        fileName: 'area.kml',
+        geometries: [
+          {
+            name: 'Survey Area',
+            type: 'polygon',
+            vertices: [
+              { lat: 32, lon: 34 },
+              { lat: 32, lon: 34.1 },
+              { lat: 32.1, lon: 34.1 },
+              { lat: 32, lon: 34 }
+            ]
+          }
+        ]
+      }
+    })
+    ws.close()
+  })
+
   it('registers settings RPC commands on the realtime socket', async () => {
     const settingsManager = new SettingsManager({ initial: { mapProvider: 'osm' } })
     handle = await startMeridianServer({ settingsManager })
