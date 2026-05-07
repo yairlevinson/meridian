@@ -21,7 +21,7 @@ type ForwarderLike = Pick<EventEmitter, 'on' | 'off'> & {
   setTargetEnabled: (id: string, enabled: boolean) => void
 }
 
-type RadarManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
+export type RadarManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
   enable: () => void
   disable: () => void
   getState: () => RadarState

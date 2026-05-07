@@ -13,6 +13,7 @@ import { registerCameraRpc } from '../camera/CameraRpc'
 import { registerKmlRpc } from '../maps/KmlRpc'
 import { registerMissionRpc } from '../mission/MissionRpc'
 import { registerForwardingRpc, registerRadarRpc } from '../operations/OperationsRpc'
+import type { RadarManagerLike } from '../operations/OperationsRpc'
 import { registerParameterRpc } from '../parameters/ParameterRpc'
 import { registerCalibrationRpc, registerRcCalibrationRpc } from '../setup/CalibrationRpc'
 import { registerFirmwareRpc } from '../setup/FirmwareRpc'
@@ -28,7 +29,7 @@ export interface ServerModuleManagers {
   vehicleManager: MeridianRuntime['vehicleManager'] | null
   trackingManager: MeridianRuntime['trackingManager'] | null
   forwarder: MeridianRuntime['forwarder'] | null
-  radarManager: MeridianRuntime['radarManager'] | null
+  radarManager: RadarManagerLike | null
 }
 
 export function registerServerModules({

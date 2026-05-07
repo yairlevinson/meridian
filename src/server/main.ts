@@ -4,6 +4,7 @@ import { SettingsManager } from '../main/settings/SettingsManager'
 import { VideoManager } from '../main/video/VideoManager'
 import type { MeridianRuntime } from '../main/runtime/MeridianRuntime'
 import { createHttpHandler } from './http/createHttpHandler'
+import { ServerRadarManager } from './operations/ServerRadarManager'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 import { registerServerModules } from './realtime/registerServerModules'
 
@@ -49,7 +50,8 @@ export async function startMeridianServer(
   const vehicleManager = options.runtime?.vehicleManager ?? null
   const trackingManager = options.runtime?.trackingManager ?? null
   const forwarder = options.runtime?.forwarder ?? null
-  const radarManager = options.runtime?.radarManager ?? null
+  const ownsRadarManager = !options.runtime?.radarManager
+  const radarManager = options.runtime?.radarManager ?? new ServerRadarManager(settingsManager)
   if (ownsVideoManager) {
     await videoManager.init()
   }
@@ -91,6 +93,9 @@ export async function startMeridianServer(
       disposeVideoWebSocket()
       disposeRealtimeUpgrade()
       await realtime.close()
+      if (ownsRadarManager) {
+        radarManager.destroy()
+      }
       if (ownsVideoManager) {
         videoManager.destroy()
       }

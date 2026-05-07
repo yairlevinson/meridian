@@ -524,6 +524,46 @@ describe('Meridian server skeleton', () => {
     client.close()
   })
 
+  it('provides a server-owned radar manager when no runtime radar is supplied', async () => {
+    const settingsManager = new SettingsManager({
+      initial: {
+        radarSimulationEnabled: true,
+        radarSimulationFriendlyCount: 1,
+        radarSimulationHostileCount: 1,
+        radarTrackStaleMs: 5000
+      }
+    })
+    handle = await startMeridianServer({ settingsManager })
+
+    const client = await RealtimeTestClient.connect(handle.port)
+    client.subscribe(['radar:stateChanged'])
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    await expect(client.command('radar-enable-owned', 'radar', 'enable')).resolves.toMatchObject({
+      id: 'radar-enable-owned',
+      type: 'reply',
+      ok: true
+    })
+
+    await expect(
+      client.waitFor((msg) => {
+        const payload = msg['payload'] as RadarState | undefined
+        return msg['topic'] === 'radar:stateChanged' && payload?.enabled === true
+      })
+    ).resolves.toMatchObject({
+      type: 'event',
+      topic: 'radar:stateChanged'
+    })
+
+    await expect(client.command('radar-state-owned', 'radar', 'getState')).resolves.toMatchObject({
+      id: 'radar-state-owned',
+      type: 'reply',
+      ok: true,
+      result: { enabled: true, simulationActive: true }
+    })
+    client.close()
+  })
+
   it('registers video RPC commands on the realtime socket', async () => {
     handle = await startMeridianServer()
 
