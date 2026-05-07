@@ -92,6 +92,10 @@ async function waitForBridge(page: Page): Promise<void> {
   await page.waitForFunction(() => Boolean((window as unknown as { bridge?: unknown }).bridge))
 }
 
+async function waitForServerConnected(page: Page): Promise<void> {
+  await expect(page.getByTestId('server-status')).toHaveText('connected', { timeout: 10_000 })
+}
+
 function collectConsoleWarnings(page: Page): string[] {
   const consoleMessages: string[] = []
   page.on('console', (message) => {
@@ -142,6 +146,7 @@ test.describe('browser/server smoke', () => {
         return bridge.settingsGetAll()
       })
       expect(settings.mapProvider).toBeTruthy()
+      await waitForServerConnected(page)
 
       const links = await page.evaluate(async () => {
         const bridge = (window as any).bridge
@@ -202,6 +207,11 @@ test.describe('browser/server smoke', () => {
         pageB.goto(server.url, { waitUntil: 'domcontentloaded' })
       ])
       await Promise.all([waitForBridge(pageA), waitForBridge(pageB)])
+      await Promise.all([
+        pageA.evaluate(async () => (window as any).bridge.settingsGetAll()),
+        pageB.evaluate(async () => (window as any).bridge.settingsGetAll())
+      ])
+      await Promise.all([waitForServerConnected(pageA), waitForServerConnected(pageB)])
 
       const addedA = waitForVehicleAdded(pageA)
       const addedB = waitForVehicleAdded(pageB)

@@ -256,6 +256,28 @@ describe('browser RPC bridge transport integration', () => {
     await fixture.close()
   })
 
+  it('publishes connection status transitions', async () => {
+    const fixture = await startRealtimeFixture()
+    fixture.realtime.registerModule(fakeModule, {
+      commands: {
+        getValue: async (id) => `value:${id}`
+      }
+    })
+    const transport = new RpcTransport({
+      url: fixture.url,
+      WebSocketCtor: WebSocket as unknown as typeof globalThis.WebSocket
+    })
+    const statuses: string[] = []
+    transport.onStatusChange((status) => statuses.push(status))
+
+    await transport.command('fake', 'getValue', [1])
+
+    expect(statuses).toEqual(expect.arrayContaining(['disconnected', 'connecting', 'connected']))
+    transport.close()
+    expect(statuses).toContain('closed')
+    await fixture.close()
+  })
+
   it('reconnects and resubscribes event-only clients', async () => {
     const fixture = await startRealtimeFixture()
     const transport = new RpcTransport({
@@ -264,6 +286,8 @@ describe('browser RPC bridge transport integration', () => {
       reconnectMaxDelayMs: 25,
       WebSocketCtor: WebSocket as unknown as typeof globalThis.WebSocket
     })
+    const statuses: string[] = []
+    transport.onStatusChange((status) => statuses.push(status))
     const bridge = bindRpcModule(fakeModule, transport)
 
     let resolveSecondEvent: ((payload: unknown) => void) | null = null
@@ -281,6 +305,7 @@ describe('browser RPC bridge transport integration', () => {
     await expect(firstEvent).resolves.toEqual({ id: 1 })
 
     await fixture.close()
+    await expect.poll(() => statuses.includes('reconnecting'), { timeout: 1000 }).toBe(true)
     const restarted = await startRealtimeFixture(fixture.port)
     const interval = setInterval(() => {
       restarted.realtime.emitEvent('fake', 'changed', { id: 2 })

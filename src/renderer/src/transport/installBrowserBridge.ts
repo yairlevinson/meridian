@@ -1,5 +1,6 @@
 import { RpcTransport } from './RpcTransport'
 import { createBrowserRpcBridge, type BrowserRpcBridgeWithLog } from './rpcBridge'
+import { useConnectionStore } from '../store/connectionStore'
 
 export interface BrowserBridgeInstallOptions {
   serverUrl?: string
@@ -23,6 +24,7 @@ function markBrowserServerMode(serverUrl: string): void {
     __MERIDIAN_BROWSER_SERVER__: true,
     __MERIDIAN_SERVER_URL__: serverUrl
   })
+  useConnectionStore.getState().setBrowserServerMode(serverUrl)
 }
 
 export function realtimeUrlFromServerUrl(serverUrl: string, realtimePath = '/realtime'): string {
@@ -57,6 +59,9 @@ export function videoWebSocketUrlFromServerUrl(
 export function installBrowserRpcBridge(
   options: BrowserBridgeInstallOptions = {}
 ): BrowserBridgeInstallResult {
+  const serverUrl = options.serverUrl ?? window.location.origin
+  markBrowserServerMode(serverUrl)
+
   const slot = bridgeSlot()
   if (slot.bridge && !options.replaceExisting) {
     const existing = slot.bridge
@@ -67,11 +72,12 @@ export function installBrowserRpcBridge(
     }
   }
 
-  const serverUrl = options.serverUrl ?? window.location.origin
-  markBrowserServerMode(serverUrl)
   const transport = new RpcTransport({
     url: realtimeUrlFromServerUrl(serverUrl, options.realtimePath),
     WebSocketCtor: options.WebSocketCtor
+  })
+  const disposeStatus = transport.onStatusChange((status) => {
+    useConnectionStore.getState().setStatus(status)
   })
   const bridge = createBrowserRpcBridge(transport, {
     videoWsUrl: videoWebSocketUrlFromServerUrl(serverUrl)
@@ -81,6 +87,9 @@ export function installBrowserRpcBridge(
   return {
     bridge,
     transport,
-    close: () => transport.close()
+    close: () => {
+      disposeStatus()
+      transport.close()
+    }
   }
 }

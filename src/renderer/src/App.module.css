@@ -36,3 +36,43 @@
 .spacer {
   flex: 1;
 }
+
+.connectionStatus {
+  align-self: center;
+  margin-right: 10px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.connectionConnected {
+  color: var(--accent-green);
+  border-color: color-mix(in srgb, var(--accent-green), transparent 55%);
+}
+
+.connectionPending {
+  color: var(--accent-yellow);
+  border-color: color-mix(in srgb, var(--accent-yellow), transparent 45%);
+}
+
+.connectionDisconnected {
+  color: var(--accent-red);
+  border-color: color-mix(in srgb, var(--accent-red), transparent 50%);
+}
+
+.viewError {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--accent-red);
+  background: var(--bg-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}

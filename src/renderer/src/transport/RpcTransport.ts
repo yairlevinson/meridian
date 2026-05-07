@@ -15,6 +15,14 @@ interface PendingRequest {
 }
 
 type EventHandler = (payload: unknown) => void
+export type RpcTransportStatus =
+  | 'disconnected'
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'closed'
+
+type StatusHandler = (status: RpcTransportStatus) => void
 
 let nextRequestId = 0
 
@@ -32,6 +40,8 @@ export class RpcTransport {
   private pending = new Map<string, PendingRequest>()
   private eventHandlers = new Map<string, Set<EventHandler>>()
   private subscribedTopics = new Set<string>()
+  private status: RpcTransportStatus = 'disconnected'
+  private statusHandlers = new Set<StatusHandler>()
 
   constructor(options: RpcTransportOptions) {
     this.url = options.url
@@ -62,6 +72,18 @@ export class RpcTransport {
       this.pending.set(id, { resolve, reject, timer })
       this.send(message)
     })
+  }
+
+  getStatus(): RpcTransportStatus {
+    return this.status
+  }
+
+  onStatusChange(handler: StatusHandler): () => void {
+    this.statusHandlers.add(handler)
+    handler(this.status)
+    return () => {
+      this.statusHandlers.delete(handler)
+    }
   }
 
   on(topic: string, handler: EventHandler): () => void {
@@ -107,12 +129,14 @@ export class RpcTransport {
     this.socket?.close()
     this.socket = null
     this.connectPromise = null
+    this.setStatus('closed')
   }
 
   private connect(): Promise<void> {
     this.closed = false
     if (this.socket?.readyState === WebSocket.OPEN) return Promise.resolve()
     if (this.connectPromise) return this.connectPromise
+    this.setStatus(this.status === 'reconnecting' ? 'reconnecting' : 'connecting')
 
     this.connectPromise = new Promise((resolve, reject) => {
       const socket = new this.WebSocketCtor(this.url)
@@ -122,6 +146,7 @@ export class RpcTransport {
       socket.onopen = () => {
         settled = true
         this.reconnectDelayMs = this.reconnectInitialDelayMs
+        this.setStatus('connected')
         for (const topic of this.subscribedTopics) {
           this.send({ type: 'subscribe', topics: [topic] })
         }
@@ -133,6 +158,7 @@ export class RpcTransport {
       socket.onerror = () => {
         if (!settled) {
           settled = true
+          this.setStatus('disconnected')
           reject(new Error(`RPC WebSocket error: ${this.url}`))
         }
       }
@@ -143,6 +169,7 @@ export class RpcTransport {
         this.connectPromise = null
         if (wasConnecting) {
           settled = true
+          this.setStatus('disconnected')
           reject(new Error(`RPC WebSocket closed before connecting: ${this.url}`))
         }
         for (const [id, pending] of this.pending) {
@@ -150,22 +177,24 @@ export class RpcTransport {
           pending.reject(new Error(`RPC transport disconnected with pending request: ${id}`))
         }
         this.pending.clear()
-        this.scheduleReconnect()
+        if (!this.scheduleReconnect()) this.setStatus(this.closed ? 'closed' : 'disconnected')
       }
     })
 
     return this.connectPromise
   }
 
-  private scheduleReconnect(): void {
-    if (this.closed || this.reconnectTimer || this.subscribedTopics.size === 0) return
+  private scheduleReconnect(): boolean {
+    if (this.closed || this.reconnectTimer || this.subscribedTopics.size === 0) return false
 
     const delayMs = this.reconnectDelayMs
     this.reconnectDelayMs = Math.min(this.reconnectDelayMs * 2, this.reconnectMaxDelayMs)
+    this.setStatus('reconnecting')
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
       void this.connect().catch(() => this.scheduleReconnect())
     }, delayMs)
+    return true
   }
 
   private clearReconnectTimer(): void {
@@ -202,5 +231,11 @@ export class RpcTransport {
       throw new Error('RPC transport is not connected')
     }
     this.socket.send(JSON.stringify(message))
+  }
+
+  private setStatus(status: RpcTransportStatus): void {
+    if (this.status === status) return
+    this.status = status
+    for (const handler of this.statusHandlers) handler(status)
   }
 }

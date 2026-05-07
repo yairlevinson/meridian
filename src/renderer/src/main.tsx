@@ -5,9 +5,11 @@ import { createRoot } from 'react-dom/client'
 import { installBrowserRpcBridge } from './transport/installBrowserBridge'
 
 async function bootstrap(): Promise<void> {
-  if (!window.bridge) {
+  const isElectron = navigator.userAgent.includes('Electron')
+  if (!window.bridge || !isElectron) {
     installBrowserRpcBridge({
-      serverUrl: import.meta.env.VITE_MERIDIAN_SERVER_URL || window.location.origin
+      serverUrl: import.meta.env.VITE_MERIDIAN_SERVER_URL || window.location.origin,
+      replaceExisting: !isElectron
     })
   }
 

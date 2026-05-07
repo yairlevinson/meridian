@@ -1,12 +1,33 @@
-import { useState, useEffect, useRef } from 'react'
+import { Component, useState, useEffect, useRef, type ReactNode } from 'react'
 import { FlyView } from './flyview/FlyView'
 import { PlanView } from './planview/PlanView'
 import { SetupView } from './setupview/SetupView'
 import { PopoutView } from './flyview/PopoutView'
 import { StatusIcons } from './flyview/StatusIcons'
+import { useConnectionStore } from './store/connectionStore'
 import styles from './App.module.css'
 
 type ViewMode = 'fly' | 'plan' | 'setup'
+
+class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null }
+
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error }
+  }
+
+  render(): ReactNode {
+    if (this.state.error) {
+      return (
+        <div className={styles.viewError} data-testid="view-error">
+          View unavailable: {this.state.error.message}
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
 
 /**
  * Keeps children mounted but hidden via CSS when inactive.
@@ -42,6 +63,16 @@ function ViewSwitcher({
   view: ViewMode
   setView: (v: ViewMode) => void
 }): React.JSX.Element {
+  const browserServerMode = useConnectionStore((s) => s.browserServerMode)
+  const connectionStatus = useConnectionStore((s) => s.status)
+  const showConnectionStatus = browserServerMode || !navigator.userAgent.includes('Electron')
+  const statusClass =
+    connectionStatus === 'connected'
+      ? styles.connectionConnected
+      : connectionStatus === 'reconnecting' || connectionStatus === 'connecting'
+        ? styles.connectionPending
+        : styles.connectionDisconnected
+
   return (
     <div className={styles.topbar}>
       <button
@@ -63,6 +94,11 @@ function ViewSwitcher({
         <span aria-hidden="true">&#x2699;</span> SETUP
       </button>
       <div className={styles.spacer} />
+      {showConnectionStatus && (
+        <div className={`${styles.connectionStatus} ${statusClass}`} data-testid="server-status">
+          {connectionStatus}
+        </div>
+      )}
       <StatusIcons />
     </div>
   )
@@ -79,11 +115,13 @@ function App(): React.JSX.Element {
   return (
     <div className={styles.root}>
       <ViewSwitcher view={view} setView={setView} />
-      <HiddenWhenInactive active={view === 'fly'}>
-        <FlyView />
-      </HiddenWhenInactive>
-      {view === 'plan' && <PlanView />}
-      {view === 'setup' && <SetupView />}
+      <ViewErrorBoundary>
+        <HiddenWhenInactive active={view === 'fly'}>
+          <FlyView />
+        </HiddenWhenInactive>
+        {view === 'plan' && <PlanView />}
+        {view === 'setup' && <SetupView />}
+      </ViewErrorBoundary>
     </div>
   )
 }
