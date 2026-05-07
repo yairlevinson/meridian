@@ -196,6 +196,7 @@ export async function createServerRuntime(
     const link = managedLink ?? rootUdpLink
     if (!link) return
     vehicleManager.getVehicle(sysid)?.addLink(link)
+    linkManager.associateVehicle(link.id, sysid)
     if (streamRequestedFor.has(sysid)) return
     streamRequestedFor.add(sysid)
     requestStreams((buf) => link.writeBytes(buf), sysid, linkId)

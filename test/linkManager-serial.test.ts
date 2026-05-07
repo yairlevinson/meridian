@@ -86,6 +86,25 @@ describe('LinkManager with SerialLink', () => {
     expect(states[0]!.status).toBe(LinkConnectionStatus.Connected)
   })
 
+  it('tracks vehicle ids associated with a link', async () => {
+    const config: SerialLinkConfig = {
+      type: LinkType.Serial,
+      name: 'Test Serial',
+      portName: '/dev/ttyUSB0',
+      baudRate: 57600
+    }
+
+    const link = await linkManager.createLink(config)
+    linkManager.associateVehicle(link.id, 1)
+    linkManager.associateVehicle(link.id, 2)
+    linkManager.associateVehicle(link.id, 2)
+
+    expect(linkManager.getAllStates()[0]!.vehicleIds).toEqual([1, 2])
+
+    linkManager.disassociateVehicle(link.id, 1)
+    expect(linkManager.getAllStates()[0]!.vehicleIds).toEqual([2])
+  })
+
   it('disconnects serial link and frees channel', async () => {
     const config: SerialLinkConfig = {
       type: LinkType.Serial,

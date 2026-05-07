@@ -219,6 +219,7 @@ export async function createMeridianRuntime(
     const link = managedLink ?? rootUdpLink
     if (link) {
       vehicleManager.getVehicle(sysid)?.addLink(link)
+      linkManager.associateVehicle(link.id, sysid)
       if (!streamRequestedFor.has(sysid)) {
         streamRequestedFor.add(sysid)
         requestStreams((buf) => link.writeBytes(buf), sysid, linkId)

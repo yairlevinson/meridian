@@ -39,6 +39,7 @@ const AUTO_CONNECT_BUSY_CYCLES = 60 // ~60s backoff when port is held by another
 
 export class LinkManager extends EventEmitter {
   private links = new Map<string, LinkInterface>()
+  private vehiclesByLink = new Map<string, Set<number>>()
   private protocol: MavlinkProtocol
   private linkCounter = 0
   private autoConnectTimer: ReturnType<typeof setInterval> | null = null
@@ -109,6 +110,32 @@ export class LinkManager extends EventEmitter {
     return link
   }
 
+  associateVehicle(linkId: string, vehicleId: number): void {
+    const link = this.links.get(linkId)
+    if (!link) return
+
+    let vehicleIds = this.vehiclesByLink.get(linkId)
+    if (!vehicleIds) {
+      vehicleIds = new Set<number>()
+      this.vehiclesByLink.set(linkId, vehicleIds)
+    }
+    const sizeBefore = vehicleIds.size
+    vehicleIds.add(vehicleId)
+    if (vehicleIds.size !== sizeBefore) {
+      this.emit('linkStateChanged', link)
+    }
+  }
+
+  disassociateVehicle(linkId: string, vehicleId: number): void {
+    const vehicleIds = this.vehiclesByLink.get(linkId)
+    if (!vehicleIds) return
+
+    const deleted = vehicleIds.delete(vehicleId)
+    if (vehicleIds.size === 0) this.vehiclesByLink.delete(linkId)
+    const link = this.links.get(linkId)
+    if (deleted && link) this.emit('linkStateChanged', link)
+  }
+
   /** Disconnect and remove a link */
   disconnectLink(id: string): void {
     const link = this.links.get(id)
@@ -118,6 +145,7 @@ export class LinkManager extends EventEmitter {
     if (link.mavlinkChannel >= 0) {
       this.protocol.freeChannel(link.mavlinkChannel)
     }
+    this.vehiclesByLink.delete(id)
     this.links.delete(id)
   }
 
@@ -130,7 +158,7 @@ export class LinkManager extends EventEmitter {
         config: link.config,
         status: link.status,
         mavlinkChannel: link.mavlinkChannel,
-        vehicleIds: [],
+        vehicleIds: Array.from(this.vehiclesByLink.get(link.id) ?? []),
         totalReceived: channel?.stats.totalReceived ?? 0,
         totalLoss: channel?.stats.totalLoss ?? 0,
         lossPercent: channel?.stats.lossPercent ?? 0

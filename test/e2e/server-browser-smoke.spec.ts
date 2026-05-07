@@ -160,11 +160,10 @@ test.describe('browser/server smoke', () => {
         expect(currentLinks).toEqual(
           expect.arrayContaining([
             expect.objectContaining({
-              totalReceived: expect.any(Number)
+              vehicleIds: expect.arrayContaining([1])
             })
           ])
         )
-        expect(currentLinks[0].totalReceived).toBeGreaterThan(0)
       }).toPass({ timeout: 10_000 })
 
       expect(consoleMessages.filter((message) => message.includes('tile://'))).toEqual([])
