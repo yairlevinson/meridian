@@ -27,7 +27,7 @@ jobs:
           - os: macos-latest
             script: build:mac
             artifact: mac
-          - os: windows-latest
+          - os: windows-2022
             script: build:win
             artifact: win
           - os: ubuntu-latest
@@ -41,6 +41,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+        env:
+          GYP_MSVS_VERSION: 2022
       - run: npm run ${{ matrix.script }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

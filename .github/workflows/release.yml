@@ -17,7 +17,7 @@ jobs:
           - os: macos-latest
             script: build:mac
             artifact: mac
-          - os: windows-latest
+          - os: windows-2022
             script: build:win
             artifact: win
     runs-on: ${{ matrix.os }}
@@ -30,6 +30,8 @@ jobs:
           cache: npm
 
       - run: npm ci
+        env:
+          GYP_MSVS_VERSION: 2022
 
       - name: Build desktop app
         run: npm run ${{ matrix.script }}
