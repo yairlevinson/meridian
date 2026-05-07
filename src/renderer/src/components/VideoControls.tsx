@@ -12,7 +12,7 @@ const DEFAULT_URIS: Record<VideoSourceType, string> = {
 }
 
 const PLACEHOLDERS: Record<VideoSourceType, string> = {
-  [VideoSourceType.UDP_H264]: 'udp://@:port (listens for incoming video)',
+  [VideoSourceType.UDP_H264]: 'udp://@:port (raw H.264 Annex-B)',
   [VideoSourceType.AV1]: 'udp://@:port or tcp://vehicle-ip:port',
   [VideoSourceType.RTSP]: 'rtsp://vehicle-ip:port/path',
   [VideoSourceType.TCP_MPEGTS]: 'tcp://vehicle-ip:port',
@@ -59,7 +59,7 @@ export function VideoControls(): React.JSX.Element {
           value={sourceType}
           onChange={(e) => handleSourceChange(e.target.value as VideoSourceType)}
         >
-          <option value={VideoSourceType.UDP_H264}>UDP H.264 (listen)</option>
+          <option value={VideoSourceType.UDP_H264}>UDP H.264 raw (listen)</option>
           <option value={VideoSourceType.AV1}>AV1 RTP (UDP) / AV1 TCP</option>
           <option value={VideoSourceType.RTSP}>RTSP (connect)</option>
           <option value={VideoSourceType.TCP_MPEGTS}>TCP MPEG-TS</option>

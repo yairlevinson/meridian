@@ -11,8 +11,8 @@ const SOURCE_OPTIONS: Array<{ value: VideoSourceType; label: string; description
   },
   {
     value: VideoSourceType.UDP_H264,
-    label: 'UDP H.264',
-    description: 'Receive raw H.264 over UDP (most MAVLink vehicles)'
+    label: 'UDP H.264 raw',
+    description: 'Receive raw H.264 Annex-B over UDP'
   },
   {
     value: VideoSourceType.AV1,
@@ -41,7 +41,7 @@ const DEFAULT_URIS: Record<VideoSourceType, string> = {
 
 const PLACEHOLDERS: Record<VideoSourceType, string> = {
   [VideoSourceType.Disabled]: '',
-  [VideoSourceType.UDP_H264]: 'udp://@:port',
+  [VideoSourceType.UDP_H264]: 'udp://@:port (raw H.264 Annex-B)',
   [VideoSourceType.AV1]: 'udp://@:port or tcp://vehicle-ip:port',
   [VideoSourceType.RTSP]: 'rtsp://vehicle-ip:port/path',
   [VideoSourceType.TCP_MPEGTS]: 'tcp://vehicle-ip:port'

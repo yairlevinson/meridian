@@ -181,6 +181,27 @@ python3 bridge.py
 npm run dev
 ```
 
+### Test UDP H.264 Video
+
+Meridian's `UDP H.264` source listens for raw H.264 Annex-B over UDP. In Meridian, choose
+`UDP H.264 raw` and use:
+
+```text
+udp://@:5600
+```
+
+Then generate a local test pattern:
+
+```bash
+ffmpeg -re -f lavfi -i "testsrc2=size=1280x720:rate=30" \
+  -pix_fmt yuv420p -c:v libx264 -preset ultrafast -tune zerolatency \
+  -profile:v baseline -b:v 2500k -g 30 \
+  -x264-params "repeat-headers=1" -an -f h264 \
+  "udp://127.0.0.1:5600?pkt_size=1316"
+```
+
+Use `-f h264`, not `-f mpegts`, for this source. MPEG-TS is a different transport/container.
+
 ### Environment Variables
 
 | Variable                         | Default        | Description                                                              |
@@ -568,12 +589,12 @@ Meridian aims to cover the core functionality of [QGroundControl](https://github
 
 ### Video & Camera
 
-| Feature                       | Status | Notes                                                                                            |
-| ----------------------------- | ------ | ------------------------------------------------------------------------------------------------ |
-| Video Streaming               | ✅     | UDP H.264, AV1 RTP/UDP (WebCodecs) or TCP (ffmpeg), RTSP, TCP MPEG-TS; settings in Setup > Video |
-| Video Recording               | ✅     | MKV, MOV, MP4 formats; compact Record overlay on fly view                                        |
-| MAVLink Camera Protocol       | ✅     | Discovery, photo/video capture, mode switching, storage info                                     |
-| Multiple Simultaneous Streams | ❌     |                                                                                                  |
+| Feature                       | Status | Notes                                                                                                |
+| ----------------------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| Video Streaming               | ✅     | Raw UDP H.264, AV1 RTP/UDP (WebCodecs) or TCP (ffmpeg), RTSP, TCP MPEG-TS; settings in Setup > Video |
+| Video Recording               | ✅     | MKV, MOV, MP4 formats; compact Record overlay on fly view                                            |
+| MAVLink Camera Protocol       | ✅     | Discovery, photo/video capture, mode switching, storage info                                         |
+| Multiple Simultaneous Streams | ❌     |                                                                                                      |
 
 ### Analysis & Logging
 
