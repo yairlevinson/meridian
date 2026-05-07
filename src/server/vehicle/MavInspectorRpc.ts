@@ -1,5 +1,5 @@
 import { mavInspectorModule } from '@shared/ipc/modules/mavInspector'
-import { MavlinkInspector } from '../../main/mavlink/MavlinkInspector'
+import { MavlinkInspector } from '../../runtime/mavlink/MavlinkInspector'
 import { createMavInspectorCommandHandlers } from '../../core/mavlink/MavInspectorCommandHandlers'
 import type { DecodedMessage } from '../../main/mavlink/MavlinkChannel'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'

@@ -1,12 +1,12 @@
 import type { MavLinkData, MavLinkDataConstructor } from 'node-mavlink'
-import type { DecodedMessage } from './MavlinkChannel'
+import type { DecodedMessage } from '../../main/mavlink/MavlinkChannel'
 import type {
   InspectorMessageSummary,
   InspectorFieldValue,
   InspectorSnapshotPayload,
   InspectorFieldsPayload
 } from '@shared/ipc/MavInspectorTypes'
-import { REGISTRY } from './registry'
+import { REGISTRY } from '../../main/mavlink/registry'
 
 interface MessageStats {
   sysid: number
