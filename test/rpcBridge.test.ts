@@ -216,7 +216,7 @@ describe('browser RPC bridge installer', () => {
     const existing = { log: vi.fn() }
     vi.stubGlobal('window', {
       bridge: existing,
-      location: { origin: 'http://127.0.0.1:8080' }
+      location: { origin: 'http://127.0.0.1:8080', search: '' }
     })
 
     const result = installBrowserRpcBridge({
@@ -225,6 +225,42 @@ describe('browser RPC bridge installer', () => {
 
     expect(result.bridge).toBe(existing)
     expect(result.transport).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('persists URL tokens for standalone browser app launches', () => {
+    const storage = new Map<string, string>()
+    vi.stubGlobal('window', {
+      location: { origin: 'http://127.0.0.1:8080', search: '?token=change-me' },
+      dispatchEvent: vi.fn(),
+      localStorage: {
+        getItem: vi.fn((key: string) => storage.get(key) ?? null),
+        setItem: vi.fn((key: string, value: string) => storage.set(key, value))
+      }
+    })
+
+    const first = installBrowserRpcBridge({
+      replaceExisting: true,
+      WebSocketCtor: WebSocket as unknown as typeof globalThis.WebSocket
+    })
+    expect((first.transport as unknown as { url: string }).url).toContain('token=change-me')
+    first.close()
+
+    vi.stubGlobal('window', {
+      location: { origin: 'http://127.0.0.1:8080', search: '' },
+      dispatchEvent: vi.fn(),
+      localStorage: {
+        getItem: vi.fn((key: string) => storage.get(key) ?? null),
+        setItem: vi.fn((key: string, value: string) => storage.set(key, value))
+      }
+    })
+
+    const second = installBrowserRpcBridge({
+      replaceExisting: true,
+      WebSocketCtor: WebSocket as unknown as typeof globalThis.WebSocket
+    })
+    expect((second.transport as unknown as { url: string }).url).toContain('token=change-me')
+    second.close()
     vi.unstubAllGlobals()
   })
 })

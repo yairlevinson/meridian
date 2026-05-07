@@ -140,6 +140,11 @@ Open browser clients with the token in the URL, for example
 `http://server-ip:8080/?token=change-me`. For local development builds, the browser bridge can
 also read `VITE_MERIDIAN_SERVER_TOKEN`.
 
+The served client is installable as a standalone browser app. Open Meridian once with the token in
+the URL, then use the browser's install action, for example Chrome/Edge "Install Meridian" or
+Safari "Add to Dock". Meridian stores the token locally so future standalone launches do not need
+the query string.
+
 To let observer clients subscribe to telemetry and read state without running flight/setup commands,
 set `MERIDIAN_SERVER_READONLY_TOKEN` and open those clients with that token instead.
 

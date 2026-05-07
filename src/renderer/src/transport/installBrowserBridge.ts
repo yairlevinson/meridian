@@ -3,6 +3,8 @@ import { createBrowserRpcBridge, type BrowserRpcBridgeWithLog } from './rpcBridg
 import { useConnectionStore } from '../store/connectionStore'
 import { dispatchBrowserRpcStatus } from './browserRpcEvents'
 
+const ACCESS_TOKEN_STORAGE_KEY = 'meridian-server-token'
+
 export interface BrowserBridgeInstallOptions {
   serverUrl?: string
   realtimePath?: string
@@ -65,12 +67,34 @@ function appendAccessToken(wsUrl: string, accessToken: string | null | undefined
   return url.toString()
 }
 
+function readStoredAccessToken(): string | null {
+  try {
+    return window.localStorage?.getItem(ACCESS_TOKEN_STORAGE_KEY) || null
+  } catch {
+    return null
+  }
+}
+
+function persistAccessToken(accessToken: string | null): void {
+  if (!accessToken) return
+  try {
+    window.localStorage?.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken)
+  } catch {
+    // Ignore unavailable or full localStorage; explicit URL tokens still work.
+  }
+}
+
 export function installBrowserRpcBridge(
   options: BrowserBridgeInstallOptions = {}
 ): BrowserBridgeInstallResult {
   const serverUrl = options.serverUrl ?? window.location.origin
-  const pageToken = new URLSearchParams(window.location.search).get('token')
-  const accessToken = options.accessToken ?? import.meta.env.VITE_MERIDIAN_SERVER_TOKEN ?? pageToken
+  const pageToken = new URLSearchParams(window.location.search ?? '').get('token')
+  const accessToken =
+    options.accessToken ??
+    import.meta.env.VITE_MERIDIAN_SERVER_TOKEN ??
+    pageToken ??
+    readStoredAccessToken()
+  persistAccessToken(pageToken)
   markBrowserServerMode(serverUrl)
 
   const slot = bridgeSlot()
