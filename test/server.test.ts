@@ -28,6 +28,7 @@ import {
   type MagCalReport,
   type RcCalibrationState
 } from '../src/shared-types/ipc/SetupTypes'
+import { RealtimeTestClient } from './helpers/realtimeTestClient'
 
 let handle: MeridianServerHandle | null = null
 let tempDir: string | null = null
@@ -472,28 +473,14 @@ describe('Meridian server skeleton', () => {
     const settingsManager = new SettingsManager({ initial: { mapProvider: 'osm' } })
     handle = await startMeridianServer({ settingsManager })
 
-    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
-    await new Promise<void>((resolve) => ws.once('open', resolve))
-    const message = new Promise<unknown>((resolve) => {
-      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
-    })
-    ws.send(
-      JSON.stringify({
-        id: 'settings-1',
-        type: 'command',
-        module: 'settings',
-        command: 'getAll',
-        args: []
-      })
-    )
-
-    await expect(message).resolves.toMatchObject({
+    const client = await RealtimeTestClient.connect(handle.port)
+    await expect(client.command('settings-1', 'settings', 'getAll')).resolves.toMatchObject({
       id: 'settings-1',
       type: 'reply',
       ok: true,
       result: { mapProvider: 'osm' }
     })
-    ws.close()
+    client.close()
   })
 
   it('can use managers supplied by a runtime-like object', async () => {
@@ -507,28 +494,14 @@ describe('Meridian server skeleton', () => {
       }
     })
 
-    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
-    await new Promise<void>((resolve) => ws.once('open', resolve))
-    const message = new Promise<unknown>((resolve) => {
-      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
-    })
-    ws.send(
-      JSON.stringify({
-        id: 'settings-runtime',
-        type: 'command',
-        module: 'settings',
-        command: 'getAll',
-        args: []
-      })
-    )
-
-    await expect(message).resolves.toMatchObject({
+    const client = await RealtimeTestClient.connect(handle.port)
+    await expect(client.command('settings-runtime', 'settings', 'getAll')).resolves.toMatchObject({
       id: 'settings-runtime',
       type: 'reply',
       ok: true,
       result: { mapProvider: 'bing_satellite' }
     })
-    ws.close()
+    client.close()
     linkManager.disconnectAll()
   })
 
@@ -536,13 +509,10 @@ describe('Meridian server skeleton', () => {
     const settingsManager = new SettingsManager()
     handle = await startMeridianServer({ settingsManager })
 
-    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
-    await new Promise<void>((resolve) => ws.once('open', resolve))
-    ws.send(JSON.stringify({ type: 'subscribe', topics: ['settings:changed'] }))
+    const client = await RealtimeTestClient.connect(handle.port)
+    client.subscribe(['settings:changed'])
     await new Promise<void>((resolve) => setTimeout(resolve, 25))
-    const message = new Promise<unknown>((resolve) => {
-      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
-    })
+    const message = client.waitFor((msg) => msg['topic'] === 'settings:changed')
 
     settingsManager.set('mapProvider', 'google_satellite')
 
@@ -551,28 +521,14 @@ describe('Meridian server skeleton', () => {
       topic: 'settings:changed',
       payload: { key: 'mapProvider', value: 'google_satellite' }
     })
-    ws.close()
+    client.close()
   })
 
   it('registers video RPC commands on the realtime socket', async () => {
     handle = await startMeridianServer()
 
-    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
-    await new Promise<void>((resolve) => ws.once('open', resolve))
-    const message = new Promise<unknown>((resolve) => {
-      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
-    })
-    ws.send(
-      JSON.stringify({
-        id: 'video-1',
-        type: 'command',
-        module: 'video',
-        command: 'getState',
-        args: []
-      })
-    )
-
-    await expect(message).resolves.toMatchObject({
+    const client = await RealtimeTestClient.connect(handle.port)
+    await expect(client.command('video-1', 'video', 'getState')).resolves.toMatchObject({
       id: 'video-1',
       type: 'reply',
       ok: true,
@@ -584,7 +540,7 @@ describe('Meridian server skeleton', () => {
         pipeline: 'ffmpeg'
       }
     })
-    ws.close()
+    client.close()
   })
 
   it('publishes video state change events to realtime subscribers', async () => {
@@ -618,28 +574,14 @@ describe('Meridian server skeleton', () => {
   it('registers links RPC commands on the realtime socket', async () => {
     handle = await startMeridianServer()
 
-    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
-    await new Promise<void>((resolve) => ws.once('open', resolve))
-    const message = new Promise<unknown>((resolve) => {
-      ws.once('message', (data) => resolve(JSON.parse(data.toString())))
-    })
-    ws.send(
-      JSON.stringify({
-        id: 'links-1',
-        type: 'command',
-        module: 'links',
-        command: 'getAll',
-        args: []
-      })
-    )
-
-    await expect(message).resolves.toEqual({
+    const client = await RealtimeTestClient.connect(handle.port)
+    await expect(client.command('links-1', 'links', 'getAll')).resolves.toEqual({
       id: 'links-1',
       type: 'reply',
       ok: true,
       result: []
     })
-    ws.close()
+    client.close()
   })
 
   it('returns a structured error for link creation without a runtime link manager', async () => {
