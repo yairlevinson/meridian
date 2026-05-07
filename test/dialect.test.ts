@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { Px4Dialect, PX4_MODE, px4CustomMode } from '../src/main/vehicle/dialect/Px4Dialect'
-import { ArduPilotDialect } from '../src/main/vehicle/dialect/ArduPilotDialect'
-import { MAV_MODE_FLAG_CUSTOM_MODE_ENABLED } from '../src/main/vehicle/dialect/VehicleDialect'
-import { dialectForAutopilot } from '../src/main/vehicle/dialect'
+import { Px4Dialect, PX4_MODE, px4CustomMode } from '../src/core/vehicle/dialect/Px4Dialect'
+import { ArduPilotDialect } from '../src/core/vehicle/dialect/ArduPilotDialect'
+import { MAV_MODE_FLAG_CUSTOM_MODE_ENABLED } from '../src/core/vehicle/dialect/VehicleDialect'
+import { dialectForAutopilot } from '../src/core/vehicle/dialect'
 
 const px4 = new Px4Dialect()
 const ardu = new ArduPilotDialect()

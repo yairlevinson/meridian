@@ -22,7 +22,7 @@ import type {
   ServoOutputGroup
 } from '@shared/ipc/VehicleState'
 import { DeltaGroup, type IDeltaGroup } from './state/DeltaGroup'
-import { dialectForAutopilot } from './vehicle/dialect'
+import { dialectForAutopilot } from '../core/vehicle/dialect'
 
 export type { VehicleSnapshot, VehicleDelta, VehicleGroupName }
 

@@ -1,5 +1,5 @@
 import type { LinkInterface } from '../main/links/LinkInterface'
-import { dialectForName } from '../main/vehicle/dialect'
+import { dialectForName } from '../core/vehicle/dialect'
 import type { VehicleContext, VehicleSubsystem } from '../main/vehicle/VehicleContext'
 
 /**

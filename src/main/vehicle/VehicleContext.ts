@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import type { LinkInterface } from '../links/LinkInterface'
-import type { VehicleDialect } from './dialect'
+import type { VehicleDialect } from '../../core/vehicle/dialect'
 
 /**
  * Per-vehicle runtime context shared with subsystems.

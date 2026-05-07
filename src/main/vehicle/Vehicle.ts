@@ -22,7 +22,7 @@ import {
   MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
   type ActionStep,
   type VehicleDialect
-} from './dialect'
+} from '../../core/vehicle/dialect'
 import type { VehicleContext, VehicleSubsystem } from './VehicleContext'
 
 const log = createLogger('Vehicle')
