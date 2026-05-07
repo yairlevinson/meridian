@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="156" y1="120" x2="868" y2="904" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#14273a"/>
+      <stop offset="0.48" stop-color="#091521"/>
+      <stop offset="1" stop-color="#061018"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="50%" cy="44%" r="56%">
+      <stop offset="0" stop-color="#2ee6d6" stop-opacity="0.24"/>
+      <stop offset="0.52" stop-color="#2ee6d6" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#2ee6d6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="meridian" x1="260" y1="190" x2="764" y2="834" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#68fff0"/>
+      <stop offset="0.58" stop-color="#28b8ff"/>
+      <stop offset="1" stop-color="#3b6cff"/>
+    </linearGradient>
+    <linearGradient id="route" x1="254" y1="724" x2="770" y2="306" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffcf5c"/>
+      <stop offset="0.48" stop-color="#fff4ca"/>
+      <stop offset="1" stop-color="#ff6b5a"/>
+    </linearGradient>
+    <filter id="softGlow" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="0 0 0 0 0.12  0 0 0 0 0.9  0 0 0 0 0.86  0 0 0 0.72 0"
+      />
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="routeGlow" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feColorMatrix
+        in="blur"
+        type="matrix"
+        values="0 0 0 0 1  0 0 0 0 0.72  0 0 0 0 0.22  0 0 0 0.52 0"
+      />
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="squircle">
+      <rect x="64" y="64" width="896" height="896" rx="214"/>
+    </clipPath>
+  </defs>
+
+  <rect x="64" y="64" width="896" height="896" rx="214" fill="url(#bg)"/>
+  <g clip-path="url(#squircle)">
+    <circle cx="512" cy="474" r="500" fill="url(#halo)"/>
+    <path d="M 112 654 C 260 604 376 606 512 658 C 652 712 780 706 912 626" fill="none" stroke="#2ee6d6" stroke-width="10" opacity="0.1"/>
+    <path d="M 136 732 C 302 670 438 688 574 748 C 704 804 802 786 910 726" fill="none" stroke="#ffffff" stroke-width="8" opacity="0.05"/>
+  </g>
+
+  <g filter="url(#softGlow)">
+    <circle cx="512" cy="512" r="298" fill="none" stroke="url(#meridian)" stroke-width="26" opacity="0.9"/>
+    <ellipse cx="512" cy="512" rx="128" ry="298" fill="none" stroke="url(#meridian)" stroke-width="18" opacity="0.74"/>
+    <ellipse cx="512" cy="512" rx="298" ry="86" fill="none" stroke="url(#meridian)" stroke-width="14" opacity="0.28"/>
+    <path d="M 512 214 L 512 810" stroke="#bffdf7" stroke-width="10" stroke-linecap="round" opacity="0.42"/>
+  </g>
+
+  <g filter="url(#routeGlow)">
+    <path
+      d="M 280 716 L 394 326 L 512 604 L 630 326 L 744 716"
+      fill="none"
+      stroke="#07111a"
+      stroke-width="92"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      opacity="0.52"
+    />
+    <path
+      d="M 280 716 L 394 326 L 512 604 L 630 326 L 744 716"
+      fill="none"
+      stroke="url(#route)"
+      stroke-width="58"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+
+  <g fill="#f8fbff">
+    <circle cx="280" cy="716" r="26"/>
+    <circle cx="394" cy="326" r="26"/>
+    <circle cx="512" cy="604" r="22"/>
+    <circle cx="630" cy="326" r="26"/>
+    <circle cx="744" cy="716" r="26"/>
+  </g>
+
+  <path d="M 512 148 L 536 206 L 512 194 L 488 206 Z" fill="#f8fbff" opacity="0.92"/>
+  <path d="M 512 876 L 488 818 L 512 830 L 536 818 Z" fill="#2ee6d6" opacity="0.55"/>
+</svg>
