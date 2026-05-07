@@ -19,6 +19,7 @@ import { registerParameterRpc } from './parameters/ParameterRpc'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 import { registerCalibrationRpc, registerRcCalibrationRpc } from './setup/CalibrationRpc'
 import { registerFirmwareRpc } from './setup/FirmwareRpc'
+import { registerVehicleToolsRpc } from './vehicle/VehicleToolsRpc'
 import { SerialPort } from 'serialport'
 
 export interface MeridianServerOptions {
@@ -208,6 +209,7 @@ export async function startMeridianServer(
   const disposeCalibrationRpc = registerCalibrationRpc(realtime, vehicleManager)
   const disposeRcCalibrationRpc = registerRcCalibrationRpc(realtime, vehicleManager)
   const disposeFirmwareRpc = registerFirmwareRpc(realtime, vehicleManager)
+  const disposeVehicleToolsRpc = registerVehicleToolsRpc(realtime, vehicleManager)
 
   let vehicleTelemetryPublisher: VehicleTelemetryPublisher | null = null
   const vehicleStatusTextListeners = new Map<
@@ -298,6 +300,7 @@ export async function startMeridianServer(
       disposeCalibrationRpc()
       disposeRcCalibrationRpc()
       disposeFirmwareRpc()
+      disposeVehicleToolsRpc()
       vehicleManager?.removeListener('vehicleAdded', onVehicleAdded)
       vehicleManager?.removeListener('vehicleRemoved', onVehicleRemoved)
       for (const [vehicleId, listener] of vehicleStatusTextListeners) {

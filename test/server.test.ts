@@ -32,6 +32,13 @@ let tempDir: string | null = null
 class FakeVehicle extends EventEmitter {
   sysid = 1
   private dirty = true
+  consoleWrites: string[] = []
+  commandCalls: Array<{
+    command: number
+    vehicleId: number
+    componentId: number
+    params: { p1?: number; p2?: number; p5?: number }
+  }> = []
   missionManager = new FakeMissionManager()
   parameterManager = new FakeParameterManager()
   cameraManager = new FakeCameraManager()
@@ -48,6 +55,24 @@ class FakeVehicle extends EventEmitter {
         autopilot: 12
       }
     })
+  }
+  commandQueue = {
+    sendCommand: (
+      command: number,
+      vehicleId: number,
+      componentId: number,
+      params: { p1?: number; p2?: number; p5?: number }
+    ): void => {
+      this.commandCalls.push({ command, vehicleId, componentId, params })
+    }
+  }
+  actuatorMetadata = {
+    motorFunction: (instance: number): number => 1100 + instance,
+    servoFunction: (instance: number): number => 1200 + instance
+  }
+
+  sendConsoleText(text: string): void {
+    this.consoleWrites.push(text)
   }
 
   hasDirty(): boolean {
@@ -1138,6 +1163,84 @@ describe('Meridian server skeleton', () => {
       type: 'event',
       topic: 'firmware:upgradeStateChanged',
       payload: { vehicleId: 1, state: upgradeState }
+    })
+
+    ws.close()
+  })
+
+  it('registers MAV console and actuator RPC commands on the realtime socket', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager,
+        trackingManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(JSON.stringify({ type: 'subscribe', topics: ['mavConsole:data'] }))
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    ws.send(
+      JSON.stringify({
+        id: 'console-write',
+        type: 'command',
+        module: 'mavConsole',
+        command: 'write',
+        args: [1, 'help']
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'motor-test',
+        type: 'command',
+        module: 'actuator',
+        command: 'motorTest',
+        args: [1, 2, 35, 1]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'servo-test',
+        type: 'command',
+        module: 'actuator',
+        command: 'servoTest',
+        args: [1, 3, 1750]
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    vehicleManager.vehicle.emit('consoleData', { text: 'nsh> help' })
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    expect(messages).toContainEqual({ id: 'console-write', type: 'reply', ok: true })
+    expect(messages).toContainEqual({ id: 'motor-test', type: 'reply', ok: true })
+    expect(messages).toContainEqual({ id: 'servo-test', type: 'reply', ok: true })
+    expect(vehicleManager.vehicle.consoleWrites).toEqual(['help'])
+    expect(vehicleManager.vehicle.commandCalls).toEqual([
+      {
+        command: 310,
+        vehicleId: 1,
+        componentId: 1,
+        params: { p1: 0.35, p2: 1, p5: 1102 }
+      },
+      {
+        command: 310,
+        vehicleId: 1,
+        componentId: 1,
+        params: { p1: 0.5, p2: 1, p5: 1203 }
+      }
+    ])
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'mavConsole:data',
+      payload: { vehicleId: 1, text: 'nsh> help' }
     })
 
     ws.close()
