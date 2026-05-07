@@ -45,6 +45,10 @@ function isLoopbackHost(host: string): boolean {
   return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]'
 }
 
+function isWildcardHost(host: string): boolean {
+  return host === '0.0.0.0' || host === '::' || host === '[::]'
+}
+
 function normalizeOrigin(origin: string): string | null {
   try {
     const url = new URL(origin)
@@ -74,7 +78,7 @@ function createUpgradeAuthorizer({
   allowedOrigins: string[]
 }): (request: IncomingMessage) => boolean {
   const normalizedOrigins = new Set(allowedOrigins.map(normalizeOrigin).filter(Boolean))
-  if (port !== null) {
+  if (port !== null && !isWildcardHost(host)) {
     normalizedOrigins.add(`http://${host}:${port}`)
   }
 

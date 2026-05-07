@@ -406,6 +406,24 @@ describe('Meridian server skeleton', () => {
     client.close()
   })
 
+  it('allows token-authenticated browser origins on wildcard binds by default', async () => {
+    handle = await startMeridianServer({ host: '0.0.0.0', accessToken: 'secret' })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime?token=secret`, {
+      headers: { Origin: 'http://lan-client.local' }
+    })
+    await expect(
+      new Promise<void>((resolve, reject) => {
+        ws.once('open', resolve)
+        ws.once('error', reject)
+        ws.once('unexpected-response', (_req, res) => {
+          reject(new Error(`unexpected response ${res.statusCode}`))
+        })
+      })
+    ).resolves.toBeUndefined()
+    ws.close()
+  })
+
   it('rejects realtime sockets from disallowed origins', async () => {
     handle = await startMeridianServer({
       accessToken: 'secret',
