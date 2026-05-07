@@ -3,16 +3,19 @@ import { MavLinkProtocolV2 } from 'node-mavlink'
 import { common, minimal } from 'mavlink-mappings'
 import { LinkType, type TcpLinkConfig } from '@shared/ipc/LinkState'
 import type { StreamRequest } from '@shared/ipc/geo'
-import { GCS_COMPID, GCS_SYSID } from '../mavlink/constants'
-import { MavlinkForwarder } from '../forwarding/MavlinkForwarder'
-import { LinkManager } from '../links/LinkManager'
-import { UdpLink } from '../links/UdpLink'
-import { createLogger } from '../logger'
-import { MavlinkProtocol } from '../mavlink/MavlinkProtocol'
-import { SettingsManager } from '../settings/SettingsManager'
-import { TargetTrackingManager, type TrackingRadarSource } from '../tracking/TargetTrackingManager'
-import { VehicleManager } from '../vehicle/VehicleManager'
-import { VideoManager } from '../video/VideoManager'
+import { GCS_COMPID, GCS_SYSID } from '../main/mavlink/constants'
+import { MavlinkForwarder } from '../main/forwarding/MavlinkForwarder'
+import { LinkManager } from '../main/links/LinkManager'
+import { UdpLink } from '../main/links/UdpLink'
+import { createLogger } from '../main/logger'
+import { MavlinkProtocol } from '../main/mavlink/MavlinkProtocol'
+import { SettingsManager } from '../main/settings/SettingsManager'
+import {
+  TargetTrackingManager,
+  type TrackingRadarSource
+} from '../main/tracking/TargetTrackingManager'
+import { VehicleManager } from '../main/vehicle/VehicleManager'
+import { VideoManager } from '../main/video/VideoManager'
 
 const log = createLogger('core-runtime')
 

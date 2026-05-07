@@ -12,7 +12,7 @@ import { createVehicleCommandHandlers } from '../../core/vehicle/VehicleCommandH
 import { createSettingsCommandHandlers } from '../../core/settings/SettingsCommandHandlers'
 import { createVideoCommandHandlers } from '../../core/video/VideoCommandHandlers'
 import { createLinksCommandHandlers } from '../../core/links/LinksCommandHandlers'
-import { VehicleTelemetryPublisher } from '../../main/vehicle/VehicleTelemetryPublisher'
+import { VehicleTelemetryPublisher } from '../../runtime/vehicle/VehicleTelemetryPublisher'
 import { registerCameraRpc } from '../camera/CameraRpc'
 import { registerKmlRpc } from '../maps/KmlRpc'
 import { registerMissionRpc } from '../mission/MissionRpc'

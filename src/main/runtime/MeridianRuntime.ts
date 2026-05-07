@@ -1,6 +1,6 @@
 import { UtilityBridge } from '../utility/UtilityBridge'
 import { RadarProxy } from '../radar/RadarProxy'
-import { createCoreRuntime, type CoreRuntime } from './CoreRuntime'
+import { createCoreRuntime, type CoreRuntime } from '../../runtime/CoreRuntime'
 
 export interface MeridianRuntimeOptions {
   userDataPath: string

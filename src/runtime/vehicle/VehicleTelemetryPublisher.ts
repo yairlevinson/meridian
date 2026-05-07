@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
-import type { VehicleManager } from './VehicleManager'
+import type { VehicleManager } from '../../main/vehicle/VehicleManager'
 import type { VehicleDeltaPayload } from '@shared/ipc/VehicleState'
-import { createLogger } from '../logger'
+import { createLogger } from '../../main/logger'
 
 const log = createLogger('VehicleTelemetryPublisher')
 

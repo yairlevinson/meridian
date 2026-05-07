@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { VehicleTelemetryPublisher } from '../src/main/vehicle/VehicleTelemetryPublisher'
+import { VehicleTelemetryPublisher } from '../src/runtime/vehicle/VehicleTelemetryPublisher'
 
 function createVehicle(sysid: number, dirty = true) {
   return {
