@@ -21,6 +21,7 @@ import { registerParameterRpc } from './parameters/ParameterRpc'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 import { registerCalibrationRpc, registerRcCalibrationRpc } from './setup/CalibrationRpc'
 import { registerFirmwareRpc } from './setup/FirmwareRpc'
+import { registerMavInspectorRpc } from './vehicle/MavInspectorRpc'
 import { registerVehicleToolsRpc } from './vehicle/VehicleToolsRpc'
 import { SerialPort } from 'serialport'
 
@@ -221,6 +222,7 @@ export async function startMeridianServer(
   const disposeCalibrationRpc = registerCalibrationRpc(realtime, vehicleManager)
   const disposeRcCalibrationRpc = registerRcCalibrationRpc(realtime, vehicleManager)
   const disposeFirmwareRpc = registerFirmwareRpc(realtime, vehicleManager)
+  const disposeMavInspectorRpc = registerMavInspectorRpc(realtime, vehicleManager)
   const disposeVehicleToolsRpc = registerVehicleToolsRpc(realtime, vehicleManager)
   const disposeForwardingRpc = registerForwardingRpc(realtime, forwarder)
   const disposeRadarRpc = registerRadarRpc(realtime, radarManager)
@@ -314,6 +316,7 @@ export async function startMeridianServer(
       disposeCalibrationRpc()
       disposeRcCalibrationRpc()
       disposeFirmwareRpc()
+      disposeMavInspectorRpc()
       disposeVehicleToolsRpc()
       disposeForwardingRpc()
       disposeRadarRpc()

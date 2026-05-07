@@ -11,6 +11,7 @@ import { WebSocket } from 'ws'
 import { LinkManager } from '../src/main/links/LinkManager'
 import { MavlinkProtocol } from '../src/main/mavlink/MavlinkProtocol'
 import { EventEmitter } from 'events'
+import type { DecodedMessage } from '../src/main/mavlink/MavlinkChannel'
 import { MissionType, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
 import { ParamValueType, type Parameter } from '../src/shared-types/ipc/ParameterTypes'
 import { CameraMode, type CameraState } from '../src/shared-types/ipc/CameraTypes'
@@ -247,6 +248,7 @@ class FakeMissionManager extends EventEmitter {
 class FakeVehicleManager extends EventEmitter {
   vehicle = new FakeVehicle()
   vehicleCount = 1
+  onRawMessage?: (msg: DecodedMessage) => void
 
   getAllVehicles(): FakeVehicle[] {
     return [this.vehicle]
@@ -1356,6 +1358,92 @@ describe('Meridian server skeleton', () => {
       type: 'event',
       topic: 'mavConsole:data',
       payload: { vehicleId: 1, text: 'nsh> help' }
+    })
+
+    ws.close()
+  })
+
+  it('registers MAVLink inspector RPC commands and events on the realtime socket', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager,
+        trackingManager: null as never,
+        forwarder: null as never,
+        radarManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(
+      JSON.stringify({
+        type: 'subscribe',
+        topics: ['mavInspector:snapshot', 'mavInspector:fields']
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    ws.send(
+      JSON.stringify({
+        id: 'inspector-enable',
+        type: 'command',
+        module: 'mavInspector',
+        command: 'enable',
+        args: []
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'inspector-select',
+        type: 'command',
+        module: 'mavInspector',
+        command: 'select',
+        args: [1, 1, 999999]
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    vehicleManager.onRawMessage?.({
+      sysid: 1,
+      compid: 1,
+      msgid: 999999,
+      data: { fooBar: 12 }
+    } as DecodedMessage)
+    await new Promise<void>((resolve) => setTimeout(resolve, 1200))
+
+    expect(messages).toContainEqual({ id: 'inspector-enable', type: 'reply', ok: true })
+    expect(messages).toContainEqual({ id: 'inspector-select', type: 'reply', ok: true })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'mavInspector:snapshot',
+      payload: {
+        messages: [
+          {
+            sysid: 1,
+            compid: 1,
+            msgid: 999999,
+            name: 'MSG_999999',
+            count: 1,
+            rateHz: 0.8
+          }
+        ]
+      }
+    })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'mavInspector:fields',
+      payload: {
+        sysid: 1,
+        compid: 1,
+        msgid: 999999,
+        fields: [{ name: 'foo_bar', value: '12', type: 'number' }]
+      }
     })
 
     ws.close()
