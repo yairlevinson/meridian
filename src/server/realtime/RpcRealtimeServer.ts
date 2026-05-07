@@ -9,14 +9,17 @@ import {
   type RpcModuleImpl,
   type RpcServerMessage
 } from '@shared/rpc'
+import { isReadOnlyRpcCommand } from './readOnlyCommands'
 
 interface RpcClient {
   ws: WebSocket
   subscriptions: Set<string>
+  readOnly: boolean
 }
 
 export interface RealtimeAuthOptions {
   authorizeUpgrade?: (request: IncomingMessage) => boolean
+  isReadOnlyClient?: (request: IncomingMessage) => boolean
 }
 
 export class RpcRealtimeServer {
@@ -25,8 +28,12 @@ export class RpcRealtimeServer {
   private modules = new Map<string, RpcModuleImpl<IpcModuleSpec>>()
 
   constructor(private readonly options: RealtimeAuthOptions = {}) {
-    this.wss.on('connection', (ws) => {
-      const client: RpcClient = { ws, subscriptions: new Set() }
+    this.wss.on('connection', (ws, request: IncomingMessage) => {
+      const client: RpcClient = {
+        ws,
+        subscriptions: new Set(),
+        readOnly: this.options.isReadOnlyClient?.(request) ?? false
+      }
       this.clients.add(client)
 
       ws.on('message', (data) => {
@@ -122,6 +129,15 @@ export class RpcRealtimeServer {
         type: 'reply',
         ok: false,
         error: `Unknown RPC command: ${msg.module}:${msg.command}`
+      })
+      return
+    }
+    if (client.readOnly && !isReadOnlyRpcCommand(msg.module, msg.command)) {
+      this.send(client.ws, {
+        id: msg.id,
+        type: 'reply',
+        ok: false,
+        error: `Read-only RPC client cannot run command: ${msg.module}:${msg.command}`
       })
       return
     }

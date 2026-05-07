@@ -140,6 +140,9 @@ Open browser clients with the token in the URL, for example
 `http://server-ip:8080/?token=change-me`. For local development builds, the browser bridge can
 also read `VITE_MERIDIAN_SERVER_TOKEN`.
 
+To let observer clients subscribe to telemetry and read state without running flight/setup commands,
+set `MERIDIAN_SERVER_READONLY_TOKEN` and open those clients with that token instead.
+
 ### Connect to a Vehicle
 
 #### Option 1: UDP (default)
@@ -180,16 +183,17 @@ npm run dev
 
 ### Environment Variables
 
-| Variable                     | Default        | Description                                                       |
-| ---------------------------- | -------------- | ----------------------------------------------------------------- |
-| `GC_UDP_PORT`                | `14550`        | UDP port to listen for MAVLink                                    |
-| `GC_TCP_LINKS`               | _(empty)_      | Comma-separated `host:port` pairs for TCP SITL connections        |
-| `MERIDIAN_SERVER_HOST`       | `127.0.0.1`    | Host/interface for `npm run dev:server`                           |
-| `MERIDIAN_SERVER_PORT`       | `8080`         | HTTP/WebSocket port for `npm run dev:server`                      |
-| `MERIDIAN_SERVER_TOKEN`      | _(empty)_      | Required when binding off loopback; authorizes browser WebSockets |
-| `MERIDIAN_STATIC_DIR`        | `out/renderer` | Static renderer directory served by the server CLI                |
-| `MERIDIAN_USER_DATA_DIR`     | `~/.meridian`  | Settings storage directory for the server CLI                     |
-| `VITE_MERIDIAN_SERVER_TOKEN` | _(empty)_      | Optional browser build-time token for server WebSocket URLs       |
+| Variable                         | Default        | Description                                                              |
+| -------------------------------- | -------------- | ------------------------------------------------------------------------ |
+| `GC_UDP_PORT`                    | `14550`        | UDP port to listen for MAVLink                                           |
+| `GC_TCP_LINKS`                   | _(empty)_      | Comma-separated `host:port` pairs for TCP SITL connections               |
+| `MERIDIAN_SERVER_HOST`           | `127.0.0.1`    | Host/interface for `npm run dev:server`                                  |
+| `MERIDIAN_SERVER_PORT`           | `8080`         | HTTP/WebSocket port for `npm run dev:server`                             |
+| `MERIDIAN_SERVER_TOKEN`          | _(empty)_      | Required when binding off loopback; authorizes browser WebSockets        |
+| `MERIDIAN_SERVER_READONLY_TOKEN` | _(empty)_      | Optional observer token; allows subscriptions and read-only RPC commands |
+| `MERIDIAN_STATIC_DIR`            | `out/renderer` | Static renderer directory served by the server CLI                       |
+| `MERIDIAN_USER_DATA_DIR`         | `~/.meridian`  | Settings storage directory for the server CLI                            |
+| `VITE_MERIDIAN_SERVER_TOKEN`     | _(empty)_      | Optional browser build-time token for server WebSocket URLs              |
 
 ## Code Walkthrough
 

@@ -27,6 +27,7 @@ export interface MeridianServerOptions {
   staticDir?: string
   tileFetch?: typeof fetch
   accessToken?: string | null
+  readOnlyToken?: string | null
   allowedOrigins?: string[]
   runtime?: MeridianServerRuntime
   settingsManager?: SettingsManager
@@ -70,11 +71,13 @@ function createUpgradeAuthorizer({
   host,
   port,
   accessToken,
+  readOnlyToken,
   allowedOrigins
 }: {
   host: string
   port: number | null
   accessToken: string | null
+  readOnlyToken: string | null
   allowedOrigins: string[]
 }): (request: IncomingMessage) => boolean {
   const normalizedOrigins = new Set(allowedOrigins.map(normalizeOrigin).filter(Boolean))
@@ -92,7 +95,21 @@ function createUpgradeAuthorizer({
     }
 
     if (!accessToken) return true
-    return tokenFromRequest(request) === accessToken
+    const token = tokenFromRequest(request)
+    return token === accessToken || (readOnlyToken !== null && token === readOnlyToken)
+  }
+}
+
+function createReadOnlyClientClassifier({
+  accessToken,
+  readOnlyToken
+}: {
+  accessToken: string | null
+  readOnlyToken: string | null
+}): (request: IncomingMessage) => boolean {
+  return (request) => {
+    const token = tokenFromRequest(request)
+    return Boolean(readOnlyToken && token === readOnlyToken && token !== accessToken)
   }
 }
 
@@ -101,11 +118,14 @@ export async function startMeridianServer(
 ): Promise<MeridianServerHandle> {
   const host = options.host ?? '127.0.0.1'
   const accessToken = options.accessToken ?? process.env.MERIDIAN_SERVER_TOKEN ?? null
+  const readOnlyToken = options.readOnlyToken ?? process.env.MERIDIAN_SERVER_READONLY_TOKEN ?? null
   if (!isLoopbackHost(host) && !accessToken) {
     throw new Error('MERIDIAN_SERVER_TOKEN is required when binding Meridian server off loopback')
   }
   const allowedOrigins = options.allowedOrigins ?? []
-  const realtime = new RpcRealtimeServer()
+  const realtime = new RpcRealtimeServer({
+    isReadOnlyClient: createReadOnlyClientClassifier({ accessToken, readOnlyToken })
+  })
   const staticRoot = options.staticDir ? resolve(options.staticDir) : null
   const tileFetch = options.tileFetch ?? fetch
   const settingsManager =
@@ -150,6 +170,7 @@ export async function startMeridianServer(
     host,
     port,
     accessToken,
+    readOnlyToken,
     allowedOrigins
   })
   const disposeVideoWebSocket = videoManager.attachWebSocketServer(server, '/video/live', {

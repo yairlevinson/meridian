@@ -406,6 +406,42 @@ describe('Meridian server skeleton', () => {
     client.close()
   })
 
+  it('allows read-only realtime clients to observe but not mutate', async () => {
+    const settingsManager = new SettingsManager({ initial: { mapProvider: 'osm' } })
+    handle = await startMeridianServer({
+      settingsManager,
+      accessToken: 'admin-secret',
+      readOnlyToken: 'observer-secret'
+    })
+
+    const client = await RealtimeTestClient.connect(handle.port, { token: 'observer-secret' })
+    client.subscribe(['settings:changed'])
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    await expect(client.command('readonly-get', 'settings', 'getAll')).resolves.toMatchObject({
+      id: 'readonly-get',
+      type: 'reply',
+      ok: true,
+      result: { mapProvider: 'osm' }
+    })
+    await expect(
+      client.command('readonly-set', 'settings', 'set', ['mapProvider', 'google_satellite'])
+    ).resolves.toEqual({
+      id: 'readonly-set',
+      type: 'reply',
+      ok: false,
+      error: 'Read-only RPC client cannot run command: settings:set'
+    })
+
+    settingsManager.set('mapProvider', 'bing_satellite')
+    await expect(client.waitFor((msg) => msg['topic'] === 'settings:changed')).resolves.toEqual({
+      type: 'event',
+      topic: 'settings:changed',
+      payload: { key: 'mapProvider', value: 'bing_satellite' }
+    })
+    client.close()
+  })
+
   it('allows token-authenticated browser origins on wildcard binds by default', async () => {
     handle = await startMeridianServer({ host: '0.0.0.0', accessToken: 'secret' })
 
