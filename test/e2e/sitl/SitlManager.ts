@@ -46,6 +46,7 @@ export class SitlManager {
     const composeFiles = this.resolveComposeFiles()
 
     const env = {
+      ...(profile.env ?? {}),
       ...process.env,
       SITL_IMAGE: profile.dockerImage,
       SITL_GZ_IMAGE: profile.dockerImage,
@@ -70,7 +71,13 @@ export class SitlManager {
     this.running = true
     console.log(`[SitlManager] Container started, waiting for HEARTBEAT...`)
 
-    const result = await waitForHeartbeat('localhost', profile.mavlinkPort, profile.readyTimeoutMs)
+    let result: ReadinessResult
+    try {
+      result = await waitForHeartbeat('localhost', profile.mavlinkPort, profile.readyTimeoutMs)
+    } catch (err) {
+      this.logDiagnostics()
+      throw err
+    }
 
     console.log(`[SitlManager] SITL ready: autopilot=${result.autopilot} type=${result.type}`)
     return result
@@ -109,6 +116,27 @@ export class SitlManager {
       execSync(`docker rm -f ${CONTAINER_NAME}`, { stdio: 'pipe' })
     } catch {
       // Container doesn't exist — that's fine
+    }
+  }
+
+  private logDiagnostics(): void {
+    console.warn('[SitlManager] SITL readiness failed; collecting Docker diagnostics...')
+
+    this.runDiagnosticCommand(`docker ps -a --filter "name=${CONTAINER_NAME}"`)
+    this.runDiagnosticCommand(`docker port ${CONTAINER_NAME}`)
+    this.runDiagnosticCommand(`docker inspect --format "{{json .State.Health}}" ${CONTAINER_NAME}`)
+    this.runDiagnosticCommand(`docker logs --tail 200 ${CONTAINER_NAME}`)
+  }
+
+  private runDiagnosticCommand(command: string): void {
+    try {
+      const output = execSync(command, { stdio: 'pipe', encoding: 'utf8' }).trim()
+      console.warn(`[SitlManager] $ ${command}`)
+      console.warn(output || '(no output)')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.warn(`[SitlManager] $ ${command}`)
+      console.warn(`failed: ${message}`)
     }
   }
 

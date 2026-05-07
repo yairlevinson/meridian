@@ -54,6 +54,9 @@ export const PX4_COPTER: AutopilotProfile = {
   mavlinkPort: 5760,
   containerPort: 5760,
   command: '', // image has its own entrypoint
+  env: {
+    PX4_SIM_MODEL: 'sihsim_quadx'
+  },
   expectedAutopilot: 12, // MAV_AUTOPILOT_PX4
   readyTimeoutMs: 120_000, // ARM emulation can be slow
   modes: {
