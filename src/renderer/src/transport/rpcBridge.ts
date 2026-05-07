@@ -7,9 +7,11 @@ import {
 } from '@shared/ipc/ipcModule'
 import { rpcEventTopic } from '@shared/rpc'
 import { allIpcModules } from '@shared/ipc/modules'
+import type { PlanFile } from '@shared/ipc/MissionTypes'
 import type { PopoutView } from '@shared/ipc/modules/popout'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
 import { RpcTransport } from './RpcTransport'
+import { openPlanFromBrowserFile, savePlanToBrowserDownload } from './browserPlanFiles'
 
 export function bindRpcModule<M extends IpcModuleSpec>(
   module: M,
@@ -49,6 +51,11 @@ interface BrowserPopoutBridge {
   popoutOpen: (view: PopoutView) => Promise<void>
   popoutClose: (view: PopoutView) => Promise<void>
   onPopoutClosed: (cb: (payload: { view: string }) => void) => () => void
+}
+
+interface BrowserMissionPlanBridge {
+  missionSavePlan: (planData: PlanFile) => Promise<{ filePath: string } | { cancelled: true }>
+  missionOpenPlan: () => Promise<PlanFile | { cancelled: true }>
 }
 
 function createBrowserPopoutBridge(): BrowserPopoutBridge {
@@ -132,6 +139,12 @@ function decorateBrowserVideoBridge(
     })
 }
 
+function decorateBrowserMissionPlanBridge(bridge: BrowserRpcBridgeWithLog): void {
+  const missionBridge = bridge as BrowserRpcBridgeWithLog & BrowserMissionPlanBridge
+  missionBridge.missionSavePlan = savePlanToBrowserDownload
+  missionBridge.missionOpenPlan = openPlanFromBrowserFile
+}
+
 export function createBrowserRpcBridge(
   transport: RpcTransport,
   options: BrowserRpcBridgeOptions = {}
@@ -147,5 +160,6 @@ export function createBrowserRpcBridge(
   )
 
   decorateBrowserVideoBridge(bridge, options.videoWsUrl)
+  decorateBrowserMissionPlanBridge(bridge)
   return bridge
 }

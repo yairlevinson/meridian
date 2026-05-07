@@ -1,5 +1,6 @@
 import { useMissionStore } from '../store/missionStore'
 import { useHomePosition } from '../hooks/useVehicle'
+import { useMission } from '../hooks/useMission'
 import { AltitudeMode } from '../../../shared-types/ipc/MissionTypes'
 import { WaypointEditor } from './WaypointEditor'
 import { MissionStatsPanel } from './MissionStatsPanel'
@@ -22,6 +23,7 @@ export function MissionSidebar(): React.JSX.Element {
   const selectWaypoint = useMissionStore((s) => s.selectWaypoint)
   const removeWaypoint = useMissionStore((s) => s.removeWaypoint)
   const home = useHomePosition()
+  const { openPlan } = useMission()
 
   return (
     <div className={styles.root}>
@@ -51,7 +53,7 @@ export function MissionSidebar(): React.JSX.Element {
             <div className={styles.emptyIcon}>+</div>
             <div className={styles.emptyTitle}>No waypoints yet</div>
             <div className={styles.emptyMsg}>Click the map to add your first waypoint</div>
-            <button className={styles.loadBtn} onClick={() => window.bridge?.missionOpenPlan?.()}>
+            <button className={styles.loadBtn} onClick={() => void openPlan()}>
               Load mission file
             </button>
           </div>
