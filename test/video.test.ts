@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { FfmpegProcess } from '../src/main/video/FfmpegProcess'
 import { VideoWebSocketServer } from '../src/main/video/VideoWebSocketServer'
 import { VideoSourceType } from '../src/shared-types/ipc/VideoTypes'
+import { createServer, type Server as HttpServer } from 'http'
 import WebSocket from 'ws'
 
 describe('FfmpegProcess', () => {
@@ -213,9 +214,16 @@ function buildFakeMoofMdat(): Buffer {
 
 describe('VideoWebSocketServer', () => {
   let server: VideoWebSocketServer
+  let httpServer: HttpServer | null = null
 
-  afterEach(() => {
+  afterEach(async () => {
     server?.destroy()
+    if (httpServer) {
+      await new Promise<void>((resolve, reject) => {
+        httpServer!.close((err) => (err ? reject(err) : resolve()))
+      })
+      httpServer = null
+    }
   })
 
   it('starts and reports a port', async () => {
@@ -240,6 +248,55 @@ describe('VideoWebSocketServer', () => {
     await new Promise((r) => setTimeout(r, 100))
     expect(received.length).toBe(1)
     expect(received[0]!.toString()).toBe('hello')
+
+    ws.close()
+    await new Promise((r) => setTimeout(r, 50))
+  })
+
+  it('attaches to an existing HTTP server path', async () => {
+    server = new VideoWebSocketServer()
+    httpServer = createServer()
+    server.attach(httpServer, '/video/live')
+    await new Promise<void>((resolve) => httpServer!.listen(0, '127.0.0.1', resolve))
+    const address = httpServer.address()
+    const port = typeof address === 'object' && address ? address.port : 0
+
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/video/live`)
+    await new Promise<void>((resolve) => ws.on('open', resolve))
+
+    const received: Buffer[] = []
+    ws.on('message', (data) => received.push(data as Buffer))
+
+    server.broadcast(Buffer.from('server-video'))
+
+    await new Promise((r) => setTimeout(r, 100))
+    expect(received).toHaveLength(1)
+    expect(received[0]!.toString()).toBe('server-video')
+
+    ws.close()
+    await new Promise((r) => setTimeout(r, 50))
+  })
+
+  it('sends cached init segment to late clients on attached HTTP path', async () => {
+    server = new VideoWebSocketServer()
+    httpServer = createServer()
+    server.attach(httpServer, '/video/live')
+    await new Promise<void>((resolve) => httpServer!.listen(0, '127.0.0.1', resolve))
+    const address = httpServer.address()
+    const port = typeof address === 'object' && address ? address.port : 0
+
+    server.broadcast(buildFakeInitSegment())
+    server.broadcast(buildFakeMoofMdat())
+    await new Promise((r) => setTimeout(r, 50))
+
+    const received: Buffer[] = []
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/video/live`)
+    ws.on('message', (data) => received.push(data as Buffer))
+    await new Promise<void>((resolve) => ws.on('open', resolve))
+
+    await new Promise((r) => setTimeout(r, 150))
+    expect(received.length).toBeGreaterThanOrEqual(1)
+    expect(received[0]!.toString('ascii', 4, 8)).toBe('ftyp')
 
     ws.close()
     await new Promise((r) => setTimeout(r, 50))

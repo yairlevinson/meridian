@@ -1,6 +1,8 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { EventEmitter } from 'events'
 import fs from 'fs'
+import type { IncomingMessage, Server as HttpServer } from 'http'
+import type { Duplex } from 'stream'
 import { createLogger } from '../logger'
 
 const log = createLogger('VideoWS')
@@ -55,6 +57,7 @@ function findInitSegmentEnd(buf: Buffer): number {
  */
 export class VideoWebSocketServer extends EventEmitter {
   private wss: WebSocketServer | null = null
+  private attachedServers = new Set<WebSocketServer>()
   private clients = new Set<WebSocket>()
   private _port: number | null = null
 
@@ -88,26 +91,28 @@ export class VideoWebSocketServer extends EventEmitter {
         reject(err)
       })
 
-      this.wss.on('connection', (ws) => {
-        this.clients.add(ws)
-        log.log(`client connected (total: ${this.clients.size})`)
-
-        // Send cached init segment so late-joining clients can start decoding
-        if (this.initSegment && ws.readyState === WebSocket.OPEN) {
-          log.log(`sending cached init segment (${this.initSegment.length} bytes)`)
-          ws.send(this.initSegment, { binary: true })
-        }
-
-        ws.on('close', () => {
-          this.clients.delete(ws)
-          log.log(`client disconnected (total: ${this.clients.size})`)
-        })
-
-        ws.on('error', () => {
-          this.clients.delete(ws)
-        })
-      })
+      this.wss.on('connection', (ws) => this.handleConnection(ws))
     })
+  }
+
+  attach(server: HttpServer, path = '/video/live'): () => void {
+    const wss = new WebSocketServer({ noServer: true })
+    const onUpgrade = (request: IncomingMessage, socket: Duplex, head: Buffer): void => {
+      const url = new URL(request.url ?? '/', 'http://127.0.0.1')
+      if (url.pathname !== path) return
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        this.handleConnection(ws)
+      })
+    }
+
+    this.attachedServers.add(wss)
+    server.on('upgrade', onUpgrade)
+
+    return () => {
+      server.off('upgrade', onUpgrade)
+      this.attachedServers.delete(wss)
+      wss.close()
+    }
   }
 
   /** Enable raw mode — skips fMP4 init segment detection (for WebCodecs pipeline). */
@@ -203,11 +208,35 @@ export class VideoWebSocketServer extends EventEmitter {
       this.wss.close()
       this.wss = null
     }
+    for (const wss of this.attachedServers) {
+      wss.close()
+    }
+    this.attachedServers.clear()
     this._port = null
   }
 
   destroy(): void {
     this.stop()
     this.removeAllListeners()
+  }
+
+  private handleConnection(ws: WebSocket): void {
+    this.clients.add(ws)
+    log.log(`client connected (total: ${this.clients.size})`)
+
+    // Send cached init segment so late-joining clients can start decoding
+    if (this.initSegment && ws.readyState === WebSocket.OPEN) {
+      log.log(`sending cached init segment (${this.initSegment.length} bytes)`)
+      ws.send(this.initSegment, { binary: true })
+    }
+
+    ws.on('close', () => {
+      this.clients.delete(ws)
+      log.log(`client disconnected (total: ${this.clients.size})`)
+    })
+
+    ws.on('error', () => {
+      this.clients.delete(ws)
+    })
   }
 }
