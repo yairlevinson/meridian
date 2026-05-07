@@ -32,6 +32,31 @@ The server is the single authority over vehicles and video sources. Clients neve
 
 The existing Electron app can remain as an optional desktop wrapper, but Electron should stop being the architectural boundary. In the target design, Electron is just one possible client shell.
 
+### Current Implementation Status
+
+The `client-server-architecture` branch now has the first working browser/server spine in place:
+
+- Server HTTP + `/realtime` WebSocket RPC exists and can serve the built renderer.
+- Browser bridge generation maps the existing module specs onto the WebSocket RPC transport.
+- Browser bridge reconnects event subscriptions after transport reconnect.
+- Server CLI can start the MAVLink runtime and serve the browser preview.
+- Synthetic vehicle browser/server smoke coverage verifies renderer load, bridge availability, link state, vehicle add, telemetry deltas, and tile URL behavior.
+- Server tile proxy replaces `tile://` in browser mode.
+- Browser clients route video playback through the server `/video/live` endpoint.
+- Radar has a server preview implementation.
+- Link state tracks associated vehicle IDs.
+- Browser popouts are handled locally with browser windows.
+- Browser plan save/open uses browser download/file-picker APIs.
+- Browser KML import uses browser file-picker APIs and shared KML parsing.
+- Browser firmware upload sends file bytes over RPC instead of a client-local path.
+- Runtime-managed video recordings are written under `userData/recordings` with sanitized client-provided names.
+
+Intentional compatibility surfaces still remain:
+
+- Electron keeps native dialogs and desktop shell behavior in the Electron adapter.
+- Server-local path APIs such as KML `importFromPath`, firmware `uploadFile`, log replay paths, and low-level recording paths remain available for tests, server-side workflows, and desktop compatibility.
+- `src/main/ipcBridge.ts` still contains Electron adapter logic; it is no longer the desired architectural boundary, but it remains useful until Electron is fully converted to a shell around the server/client path.
+
 ---
 
 ## 2. Design Principles
@@ -587,24 +612,25 @@ Goal: run the React client in a normal browser.
 
 Tasks:
 
-- Add `src/renderer/src/transport` or `src/client/transport`.
-- Provide `createBrowserBridge({ url })`.
-- Set `window.bridge` or an equivalent injected bridge before stores subscribe.
+- Add `src/renderer/src/transport` or `src/client/transport`. **Done for the current renderer path.**
+- Provide `createBrowserBridge({ url })`. **Done as `createBrowserRpcBridge` plus browser install helper.**
+- Set `window.bridge` or an equivalent injected bridge before stores subscribe. **Done for browser preview mode.**
 - Replace Electron-only assumptions in renderer code.
 - Replace `dialog`-dependent flows with browser-compatible file APIs or server-side file APIs:
-  - Plan save/open.
-  - Recording file path selection.
-  - Firmware file selection.
+  - Plan save/open. **Done.**
+  - KML import. **Done.**
+  - Recording file path selection. **Done by making runtime recording paths server-owned.**
+  - Firmware file selection. **Done with browser file-byte upload.**
   - MAVLink log download.
-- Replace `tile://` map tile URLs with server HTTP tile URLs.
+- Replace `tile://` map tile URLs with server HTTP tile URLs. **Done for browser mode.**
 - Keep MapLibre rendering and map overlays client-side.
 - Add server connection UI state.
 
 Exit criteria:
 
-- `npm run dev:web` opens the client in a browser.
-- Browser client connects to server and receives realtime state.
-- Browser client can use core Fly view with telemetry.
+- `npm run dev:web` opens the client in a browser. **Partially covered by server preview/static serving.**
+- Browser client connects to server and receives realtime state. **Done in smoke coverage.**
+- Browser client can use core Fly view with telemetry. **Done in smoke coverage with synthetic vehicle.**
 
 ### Phase 7: Video Fanout
 
@@ -612,12 +638,12 @@ Goal: support multiple browser clients watching the same server-ingested stream.
 
 Tasks:
 
-- Turn `VideoWebSocketServer` into a stream broadcaster that can serve stable endpoints such as `/video/:streamId/live`.
-- Preserve fMP4 init segment replay for late clients.
-- Preserve raw AV1 chunk protocol.
-- Add stream metadata to `VideoStreamState`.
-- Let each client independently choose whether to subscribe/display video.
-- Ensure recording is server-side and not tied to any one viewer.
+- Turn `VideoWebSocketServer` into a stream broadcaster that can serve stable endpoints such as `/video/:streamId/live`. **Done for the single current live stream endpoint.**
+- Preserve fMP4 init segment replay for late clients. **Existing behavior preserved.**
+- Preserve raw AV1 chunk protocol. **Existing behavior preserved.**
+- Add stream metadata to `VideoStreamState`. **Partially done with browser websocket URL decoration; multi-stream metadata remains.**
+- Let each client independently choose whether to subscribe/display video. **Done at the client display level for the shared live endpoint.**
+- Ensure recording is server-side and not tied to any one viewer. **Done for runtime-managed recordings.**
 - Add tests for late fMP4 client receiving init segment first.
 
 Exit criteria:
@@ -762,14 +788,14 @@ Refactor direction:
 
 Add:
 
-- Server startup and health.
-- WebSocket connect/reconnect.
-- Fake module command/reply.
+- Server startup and health. **Done.**
+- WebSocket connect/reconnect. **Done.**
+- Fake module command/reply. **Done.**
 - Fake telemetry event fanout to multiple clients.
-- Runtime bootstrap without Electron.
+- Runtime bootstrap without Electron. **Done for server runtime construction.**
 - Video broadcaster with two clients.
-- Tile proxy/cache behavior.
-- Browser bridge against a real in-process server.
+- Tile proxy/cache behavior. **Done for proxy behavior; cache remains later.**
+- Browser bridge against a real in-process server. **Done.**
 - Snapshot-then-delta resync after reconnect.
 - Authorization failures for observer clients.
 
@@ -955,3 +981,16 @@ Recommended third PR:
 3. Keep Electron working.
 
 This order keeps the project shippable during the migration and gives us a working client/server spine before moving dangerous flight commands.
+
+### Next Implementation Slices
+
+The first client/server spine is now in place. Recommended next slices:
+
+1. Add explicit browser connection UI state for disconnected/reconnecting/server unavailable.
+2. Add multi-client authority roles and command locks before widening operator workflows.
+3. Add a second-browser smoke/integration test proving both clients receive telemetry and shared state from one server runtime.
+4. Move the remaining vehicle delta publisher logic out of Electron `BrowserWindow` checks and into a transport-neutral publisher used by both server and Electron adapter.
+5. Decide what to do with server-local path APIs:
+   - Keep `importFromPath`, `uploadFile`, and replay file paths as admin/server-local tools.
+   - Hide them from normal browser UI.
+   - Add HTTP download/list endpoints for server-owned artifacts such as video recordings and logs.
