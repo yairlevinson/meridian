@@ -223,6 +223,28 @@ Use `-f h264`, not `-f mpegts`, for this source. MPEG-TS is a different transpor
 
 ### Packaging
 
+Pre-built customer downloads are published on GitHub Releases when a `v*` tag is pushed:
+
+- `meridian-server-<version>-darwin-<arch>.zip` for macOS
+- `meridian-server-<version>-win32-<arch>.zip` for Windows
+
+Unzip the server bundle and run:
+
+```bash
+# macOS
+MERIDIAN_SERVER_TOKEN=change-me ./meridian-server
+```
+
+```bat
+:: Windows
+set MERIDIAN_SERVER_TOKEN=change-me
+meridian-server.cmd
+```
+
+Then open `http://HOST:8080/?token=change-me`. The zip includes the backend, the browser client,
+production dependencies, and a Node runtime, so customers do not need to install Node separately.
+The browser client can also be installed as a standalone app from Chrome/Edge or Safari.
+
 Build a local Meridian Server zip for the current platform:
 
 ```bash
@@ -230,8 +252,8 @@ npm run build:server:bundle
 ```
 
 The bundle is written to `dist/meridian-server-<version>-<platform>-<arch>.zip` and includes a
-Node runtime, the backend, the browser client, and production dependencies. GitHub Actions publishes
-macOS and Windows desktop installers plus server zips when a `v*` tag is pushed.
+Node runtime, the backend, the browser client, and production dependencies. GitHub Actions also
+publishes macOS and Windows desktop installers alongside the server zips.
 
 ## Code Walkthrough
 
