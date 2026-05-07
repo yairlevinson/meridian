@@ -18,6 +18,13 @@ function bridgeSlot(): { bridge?: BrowserRpcBridgeWithLog } {
   return window as unknown as { bridge?: BrowserRpcBridgeWithLog }
 }
 
+function markBrowserServerMode(serverUrl: string): void {
+  Object.assign(window as unknown as Record<string, unknown>, {
+    __MERIDIAN_BROWSER_SERVER__: true,
+    __MERIDIAN_SERVER_URL__: serverUrl
+  })
+}
+
 export function realtimeUrlFromServerUrl(serverUrl: string, realtimePath = '/realtime'): string {
   const url = new URL(serverUrl)
   if (url.protocol === 'http:') url.protocol = 'ws:'
@@ -61,6 +68,7 @@ export function installBrowserRpcBridge(
   }
 
   const serverUrl = options.serverUrl ?? window.location.origin
+  markBrowserServerMode(serverUrl)
   const transport = new RpcTransport({
     url: realtimeUrlFromServerUrl(serverUrl, options.realtimePath),
     WebSocketCtor: options.WebSocketCtor

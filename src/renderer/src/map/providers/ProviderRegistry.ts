@@ -12,11 +12,23 @@ export interface MapProvider {
   tileSize?: number
 }
 
+function isBrowserServerMode(): boolean {
+  return Boolean(
+    typeof window !== 'undefined' &&
+    (window as unknown as { __MERIDIAN_BROWSER_SERVER__?: boolean }).__MERIDIAN_BROWSER_SERVER__
+  )
+}
+
+function tileUrlTemplateForProvider(providerName: string): string {
+  if (isBrowserServerMode()) return `/api/tiles/${providerName}/{z}/{x}/{y}`
+  return `tile://tiles/${providerName}/{z}/{x}/{y}`
+}
+
 /** Build a MapProvider from a shared TileProviderDef */
 function buildProvider(def: (typeof tileProviders)[string]): MapProvider {
   return {
     ...def,
-    tileUrlTemplate: `tile://tiles/${def.name}/{z}/{x}/{y}`
+    tileUrlTemplate: tileUrlTemplateForProvider(def.name)
   }
 }
 

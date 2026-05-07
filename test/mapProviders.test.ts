@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   providers,
   quadkey,
@@ -16,6 +16,17 @@ describe('Map Providers', () => {
 
   it('OSM tile template uses tile:// scheme', () => {
     expect(providers['osm']!.tileUrlTemplate).toBe('tile://tiles/osm/{z}/{x}/{y}')
+  })
+
+  it('uses server tile proxy templates in browser server mode', async () => {
+    vi.resetModules()
+    vi.stubGlobal('window', { __MERIDIAN_BROWSER_SERVER__: true })
+    const registry = await import('../src/renderer/src/map/providers/ProviderRegistry')
+
+    expect(registry.providers['osm']!.tileUrlTemplate).toBe('/api/tiles/osm/{z}/{x}/{y}')
+
+    vi.unstubAllGlobals()
+    vi.resetModules()
   })
 
   it('Google satellite uses mt0-mt3 rotation', () => {
