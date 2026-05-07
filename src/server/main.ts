@@ -68,7 +68,7 @@ export async function startMeridianServer(
   const server = createServer(createHttpHandler({ host, staticRoot, tileFetch }))
   const disposeVideoWebSocket = videoManager.attachWebSocketServer(server, '/video/live')
 
-  realtime.attach(server)
+  const disposeRealtimeUpgrade = realtime.attach(server)
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
@@ -89,6 +89,7 @@ export async function startMeridianServer(
     close: async () => {
       disposeServerModules()
       disposeVideoWebSocket()
+      disposeRealtimeUpgrade()
       await realtime.close()
       if (ownsVideoManager) {
         videoManager.destroy()

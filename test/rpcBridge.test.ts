@@ -198,7 +198,7 @@ async function startRealtimeFixture(port?: number): Promise<{
 }> {
   const server = createServer()
   const realtime = new RpcRealtimeServer()
-  realtime.attach(server)
+  const disposeRealtime = realtime.attach(server)
   await new Promise<void>((resolve) => server.listen(port ?? 0, '127.0.0.1', resolve))
   const address = server.address()
   const boundPort = typeof address === 'object' && address ? address.port : 0
@@ -207,6 +207,7 @@ async function startRealtimeFixture(port?: number): Promise<{
     port: boundPort,
     realtime,
     close: async () => {
+      disposeRealtime()
       await realtime.close()
       await new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()))

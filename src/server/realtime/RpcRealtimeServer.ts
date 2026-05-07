@@ -43,14 +43,19 @@ export class RpcRealtimeServer {
     this.modules.set(module.name, impl as RpcModuleImpl<IpcModuleSpec>)
   }
 
-  attach(server: HttpServer, path = '/realtime'): void {
-    server.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+  attach(server: HttpServer, path = '/realtime'): () => void {
+    const onUpgrade = (request: IncomingMessage, socket: Duplex, head: Buffer): void => {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1')
       if (url.pathname !== path) return
       this.wss.handleUpgrade(request, socket, head, (ws) => {
         this.wss.emit('connection', ws, request)
       })
-    })
+    }
+
+    server.on('upgrade', onUpgrade)
+    return () => {
+      server.off('upgrade', onUpgrade)
+    }
   }
 
   emitEvent(moduleName: string, eventKey: string, payload: unknown): void {
