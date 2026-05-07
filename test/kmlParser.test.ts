@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
-import { parseKmlString, parseCoordinateString, kmlColorToHex } from '../src/main/kml/KmlParser'
+import { parseKmlString, parseCoordinateString, kmlColorToHex } from '../src/core/maps/KmlParser'
 
 describe('kmlColorToHex', () => {
   it('converts KML ABGR color to CSS hex', () => {

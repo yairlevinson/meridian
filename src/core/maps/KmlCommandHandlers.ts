@@ -1,6 +1,6 @@
 import type { RpcCommandImpls } from '@shared/rpc'
 import type { KmlModule } from '@shared/ipc/modules/kml'
-import { parseKmlFile } from '../../main/kml/KmlParser'
+import { parseKmlFile } from './KmlParser'
 
 export interface KmlCommandHandlerOptions {
   pickImportFile?: () => Promise<string | null>

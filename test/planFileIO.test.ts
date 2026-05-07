@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { promises as fs } from 'fs'
-import { validatePlanFile, savePlanFile, loadPlanFile } from '../src/main/mission/PlanFileIO'
+import { validatePlanFile, savePlanFile, loadPlanFile } from '../src/core/mission/PlanFileIO'
 import type { PlanFile } from '../src/shared-types/ipc/MissionTypes'
 
 const makePlan = (): PlanFile => ({
