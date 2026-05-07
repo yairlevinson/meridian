@@ -14,6 +14,15 @@ import { EventEmitter } from 'events'
 import { MissionType, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
 import { ParamValueType, type Parameter } from '../src/shared-types/ipc/ParameterTypes'
 import { CameraMode, type CameraState } from '../src/shared-types/ipc/CameraTypes'
+import {
+  CalibrationSensor,
+  CalibrationStatus,
+  RcCalStep,
+  type CalibrationState,
+  type MagCalProgress,
+  type MagCalReport,
+  type RcCalibrationState
+} from '../src/shared-types/ipc/SetupTypes'
 
 let handle: MeridianServerHandle | null = null
 let tempDir: string | null = null
@@ -24,6 +33,8 @@ class FakeVehicle extends EventEmitter {
   missionManager = new FakeMissionManager()
   parameterManager = new FakeParameterManager()
   cameraManager = new FakeCameraManager()
+  calibrationManager = new FakeCalibrationManager()
+  rcCalibrationManager = new FakeRcCalibrationManager()
 
   hasDirty(): boolean {
     return this.dirty
@@ -32,6 +43,63 @@ class FakeVehicle extends EventEmitter {
   getDelta(): unknown {
     this.dirty = false
     return { core: { sysid: this.sysid, armed: true } }
+  }
+}
+
+const fakeCalibrationState: CalibrationState = {
+  sensor: CalibrationSensor.Gyro,
+  status: CalibrationStatus.Started,
+  message: 'Starting gyro calibration...',
+  messages: ['Starting gyro calibration...'],
+  progress: 0.25,
+  currentOrientationProgress: 0,
+  orientationsCompleted: [],
+  currentOrientation: null
+}
+
+class FakeCalibrationManager extends EventEmitter {
+  state: CalibrationState = fakeCalibrationState
+  startedSensor: CalibrationSensor | null = null
+  cancelled = false
+
+  startCalibration(sensor: CalibrationSensor): void {
+    this.startedSensor = sensor
+  }
+
+  cancelCalibration(): void {
+    this.cancelled = true
+  }
+}
+
+const fakeRcCalibrationState: RcCalibrationState = {
+  step: RcCalStep.Center,
+  channels: {},
+  channelCount: 0,
+  stickMapping: {
+    Roll: null,
+    Pitch: null,
+    Yaw: null,
+    Throttle: null
+  }
+}
+
+class FakeRcCalibrationManager extends EventEmitter {
+  calls: string[] = []
+
+  start(): void {
+    this.calls.push('start')
+  }
+
+  nextStep(): void {
+    this.calls.push('nextStep')
+  }
+
+  cancel(): void {
+    this.calls.push('cancel')
+  }
+
+  async save(): Promise<void> {
+    this.calls.push('save')
   }
 }
 
@@ -793,6 +861,157 @@ describe('Meridian server skeleton', () => {
         imageIndex: 3,
         captureResult: 0
       }
+    })
+
+    ws.close()
+  })
+
+  it('registers calibration RPC commands and events on the realtime socket', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    const magProgress: MagCalProgress = {
+      compassId: 1,
+      completionPct: 45,
+      directionX: 0.1,
+      directionY: 0.2,
+      directionZ: 0.3
+    }
+    const magReport: MagCalReport = {
+      compassId: 1,
+      calStatus: 4,
+      fitness: 0.02,
+      ofsX: 10,
+      ofsY: 11,
+      ofsZ: 12
+    }
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager,
+        trackingManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(
+      JSON.stringify({
+        type: 'subscribe',
+        topics: ['calibration:stateChanged', 'calibration:magProgress', 'calibration:magReport']
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    ws.send(
+      JSON.stringify({
+        id: 'calibration-get',
+        type: 'command',
+        module: 'calibration',
+        command: 'getState',
+        args: [1]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'calibration-start',
+        type: 'command',
+        module: 'calibration',
+        command: 'start',
+        args: [1, CalibrationSensor.Compass]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'calibration-cancel',
+        type: 'command',
+        module: 'calibration',
+        command: 'cancel',
+        args: [1]
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    vehicleManager.vehicle.calibrationManager.emit('stateChanged', fakeCalibrationState)
+    vehicleManager.vehicle.calibrationManager.emit('magProgress', magProgress)
+    vehicleManager.vehicle.calibrationManager.emit('magReport', magReport)
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    expect(messages).toContainEqual({
+      id: 'calibration-get',
+      type: 'reply',
+      ok: true,
+      result: fakeCalibrationState
+    })
+    expect(messages).toContainEqual({ id: 'calibration-start', type: 'reply', ok: true })
+    expect(messages).toContainEqual({ id: 'calibration-cancel', type: 'reply', ok: true })
+    expect(vehicleManager.vehicle.calibrationManager.startedSensor).toBe(CalibrationSensor.Compass)
+    expect(vehicleManager.vehicle.calibrationManager.cancelled).toBe(true)
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'calibration:stateChanged',
+      payload: { vehicleId: 1, state: fakeCalibrationState }
+    })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'calibration:magProgress',
+      payload: { vehicleId: 1, ...magProgress }
+    })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'calibration:magReport',
+      payload: { vehicleId: 1, ...magReport }
+    })
+
+    ws.close()
+  })
+
+  it('registers RC calibration RPC commands and events on the realtime socket', async () => {
+    const vehicleManager = new FakeVehicleManager()
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager,
+        trackingManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(JSON.stringify({ type: 'subscribe', topics: ['rcCalibration:stateChanged'] }))
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    const sendCommand = (id: string, command: string): void => {
+      ws.send(JSON.stringify({ id, type: 'command', module: 'rcCalibration', command, args: [1] }))
+    }
+    sendCommand('rc-start', 'start')
+    sendCommand('rc-next', 'nextStep')
+    sendCommand('rc-cancel', 'cancel')
+    sendCommand('rc-save', 'save')
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    vehicleManager.vehicle.rcCalibrationManager.emit('stateChanged', fakeRcCalibrationState)
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    for (const id of ['rc-start', 'rc-next', 'rc-cancel', 'rc-save']) {
+      expect(messages).toContainEqual({ id, type: 'reply', ok: true })
+    }
+    expect(vehicleManager.vehicle.rcCalibrationManager.calls).toEqual([
+      'start',
+      'nextStep',
+      'cancel',
+      'save'
+    ])
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'rcCalibration:stateChanged',
+      payload: { vehicleId: 1, state: fakeRcCalibrationState }
     })
 
     ws.close()
