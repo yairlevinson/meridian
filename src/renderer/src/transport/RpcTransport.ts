@@ -118,7 +118,7 @@ export class RpcTransport {
       this.eventHandlers.delete(topic)
       this.subscribedTopics.delete(topic)
       if (this.subscribedTopics.size === 0) this.clearReconnectTimer()
-      if (this.socket?.readyState === WebSocket.OPEN) {
+      if (this.socket?.readyState === this.WebSocketCtor.OPEN) {
         this.send({ type: 'unsubscribe', topics: [topic] })
       }
     }
@@ -140,7 +140,7 @@ export class RpcTransport {
 
   private connect(): Promise<void> {
     this.closed = false
-    if (this.socket?.readyState === WebSocket.OPEN) return Promise.resolve()
+    if (this.socket?.readyState === this.WebSocketCtor.OPEN) return Promise.resolve()
     if (this.connectPromise) return this.connectPromise
     this.setStatus(this.status === 'reconnecting' ? 'reconnecting' : 'connecting')
 
@@ -238,7 +238,7 @@ export class RpcTransport {
   }
 
   private send(message: RpcClientMessage): void {
-    if (this.socket?.readyState !== WebSocket.OPEN) {
+    if (this.socket?.readyState !== this.WebSocketCtor.OPEN) {
       throw new Error('RPC transport is not connected')
     }
     this.socket.send(JSON.stringify(message))
