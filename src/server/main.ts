@@ -1,11 +1,9 @@
-import { createServer, type Server as HttpServer, type ServerResponse } from 'http'
-import { readFile, stat } from 'fs/promises'
-import { extname, join, resolve, sep } from 'path'
-import { getMapProviderInfos } from '@shared/ipc/tileProviders'
+import { createServer, type Server as HttpServer } from 'http'
+import { resolve } from 'path'
 import { SettingsManager } from '../main/settings/SettingsManager'
 import { VideoManager } from '../main/video/VideoManager'
 import type { MeridianRuntime } from '../main/runtime/MeridianRuntime'
-import { TileCache, serveMapTile } from './maps/TileProxy'
+import { createHttpHandler } from './http/createHttpHandler'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 import { registerServerModules } from './realtime/registerServerModules'
 
@@ -43,7 +41,6 @@ export async function startMeridianServer(
   const realtime = new RpcRealtimeServer()
   const staticRoot = options.staticDir ? resolve(options.staticDir) : null
   const tileFetch = options.tileFetch ?? fetch
-  const tileCache = new TileCache()
   const settingsManager =
     options.settingsManager ?? options.runtime?.settingsManager ?? new SettingsManager()
   const ownsVideoManager = !options.videoManager && !options.runtime?.videoManager
@@ -68,32 +65,7 @@ export async function startMeridianServer(
     radarManager
   })
 
-  const server = createServer((req, res) => {
-    const url = new URL(req.url ?? '/', `http://${host}`)
-    if (req.method === 'GET' && url.pathname === '/api/health') {
-      res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ ok: true, service: 'meridian-server' }))
-      return
-    }
-
-    if (req.method === 'GET' && url.pathname === '/api/map/providers') {
-      res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ providers: getMapProviderInfos() }))
-      return
-    }
-
-    if (req.method === 'GET' && url.pathname.startsWith('/api/tiles/')) {
-      void serveMapTile(url.pathname, res, tileFetch, tileCache)
-      return
-    }
-
-    if (req.method === 'GET' && staticRoot) {
-      void serveStaticFile(staticRoot, url.pathname, res)
-      return
-    }
-
-    sendJson(res, 404, { error: 'Not found' })
-  })
+  const server = createServer(createHttpHandler({ host, staticRoot, tileFetch }))
 
   realtime.attach(server)
 
@@ -126,60 +98,6 @@ export async function startMeridianServer(
         })
       })
     }
-  }
-}
-
-function sendJson(res: ServerResponse, statusCode: number, body: unknown): void {
-  res.writeHead(statusCode, { 'content-type': 'application/json' })
-  res.end(JSON.stringify(body))
-}
-
-async function serveStaticFile(
-  staticRoot: string,
-  pathname: string,
-  res: ServerResponse
-): Promise<void> {
-  const requestedPath = pathname === '/' ? '/index.html' : pathname
-  const candidate = resolve(join(staticRoot, decodeURIComponent(requestedPath)))
-
-  if (candidate !== staticRoot && !candidate.startsWith(`${staticRoot}${sep}`)) {
-    sendJson(res, 403, { error: 'Forbidden' })
-    return
-  }
-
-  try {
-    const info = await stat(candidate)
-    if (!info.isFile()) {
-      sendJson(res, 404, { error: 'Not found' })
-      return
-    }
-    const body = await readFile(candidate)
-    res.writeHead(200, { 'content-type': contentTypeForPath(candidate) })
-    res.end(body)
-  } catch {
-    sendJson(res, 404, { error: 'Not found' })
-  }
-}
-
-function contentTypeForPath(pathname: string): string {
-  switch (extname(pathname)) {
-    case '.html':
-      return 'text/html; charset=utf-8'
-    case '.js':
-      return 'text/javascript; charset=utf-8'
-    case '.css':
-      return 'text/css; charset=utf-8'
-    case '.json':
-      return 'application/json; charset=utf-8'
-    case '.svg':
-      return 'image/svg+xml'
-    case '.png':
-      return 'image/png'
-    case '.jpg':
-    case '.jpeg':
-      return 'image/jpeg'
-    default:
-      return 'application/octet-stream'
   }
 }
 
