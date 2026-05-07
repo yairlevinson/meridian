@@ -1,6 +1,7 @@
 import { RpcTransport } from './RpcTransport'
 import { createBrowserRpcBridge, type BrowserRpcBridgeWithLog } from './rpcBridge'
 import { useConnectionStore } from '../store/connectionStore'
+import { dispatchBrowserRpcStatus } from './browserRpcEvents'
 
 export interface BrowserBridgeInstallOptions {
   serverUrl?: string
@@ -88,6 +89,7 @@ export function installBrowserRpcBridge(
   })
   const disposeStatus = transport.onStatusChange((status) => {
     useConnectionStore.getState().setStatus(status)
+    dispatchBrowserRpcStatus(status)
   })
   const bridge = createBrowserRpcBridge(transport, {
     videoWsUrl: appendAccessToken(videoWebSocketUrlFromServerUrl(serverUrl), accessToken)

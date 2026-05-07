@@ -144,6 +144,51 @@ describe('browser RPC bridge binding', () => {
   })
 })
 
+describe('browser RPC store resync', () => {
+  it('refreshes video state when the browser RPC connection returns', async () => {
+    vi.resetModules()
+    const target = new EventTarget()
+    const firstState = {
+      sourceType: VideoSourceType.Disabled,
+      uri: '',
+      streaming: false,
+      recording: false,
+      wsPort: null,
+      error: null,
+      pipeline: 'ffmpeg' as const
+    }
+    const reconnectedState = {
+      ...firstState,
+      sourceType: VideoSourceType.RTSP,
+      uri: 'rtsp://camera.local/live',
+      streaming: true
+    }
+    const videoGetState = vi.fn()
+    videoGetState.mockResolvedValueOnce(firstState).mockResolvedValueOnce(reconnectedState)
+    vi.stubGlobal('window', {
+      bridge: {
+        onVideoStateChanged: vi.fn(),
+        videoGetState
+      },
+      addEventListener: target.addEventListener.bind(target),
+      removeEventListener: target.removeEventListener.bind(target),
+      dispatchEvent: target.dispatchEvent.bind(target)
+    })
+
+    const { useVideoStore } = await import('../src/renderer/src/store/videoStore')
+    const { MERIDIAN_RPC_CONNECTED_EVENT } =
+      await import('../src/renderer/src/transport/browserRpcEvents')
+
+    await expect.poll(() => useVideoStore.getState().streamState).toEqual(firstState)
+
+    target.dispatchEvent(new Event(MERIDIAN_RPC_CONNECTED_EVENT))
+
+    await expect.poll(() => useVideoStore.getState().streamState).toEqual(reconnectedState)
+    expect(videoGetState).toHaveBeenCalledTimes(2)
+    vi.unstubAllGlobals()
+  })
+})
+
 describe('browser RPC bridge installer', () => {
   it('builds realtime URLs from server URLs', () => {
     expect(realtimeUrlFromServerUrl('http://localhost:8080')).toBe('ws://localhost:8080/realtime')

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { RadarState } from '../../../shared-types/ipc/RadarTypes'
+import { onBrowserRpcConnected } from '../transport/browserRpcEvents'
 
 export type RadarView = 'radar' | 'map'
 
@@ -45,15 +46,20 @@ export const useRadarStore = create<RadarStore>((set) => ({
   setTrackingNotice: (notice) => set({ trackingNotice: notice })
 }))
 
+function refreshRadarState(): void {
+  window.bridge.radarGetState().then((state) => {
+    if (state) useRadarStore.getState().setState(state)
+  })
+}
+
 // Wire IPC listeners at module load
 if (typeof window !== 'undefined' && window.bridge) {
   setTimeout(() => {
     window.bridge.onRadarStateChanged((state) => {
       useRadarStore.getState().setState(state)
     })
-    window.bridge.radarGetState().then((state) => {
-      if (state) useRadarStore.getState().setState(state)
-    })
+    refreshRadarState()
+    onBrowserRpcConnected(refreshRadarState)
     window.bridge.onVehicleTrackingChanged(({ vehicleId, trackId }) => {
       useRadarStore.getState().setTracked(vehicleId, trackId)
     })

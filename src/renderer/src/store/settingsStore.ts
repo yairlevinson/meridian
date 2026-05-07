@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { DEFAULT_SETTINGS, type AppSettings } from '@shared/ipc/AppSettings'
+import { onBrowserRpcConnected } from '../transport/browserRpcEvents'
 
 interface SettingsStore {
   settings: AppSettings
@@ -25,12 +26,17 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setAll: (settings) => set({ settings })
 }))
 
+function refreshSettings(): void {
+  window.bridge.settingsGetAll().then((all) => {
+    useSettingsStore.getState().setAll(all)
+  })
+}
+
 // Load settings from main process and subscribe to changes
 setTimeout(() => {
   if (typeof window !== 'undefined' && window.bridge) {
-    window.bridge.settingsGetAll().then((all) => {
-      useSettingsStore.getState().setAll(all)
-    })
+    refreshSettings()
+    onBrowserRpcConnected(refreshSettings)
     window.bridge.onSettingsChanged(({ key, value }) => {
       setLocal(key as keyof AppSettings, value as AppSettings[keyof AppSettings])
     })

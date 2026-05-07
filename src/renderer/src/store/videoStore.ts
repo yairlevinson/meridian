@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { VideoStreamState } from '../../../shared-types/ipc/VideoTypes'
+import { onBrowserRpcConnected } from '../transport/browserRpcEvents'
 
 interface VideoStore {
   streamState: VideoStreamState | null
@@ -23,14 +24,18 @@ export const useVideoStore = create<VideoStore>((set) => ({
   setGridLines: (value) => set({ gridLines: value })
 }))
 
+function refreshVideoState(): void {
+  window.bridge.videoGetState().then((state) => {
+    if (state) useVideoStore.getState().setStreamState(state)
+  })
+}
+
 // Wire IPC listener on module load
 if (typeof window !== 'undefined' && window.bridge) {
   window.bridge.onVideoStateChanged((state) => {
     useVideoStore.getState().setStreamState(state)
   })
 
-  // Fetch initial state
-  window.bridge.videoGetState().then((state) => {
-    if (state) useVideoStore.getState().setStreamState(state)
-  })
+  refreshVideoState()
+  onBrowserRpcConnected(refreshVideoState)
 }
