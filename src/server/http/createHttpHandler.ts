@@ -63,7 +63,14 @@ async function serveStaticFile(
   fallbackToIndex: boolean
 ): Promise<void> {
   const requestedPath = pathname === '/' ? '/index.html' : pathname
-  const candidate = resolve(join(staticRoot, decodeURIComponent(requestedPath)))
+  let decodedPath: string
+  try {
+    decodedPath = decodeURIComponent(requestedPath)
+  } catch {
+    sendJson(res, 400, { error: 'Bad request' })
+    return
+  }
+  const candidate = resolve(join(staticRoot, decodedPath))
 
   if (candidate !== staticRoot && !candidate.startsWith(`${staticRoot}${sep}`)) {
     sendJson(res, 403, { error: 'Forbidden' })

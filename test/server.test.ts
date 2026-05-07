@@ -540,6 +540,17 @@ describe('Meridian server skeleton', () => {
     expect(response.status).toBe(403)
   })
 
+  it('rejects malformed static path encoding', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'meridian-server-'))
+    await writeFile(join(tempDir, 'index.html'), '<main>Meridian</main>')
+    handle = await startMeridianServer({ staticDir: tempDir })
+
+    const response = await fetch(`${handle.url}/%E0%A4%A`)
+
+    expect(response.status).toBe(400)
+    await expect(response.json()).resolves.toEqual({ error: 'Bad request' })
+  })
+
   it('registers KML importFromPath on the realtime socket', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'meridian-kml-'))
     const kmlPath = join(tempDir, 'area.kml')
