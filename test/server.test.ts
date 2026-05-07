@@ -14,6 +14,8 @@ import { EventEmitter } from 'events'
 import { MissionType, type MissionItem } from '../src/shared-types/ipc/MissionTypes'
 import { ParamValueType, type Parameter } from '../src/shared-types/ipc/ParameterTypes'
 import { CameraMode, type CameraState } from '../src/shared-types/ipc/CameraTypes'
+import type { ForwardingState } from '../src/shared-types/ipc/ForwardingTypes'
+import type { RadarState } from '../src/shared-types/ipc/RadarTypes'
 import {
   CalibrationSensor,
   CalibrationStatus,
@@ -252,6 +254,58 @@ class FakeVehicleManager extends EventEmitter {
 
   getVehicle(vehicleId: number): FakeVehicle | undefined {
     return vehicleId === this.vehicle.sysid ? this.vehicle : undefined
+  }
+}
+
+class FakeForwarder extends EventEmitter {
+  state: ForwardingState = { enabled: false, targets: [] }
+  addedTarget: { host: string; port: number } | null = null
+  removedTargetId: string | null = null
+  enabled: boolean | null = null
+  targetEnabled: { id: string; enabled: boolean } | null = null
+
+  getState(): ForwardingState {
+    return this.state
+  }
+
+  addTarget(host: string, port: number): string {
+    this.addedTarget = { host, port }
+    return 'fwd-test'
+  }
+
+  removeTarget(id: string): void {
+    this.removedTargetId = id
+  }
+
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled
+  }
+
+  setTargetEnabled(id: string, enabled: boolean): void {
+    this.targetEnabled = { id, enabled }
+  }
+}
+
+class FakeRadarManager extends EventEmitter {
+  state: RadarState = { enabled: false, units: [], tracks: [], simulationActive: false }
+  enabled = false
+  disabled = false
+  simPosition: { lat: number; lon: number } | null = null
+
+  enable(): void {
+    this.enabled = true
+  }
+
+  disable(): void {
+    this.disabled = true
+  }
+
+  getState(): RadarState {
+    return this.state
+  }
+
+  setSimulationPosition(lat: number, lon: number): void {
+    this.simPosition = { lat, lon }
   }
 }
 
@@ -1241,6 +1295,211 @@ describe('Meridian server skeleton', () => {
       type: 'event',
       topic: 'mavConsole:data',
       payload: { vehicleId: 1, text: 'nsh> help' }
+    })
+
+    ws.close()
+  })
+
+  it('registers forwarding RPC commands and events on the realtime socket', async () => {
+    const forwarder = new FakeForwarder()
+    forwarder.state = {
+      enabled: true,
+      targets: [
+        {
+          id: 'fwd-1',
+          host: '127.0.0.1',
+          port: 14550,
+          enabled: true,
+          active: false,
+          bytesForwarded: 0,
+          packetsForwarded: 0,
+          bytesReceived: 0,
+          packetsReceived: 0,
+          lastActivityMs: 0
+        }
+      ]
+    }
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager: new FakeVehicleManager(),
+        trackingManager: null as never,
+        forwarder,
+        radarManager: null as never
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(JSON.stringify({ type: 'subscribe', topics: ['forwarding:stateChanged'] }))
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    ws.send(
+      JSON.stringify({
+        id: 'forwarding-get',
+        type: 'command',
+        module: 'forwarding',
+        command: 'getState',
+        args: []
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'forwarding-add',
+        type: 'command',
+        module: 'forwarding',
+        command: 'addTarget',
+        args: ['192.168.1.10', 14550]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'forwarding-enabled',
+        type: 'command',
+        module: 'forwarding',
+        command: 'setEnabled',
+        args: [true]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'forwarding-target-enabled',
+        type: 'command',
+        module: 'forwarding',
+        command: 'setTargetEnabled',
+        args: ['fwd-1', false]
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'forwarding-remove',
+        type: 'command',
+        module: 'forwarding',
+        command: 'removeTarget',
+        args: ['fwd-1']
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    forwarder.emit('stateChanged', forwarder.state)
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    expect(messages).toContainEqual({
+      id: 'forwarding-get',
+      type: 'reply',
+      ok: true,
+      result: forwarder.state
+    })
+    expect(messages).toContainEqual({
+      id: 'forwarding-add',
+      type: 'reply',
+      ok: true,
+      result: 'fwd-test'
+    })
+    for (const id of ['forwarding-enabled', 'forwarding-target-enabled', 'forwarding-remove']) {
+      expect(messages).toContainEqual({ id, type: 'reply', ok: true })
+    }
+    expect(forwarder.addedTarget).toEqual({ host: '192.168.1.10', port: 14550 })
+    expect(forwarder.enabled).toBe(true)
+    expect(forwarder.targetEnabled).toEqual({ id: 'fwd-1', enabled: false })
+    expect(forwarder.removedTargetId).toBe('fwd-1')
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'forwarding:stateChanged',
+      payload: forwarder.state
+    })
+
+    ws.close()
+  })
+
+  it('registers radar RPC commands and events on the realtime socket', async () => {
+    const radarManager = new FakeRadarManager()
+    radarManager.state = {
+      enabled: true,
+      units: [{ id: 1, lat: 32, lon: 34, alt: 100 }],
+      tracks: [],
+      simulationActive: true
+    }
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager: new FakeVehicleManager(),
+        trackingManager: null as never,
+        forwarder: null as never,
+        radarManager
+      }
+    })
+
+    const ws = new WebSocket(`ws://127.0.0.1:${handle.port}/realtime`)
+    await new Promise<void>((resolve) => ws.once('open', resolve))
+    const messages: unknown[] = []
+    ws.on('message', (data) => messages.push(JSON.parse(data.toString())))
+    ws.send(JSON.stringify({ type: 'subscribe', topics: ['radar:stateChanged'] }))
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    ws.send(
+      JSON.stringify({
+        id: 'radar-get',
+        type: 'command',
+        module: 'radar',
+        command: 'getState',
+        args: []
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'radar-enable',
+        type: 'command',
+        module: 'radar',
+        command: 'enable',
+        args: []
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'radar-disable',
+        type: 'command',
+        module: 'radar',
+        command: 'disable',
+        args: []
+      })
+    )
+    ws.send(
+      JSON.stringify({
+        id: 'radar-position',
+        type: 'command',
+        module: 'radar',
+        command: 'setSimPosition',
+        args: [32.1, 34.2]
+      })
+    )
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    radarManager.emit('stateChanged', radarManager.state)
+    await new Promise<void>((resolve) => setTimeout(resolve, 25))
+
+    expect(messages).toContainEqual({
+      id: 'radar-get',
+      type: 'reply',
+      ok: true,
+      result: radarManager.state
+    })
+    for (const id of ['radar-enable', 'radar-disable', 'radar-position']) {
+      expect(messages).toContainEqual({ id, type: 'reply', ok: true })
+    }
+    expect(radarManager.enabled).toBe(true)
+    expect(radarManager.disabled).toBe(true)
+    expect(radarManager.simPosition).toEqual({ lat: 32.1, lon: 34.2 })
+    expect(messages).toContainEqual({
+      type: 'event',
+      topic: 'radar:stateChanged',
+      payload: radarManager.state
     })
 
     ws.close()

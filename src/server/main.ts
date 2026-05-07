@@ -15,6 +15,7 @@ import { VehicleTelemetryPublisher } from '../main/vehicle/VehicleTelemetryPubli
 import { registerCameraRpc } from './camera/CameraRpc'
 import { TileCache, serveMapTile } from './maps/TileProxy'
 import { registerMissionRpc } from './mission/MissionRpc'
+import { registerForwardingRpc, registerRadarRpc } from './operations/OperationsRpc'
 import { registerParameterRpc } from './parameters/ParameterRpc'
 import { RpcRealtimeServer } from './realtime/RpcRealtimeServer'
 import { registerCalibrationRpc, registerRcCalibrationRpc } from './setup/CalibrationRpc'
@@ -29,7 +30,13 @@ export interface MeridianServerOptions {
   tileFetch?: typeof fetch
   runtime?: Pick<
     MeridianRuntime,
-    'settingsManager' | 'videoManager' | 'linkManager' | 'vehicleManager' | 'trackingManager'
+    | 'settingsManager'
+    | 'videoManager'
+    | 'linkManager'
+    | 'vehicleManager'
+    | 'trackingManager'
+    | 'forwarder'
+    | 'radarManager'
   >
   settingsManager?: SettingsManager
   videoManager?: VideoManager
@@ -58,6 +65,8 @@ export async function startMeridianServer(
   const linkManager = options.runtime?.linkManager ?? null
   const vehicleManager = options.runtime?.vehicleManager ?? null
   const trackingManager = options.runtime?.trackingManager ?? null
+  const forwarder = options.runtime?.forwarder ?? null
+  const radarManager = options.runtime?.radarManager ?? null
   if (ownsVideoManager) {
     await videoManager.init()
   }
@@ -210,6 +219,8 @@ export async function startMeridianServer(
   const disposeRcCalibrationRpc = registerRcCalibrationRpc(realtime, vehicleManager)
   const disposeFirmwareRpc = registerFirmwareRpc(realtime, vehicleManager)
   const disposeVehicleToolsRpc = registerVehicleToolsRpc(realtime, vehicleManager)
+  const disposeForwardingRpc = registerForwardingRpc(realtime, forwarder)
+  const disposeRadarRpc = registerRadarRpc(realtime, radarManager)
 
   let vehicleTelemetryPublisher: VehicleTelemetryPublisher | null = null
   const vehicleStatusTextListeners = new Map<
@@ -301,6 +312,8 @@ export async function startMeridianServer(
       disposeRcCalibrationRpc()
       disposeFirmwareRpc()
       disposeVehicleToolsRpc()
+      disposeForwardingRpc()
+      disposeRadarRpc()
       vehicleManager?.removeListener('vehicleAdded', onVehicleAdded)
       vehicleManager?.removeListener('vehicleRemoved', onVehicleRemoved)
       for (const [vehicleId, listener] of vehicleStatusTextListeners) {
