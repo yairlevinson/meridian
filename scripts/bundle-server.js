@@ -82,11 +82,27 @@ function writeBundlePackageJson() {
   fs.writeFileSync(path.join(appDir, 'package.json'), JSON.stringify(serverPackage, null, 2))
 }
 
+function npmCliPath() {
+  const npmExecPath = process.env.npm_execpath
+  if (npmExecPath && fs.existsSync(npmExecPath)) return npmExecPath
+
+  try {
+    return require.resolve('npm/bin/npm-cli.js')
+  } catch {
+    return null
+  }
+}
+
 function installProductionDependencies() {
-  const npmCommand = platform === 'win32' ? 'npm.cmd' : 'npm'
-  execFileSync(npmCommand, ['install', '--omit=dev', '--no-audit', '--no-fund'], {
+  const args = ['install', '--omit=dev', '--no-audit', '--no-fund']
+  const npmCli = npmCliPath()
+  const command = npmCli ? process.execPath : platform === 'win32' ? 'npm.cmd' : 'npm'
+  const commandArgs = npmCli ? [npmCli, ...args] : args
+
+  execFileSync(command, commandArgs, {
     cwd: appDir,
     stdio: 'inherit',
+    shell: platform === 'win32' && !npmCli,
     env: {
       ...process.env,
       npm_config_update_notifier: 'false'
