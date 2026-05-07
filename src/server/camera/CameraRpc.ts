@@ -3,6 +3,7 @@ import { cameraModule, type CameraImageCapturedPayload } from '@shared/ipc/modul
 import type { CameraState } from '@shared/ipc/CameraTypes'
 import { createCameraCommandHandlers } from '../../core/camera/CameraCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
+import { registerVehicleScopedListeners } from '../realtime/vehicleScopedListeners'
 
 type CameraManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
   handleCameraHeartbeat: () => void
@@ -35,12 +36,9 @@ export function registerCameraRpc(
 
   if (!vehicleManager) return () => {}
 
-  const cameraListenerDisposers = new Map<number, () => void>()
-
-  const attachCameraListeners = (vehicleId: number): void => {
-    if (cameraListenerDisposers.has(vehicleId)) return
+  return registerVehicleScopedListeners(vehicleManager, (vehicleId) => {
     const cameraManager = vehicleManager.getVehicle(vehicleId)?.cameraManager
-    if (!cameraManager) return
+    if (!cameraManager) return null
 
     const onStateChanged = (state: CameraState): void => {
       realtime.emitEvent('camera', 'stateChanged', { vehicleId, state })
@@ -51,36 +49,9 @@ export function registerCameraRpc(
 
     cameraManager.on('stateChanged', onStateChanged)
     cameraManager.on('imageCaptured', onImageCaptured)
-    cameraListenerDisposers.set(vehicleId, () => {
+    return () => {
       cameraManager.off('stateChanged', onStateChanged)
       cameraManager.off('imageCaptured', onImageCaptured)
-    })
-  }
-
-  const detachCameraListeners = (vehicleId: number): void => {
-    cameraListenerDisposers.get(vehicleId)?.()
-    cameraListenerDisposers.delete(vehicleId)
-  }
-
-  const onVehicleAdded = (vehicleId: number): void => {
-    attachCameraListeners(vehicleId)
-  }
-  const onVehicleRemoved = (vehicleId: number): void => {
-    detachCameraListeners(vehicleId)
-  }
-
-  vehicleManager.on('vehicleAdded', onVehicleAdded)
-  vehicleManager.on('vehicleRemoved', onVehicleRemoved)
-  for (const vehicle of vehicleManager.getAllVehicles()) {
-    attachCameraListeners(vehicle.sysid)
-  }
-
-  return () => {
-    vehicleManager.off('vehicleAdded', onVehicleAdded)
-    vehicleManager.off('vehicleRemoved', onVehicleRemoved)
-    for (const dispose of cameraListenerDisposers.values()) {
-      dispose()
     }
-    cameraListenerDisposers.clear()
-  }
+  })
 }

@@ -3,6 +3,7 @@ import { parametersModule } from '@shared/ipc/modules/parameters'
 import type { Parameter, ParameterLoadState } from '@shared/ipc/ParameterTypes'
 import { createParameterCommandHandlers } from '../../core/parameters/ParameterCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
+import { registerVehicleScopedListeners } from '../realtime/vehicleScopedListeners'
 
 type ParameterManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
   getAllParameters: () => Parameter[]
@@ -30,12 +31,9 @@ export function registerParameterRpc(
 
   if (!vehicleManager) return () => {}
 
-  const parameterListenerDisposers = new Map<number, () => void>()
-
-  const attachParameterListeners = (vehicleId: number): void => {
-    if (parameterListenerDisposers.has(vehicleId)) return
+  return registerVehicleScopedListeners(vehicleManager, (vehicleId) => {
     const parameterManager = vehicleManager.getVehicle(vehicleId)?.parameterManager
-    if (!parameterManager) return
+    if (!parameterManager) return null
 
     const onChanged = (parameter: Parameter): void => {
       realtime.emitEvent('parameters', 'changed', { vehicleId, parameter })
@@ -50,37 +48,10 @@ export function registerParameterRpc(
     parameterManager.on('parameterReceived', onChanged)
     parameterManager.on('parametersReady', onReady)
     parameterManager.on('progress', onProgress)
-    parameterListenerDisposers.set(vehicleId, () => {
+    return () => {
       parameterManager.off('parameterReceived', onChanged)
       parameterManager.off('parametersReady', onReady)
       parameterManager.off('progress', onProgress)
-    })
-  }
-
-  const detachParameterListeners = (vehicleId: number): void => {
-    parameterListenerDisposers.get(vehicleId)?.()
-    parameterListenerDisposers.delete(vehicleId)
-  }
-
-  const onVehicleAdded = (vehicleId: number): void => {
-    attachParameterListeners(vehicleId)
-  }
-  const onVehicleRemoved = (vehicleId: number): void => {
-    detachParameterListeners(vehicleId)
-  }
-
-  vehicleManager.on('vehicleAdded', onVehicleAdded)
-  vehicleManager.on('vehicleRemoved', onVehicleRemoved)
-  for (const vehicle of vehicleManager.getAllVehicles()) {
-    attachParameterListeners(vehicle.sysid)
-  }
-
-  return () => {
-    vehicleManager.off('vehicleAdded', onVehicleAdded)
-    vehicleManager.off('vehicleRemoved', onVehicleRemoved)
-    for (const dispose of parameterListenerDisposers.values()) {
-      dispose()
     }
-    parameterListenerDisposers.clear()
-  }
+  })
 }

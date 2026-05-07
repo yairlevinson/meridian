@@ -13,6 +13,7 @@ import {
   createRcCalibrationCommandHandlers
 } from '../../core/calibration/CalibrationCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
+import { registerVehicleScopedListeners } from '../realtime/vehicleScopedListeners'
 
 type CalibrationManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
   startCalibration: (sensor: CalibrationSensor) => void
@@ -48,12 +49,9 @@ export function registerCalibrationRpc(
 
   if (!vehicleManager) return () => {}
 
-  const listenerDisposers = new Map<number, () => void>()
-
-  const attachListeners = (vehicleId: number): void => {
-    if (listenerDisposers.has(vehicleId)) return
+  return registerVehicleScopedListeners(vehicleManager, (vehicleId) => {
     const calibrationManager = vehicleManager.getVehicle(vehicleId)?.calibrationManager
-    if (!calibrationManager) return
+    if (!calibrationManager) return null
 
     const onStateChanged = (state: CalibrationState): void => {
       realtime.emitEvent('calibration', 'stateChanged', { vehicleId, state })
@@ -68,35 +66,12 @@ export function registerCalibrationRpc(
     calibrationManager.on('stateChanged', onStateChanged)
     calibrationManager.on('magProgress', onMagProgress)
     calibrationManager.on('magReport', onMagReport)
-    listenerDisposers.set(vehicleId, () => {
+    return () => {
       calibrationManager.off('stateChanged', onStateChanged)
       calibrationManager.off('magProgress', onMagProgress)
       calibrationManager.off('magReport', onMagReport)
-    })
-  }
-
-  const detachListeners = (vehicleId: number): void => {
-    listenerDisposers.get(vehicleId)?.()
-    listenerDisposers.delete(vehicleId)
-  }
-
-  const onVehicleAdded = (vehicleId: number): void => attachListeners(vehicleId)
-  const onVehicleRemoved = (vehicleId: number): void => detachListeners(vehicleId)
-
-  vehicleManager.on('vehicleAdded', onVehicleAdded)
-  vehicleManager.on('vehicleRemoved', onVehicleRemoved)
-  for (const vehicle of vehicleManager.getAllVehicles()) {
-    attachListeners(vehicle.sysid)
-  }
-
-  return () => {
-    vehicleManager.off('vehicleAdded', onVehicleAdded)
-    vehicleManager.off('vehicleRemoved', onVehicleRemoved)
-    for (const dispose of listenerDisposers.values()) {
-      dispose()
     }
-    listenerDisposers.clear()
-  }
+  })
 }
 
 export function registerRcCalibrationRpc(
@@ -109,43 +84,17 @@ export function registerRcCalibrationRpc(
 
   if (!vehicleManager) return () => {}
 
-  const listenerDisposers = new Map<number, () => void>()
-
-  const attachListeners = (vehicleId: number): void => {
-    if (listenerDisposers.has(vehicleId)) return
+  return registerVehicleScopedListeners(vehicleManager, (vehicleId) => {
     const rcCalibrationManager = vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager
-    if (!rcCalibrationManager) return
+    if (!rcCalibrationManager) return null
 
     const onStateChanged = (state: RcCalibrationState): void => {
       realtime.emitEvent('rcCalibration', 'stateChanged', { vehicleId, state })
     }
 
     rcCalibrationManager.on('stateChanged', onStateChanged)
-    listenerDisposers.set(vehicleId, () => {
+    return () => {
       rcCalibrationManager.off('stateChanged', onStateChanged)
-    })
-  }
-
-  const detachListeners = (vehicleId: number): void => {
-    listenerDisposers.get(vehicleId)?.()
-    listenerDisposers.delete(vehicleId)
-  }
-
-  const onVehicleAdded = (vehicleId: number): void => attachListeners(vehicleId)
-  const onVehicleRemoved = (vehicleId: number): void => detachListeners(vehicleId)
-
-  vehicleManager.on('vehicleAdded', onVehicleAdded)
-  vehicleManager.on('vehicleRemoved', onVehicleRemoved)
-  for (const vehicle of vehicleManager.getAllVehicles()) {
-    attachListeners(vehicle.sysid)
-  }
-
-  return () => {
-    vehicleManager.off('vehicleAdded', onVehicleAdded)
-    vehicleManager.off('vehicleRemoved', onVehicleRemoved)
-    for (const dispose of listenerDisposers.values()) {
-      dispose()
     }
-    listenerDisposers.clear()
-  }
+  })
 }

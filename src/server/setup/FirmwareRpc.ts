@@ -3,6 +3,7 @@ import { firmwareModule } from '@shared/ipc/modules/firmware'
 import type { FirmwareUpgradeState } from '@shared/ipc/SetupTypes'
 import { createFirmwareCommandHandlers } from '../../core/firmware/FirmwareCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
+import { registerVehicleScopedListeners } from '../realtime/vehicleScopedListeners'
 
 type FirmwareManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
   uploadFile: (filePath: string) => Promise<void> | void
@@ -42,43 +43,17 @@ export function registerFirmwareRpc(
 
   if (!vehicleManager) return () => {}
 
-  const listenerDisposers = new Map<number, () => void>()
-
-  const attachListeners = (vehicleId: number): void => {
-    if (listenerDisposers.has(vehicleId)) return
+  return registerVehicleScopedListeners(vehicleManager, (vehicleId) => {
     const firmwareManager = vehicleManager.getVehicle(vehicleId)?.firmwareManager
-    if (!firmwareManager) return
+    if (!firmwareManager) return null
 
     const onStateChanged = (state: FirmwareUpgradeState): void => {
       realtime.emitEvent('firmware', 'upgradeStateChanged', { vehicleId, state })
     }
 
     firmwareManager.on('stateChanged', onStateChanged)
-    listenerDisposers.set(vehicleId, () => {
+    return () => {
       firmwareManager.off('stateChanged', onStateChanged)
-    })
-  }
-
-  const detachListeners = (vehicleId: number): void => {
-    listenerDisposers.get(vehicleId)?.()
-    listenerDisposers.delete(vehicleId)
-  }
-
-  const onVehicleAdded = (vehicleId: number): void => attachListeners(vehicleId)
-  const onVehicleRemoved = (vehicleId: number): void => detachListeners(vehicleId)
-
-  vehicleManager.on('vehicleAdded', onVehicleAdded)
-  vehicleManager.on('vehicleRemoved', onVehicleRemoved)
-  for (const vehicle of vehicleManager.getAllVehicles()) {
-    attachListeners(vehicle.sysid)
-  }
-
-  return () => {
-    vehicleManager.off('vehicleAdded', onVehicleAdded)
-    vehicleManager.off('vehicleRemoved', onVehicleRemoved)
-    for (const dispose of listenerDisposers.values()) {
-      dispose()
     }
-    listenerDisposers.clear()
-  }
+  })
 }
