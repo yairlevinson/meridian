@@ -106,8 +106,9 @@ export async function startMeridianServer(
 
 if (require.main === module) {
   const port = Number(process.env.MERIDIAN_SERVER_PORT ?? 8080)
+  const host = process.env.MERIDIAN_SERVER_HOST ?? '127.0.0.1'
   const staticDir = process.env.MERIDIAN_STATIC_DIR ?? resolve(__dirname, '../renderer')
-  startMeridianServer({ port, staticDir })
+  startMeridianServer({ port, host, staticDir })
     .then((handle) => {
       console.log(`Meridian server listening on ${handle.url}`)
     })

@@ -120,6 +120,20 @@ npm run dev
 
 This starts the Electron app in development mode with hot-reload for the renderer process.
 
+### Browser Server Preview
+
+The client/server migration can also be run as a built browser app served by the Meridian server:
+
+```bash
+npm run dev:server
+```
+
+By default this listens on `127.0.0.1:8080`. For nearby LAN clients, bind to all interfaces:
+
+```bash
+MERIDIAN_SERVER_HOST=0.0.0.0 MERIDIAN_SERVER_PORT=8080 npm run dev:server
+```
+
 ### Connect to a Vehicle
 
 #### Option 1: UDP (default)
@@ -160,10 +174,13 @@ npm run dev
 
 ### Environment Variables
 
-| Variable       | Default   | Description                                                |
-| -------------- | --------- | ---------------------------------------------------------- |
-| `GC_UDP_PORT`  | `14550`   | UDP port to listen for MAVLink                             |
-| `GC_TCP_LINKS` | _(empty)_ | Comma-separated `host:port` pairs for TCP SITL connections |
+| Variable               | Default        | Description                                                |
+| ---------------------- | -------------- | ---------------------------------------------------------- |
+| `GC_UDP_PORT`          | `14550`        | UDP port to listen for MAVLink                             |
+| `GC_TCP_LINKS`         | _(empty)_      | Comma-separated `host:port` pairs for TCP SITL connections |
+| `MERIDIAN_SERVER_HOST` | `127.0.0.1`    | Host/interface for `npm run dev:server`                    |
+| `MERIDIAN_SERVER_PORT` | `8080`         | HTTP/WebSocket port for `npm run dev:server`               |
+| `MERIDIAN_STATIC_DIR`  | `out/renderer` | Static renderer directory served by the server CLI         |
 
 ## Code Walkthrough
 
