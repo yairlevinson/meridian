@@ -51,6 +51,10 @@ export class VehicleTelemetryPublisher extends EventEmitter {
 
   tick(): void {
     if (!this.shouldPublish()) return
+    if (this.vehicleManager.vehicleCount === 0) {
+      this.resetStatsWindow()
+      return
+    }
 
     let anySent = false
     for (const vehicle of this.vehicleManager.getAllVehicles()) {
@@ -81,5 +85,11 @@ export class VehicleTelemetryPublisher extends EventEmitter {
     this.sentCount = 0
     this.skippedCount = 0
     this.lastLogTime = now
+  }
+
+  private resetStatsWindow(): void {
+    this.sentCount = 0
+    this.skippedCount = 0
+    this.lastLogTime = Date.now()
   }
 }

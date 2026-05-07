@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import { format as formatWithPlaceholders } from 'util'
 
 function getLogPath(): string {
   try {
@@ -48,9 +49,7 @@ export interface Logger {
 }
 
 function format(args: unknown[]): string {
-  return args
-    .map((a) => (typeof a === 'string' ? a : a instanceof Error ? a.message : String(a)))
-    .join(' ')
+  return formatWithPlaceholders(...args)
 }
 
 export function createLogger(tag: string): Logger {

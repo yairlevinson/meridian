@@ -55,4 +55,22 @@ describe('VehicleTelemetryPublisher', () => {
     expect(vehicle.getDelta).not.toHaveBeenCalled()
     publisher.dispose()
   })
+
+  it('does not log idle skip stats when no vehicles are present', () => {
+    vi.useFakeTimers()
+    const debugSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const manager = {
+      getAllVehicles: () => [],
+      vehicleCount: 0
+    }
+    const publisher = new VehicleTelemetryPublisher(manager as any, { tickRateMs: 33 })
+
+    vi.advanceTimersByTime(6000)
+
+    expect(debugSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('[VehicleTelemetryPublisher] sent=0')
+    )
+    publisher.dispose()
+    debugSpy.mockRestore()
+  })
 })
