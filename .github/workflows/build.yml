@@ -44,6 +44,9 @@ jobs:
       - run: npm run ${{ matrix.script }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build server bundle
+        if: matrix.artifact == 'mac' || matrix.artifact == 'win'
+        run: npm run bundle:server
       - uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.artifact }}
@@ -53,4 +56,5 @@ jobs:
             dist/*.msi
             dist/*.AppImage
             dist/*.deb
+            dist/meridian-server-*.zip
           if-no-files-found: ignore

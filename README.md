@@ -216,6 +216,18 @@ Use `-f h264`, not `-f mpegts`, for this source. MPEG-TS is a different transpor
 | `MERIDIAN_USER_DATA_DIR`         | `~/.meridian`  | Settings storage directory for the server CLI                            |
 | `VITE_MERIDIAN_SERVER_TOKEN`     | _(empty)_      | Optional browser build-time token for server WebSocket URLs              |
 
+### Packaging
+
+Build a local Meridian Server zip for the current platform:
+
+```bash
+npm run build:server:bundle
+```
+
+The bundle is written to `dist/meridian-server-<version>-<platform>-<arch>.zip` and includes a
+Node runtime, the backend, the browser client, and production dependencies. GitHub Actions publishes
+macOS and Windows desktop installers plus server zips when a `v*` tag is pushed.
+
 ## Code Walkthrough
 
 Interactive [CodeTour](https://marketplace.visualstudio.com/items?itemName=vsls-live-share.codetour) walkthroughs are included in `.tours/` to help new developers understand the full-stack data flow. Install the CodeTour VS Code extension, then open the CodeTour panel to start.
