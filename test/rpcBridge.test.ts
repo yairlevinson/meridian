@@ -57,6 +57,48 @@ describe('browser RPC bridge binding', () => {
     const fullBridge = createBrowserRpcBridge(transport as any)
     expect(() => fullBridge.log('info', 'Test', 'hello')).not.toThrow()
   })
+
+  it('handles popout commands locally in browser mode', async () => {
+    const transport = {
+      command: vi.fn(),
+      on: vi.fn()
+    }
+    const popup = {
+      closed: false,
+      focus: vi.fn(),
+      close: vi.fn(() => {
+        popup.closed = true
+      })
+    }
+    const open = vi.fn(() => popup)
+    vi.stubGlobal('window', {
+      location: { href: 'http://127.0.0.1:8080/?view=fly' },
+      open,
+      setInterval: vi.fn(() => 1),
+      clearInterval: vi.fn()
+    })
+
+    const bridge = createBrowserRpcBridge(transport as any)
+    const closed = vi.fn()
+    bridge.onPopoutClosed(closed)
+
+    await bridge.popoutOpen('video')
+    await bridge.popoutOpen('video')
+    await bridge.popoutClose('video')
+
+    expect(transport.command).not.toHaveBeenCalledWith(
+      'popout',
+      expect.anything(),
+      expect.anything()
+    )
+    expect(open).toHaveBeenCalledTimes(1)
+    expect(open.mock.calls[0]?.[0]).toBe('http://127.0.0.1:8080/?view=fly&popout=video')
+    expect(popup.focus).toHaveBeenCalledTimes(1)
+    expect(popup.close).toHaveBeenCalledTimes(1)
+    expect(closed).toHaveBeenCalledWith({ view: 'video' })
+
+    vi.unstubAllGlobals()
+  })
 })
 
 describe('browser RPC bridge installer', () => {
