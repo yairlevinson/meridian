@@ -1,10 +1,17 @@
 import type { RpcCommandImpls } from '@shared/rpc'
 import type { VideoModule } from '@shared/ipc/modules/video'
-import { VideoSourceType } from '@shared/ipc/VideoTypes'
-import type { VideoManager } from '../../main/video/VideoManager'
+import { VideoSourceType, type VideoStreamState } from '@shared/ipc/VideoTypes'
+
+export interface VideoManagerLike {
+  start: (sourceType: VideoSourceType, uri: string) => void
+  stop: () => void
+  startRecording: (fileName: string) => string | null
+  stopRecording: () => void
+  state: VideoStreamState | null
+}
 
 export function createVideoCommandHandlers(
-  videoManager: VideoManager
+  videoManager: VideoManagerLike
 ): RpcCommandImpls<VideoModule> {
   return {
     start: async (sourceType, uri) => {

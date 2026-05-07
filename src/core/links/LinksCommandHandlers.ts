@@ -1,12 +1,18 @@
 import { SerialPort } from 'serialport'
 import type { RpcCommandImpls } from '@shared/rpc'
 import type { LinksModule } from '@shared/ipc/modules/links'
-import type { LinkManager } from '../../main/links/LinkManager'
+import type { LinkConfig, LinkState } from '@shared/ipc/LinkState'
+
+export interface LinkManagerLike {
+  createLink: (config: LinkConfig) => Promise<{ id: string; status: string }>
+  disconnectLink: (id: string) => void
+  getAllStates: () => LinkState[]
+}
 
 export function createLinksCommandHandlers(
-  linkManager: LinkManager | null
+  linkManager: LinkManagerLike | null
 ): RpcCommandImpls<LinksModule> {
-  const requireLinkManager = (): LinkManager => {
+  const requireLinkManager = (): LinkManagerLike => {
     if (!linkManager) throw new Error('LinkManager not available')
     return linkManager
   }

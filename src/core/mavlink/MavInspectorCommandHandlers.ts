@@ -1,9 +1,15 @@
 import type { RpcCommandImpls } from '@shared/rpc'
 import type { MavInspectorModule } from '@shared/ipc/modules/mavInspector'
-import type { MavlinkInspector } from '../../main/mavlink/MavlinkInspector'
+
+export interface MavlinkInspectorLike {
+  enable: () => void
+  disable: () => void
+  select: (sysid: number, compid: number, msgid: number) => void
+  deselect: () => void
+}
 
 export function createMavInspectorCommandHandlers(
-  inspector: MavlinkInspector
+  inspector: MavlinkInspectorLike
 ): RpcCommandImpls<MavInspectorModule> {
   return {
     enable: async () => inspector.enable(),

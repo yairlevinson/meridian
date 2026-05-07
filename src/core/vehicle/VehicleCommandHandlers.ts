@@ -1,13 +1,68 @@
 import type { RpcCommandImpls } from '@shared/rpc'
 import type { VehicleModule } from '@shared/ipc/modules/vehicle'
-import type { TargetTrackingManager } from '../../main/tracking/TargetTrackingManager'
-import type { VehicleManager } from '../../main/vehicle/VehicleManager'
+import type { MavCommandRequest } from '@shared/ipc/MavCommandRequest'
+
+type CommandParams = {
+  p1?: number
+  p2?: number
+  p3?: number
+  p4?: number
+  p5?: number
+  p6?: number
+  p7?: number
+}
+
+export interface VehicleCommandTargetLike {
+  arm: () => Promise<unknown> | unknown
+  forceArm: () => Promise<unknown> | unknown
+  disarm: () => Promise<unknown> | unknown
+  commandQueue: {
+    sendCommand: (
+      command: MavCommandRequest['command'],
+      vehicleId: number,
+      componentId: number,
+      params: CommandParams
+    ) => Promise<unknown> | unknown
+  }
+  setFlightModeByName: (modeName: string) => Promise<number | undefined> | number | undefined
+  guidedTakeoff: (altitude: number) => Promise<number | undefined> | number | undefined
+  guidedRTL: () => Promise<unknown> | unknown
+  guidedLand: () => Promise<unknown> | unknown
+  guidedGoto: (lat: number, lon: number, alt: number) => Promise<unknown> | unknown
+  guidedPause: () => Promise<unknown> | unknown
+  missionStart: () => Promise<unknown> | unknown
+  emergencyStop: () => Promise<unknown> | unknown
+  guidedChangeAltitude: (altitudeRel: number) => Promise<number | undefined> | number | undefined
+  guidedChangeHeading: (headingDeg: number) => Promise<number | undefined> | number | undefined
+  guidedChangeSpeed: (
+    speed: number,
+    speedType: 0 | 1
+  ) => Promise<number | undefined> | number | undefined
+  guidedOrbit: (
+    lat: number,
+    lon: number,
+    radius: number,
+    altitudeRel: number
+  ) => Promise<number | undefined> | number | undefined
+  landingGearDeploy: () => Promise<number | undefined> | number | undefined
+  landingGearRetract: () => Promise<number | undefined> | number | undefined
+}
+
+export interface VehicleCommandManagerLike {
+  getVehicle: (vehicleId: number) => VehicleCommandTargetLike | undefined
+}
+
+export interface TargetTrackingManagerLike {
+  engage: (vehicleId: number, trackId: number) => { ok: boolean; error?: string }
+  disengage: (vehicleId: number) => void
+  getEngagement: (vehicleId: number) => { trackId: number } | null
+}
 
 export function createVehicleCommandHandlers(
-  vehicleManager: VehicleManager | null,
-  trackingManager: TargetTrackingManager | null
+  vehicleManager: VehicleCommandManagerLike | null,
+  trackingManager: TargetTrackingManagerLike | null
 ): RpcCommandImpls<VehicleModule> {
-  const requireVehicleManager = (): VehicleManager => {
+  const requireVehicleManager = (): VehicleCommandManagerLike => {
     if (!vehicleManager) throw new Error('VehicleManager not available')
     return vehicleManager
   }
