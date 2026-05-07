@@ -37,7 +37,7 @@ export function createHttpHandler({
     }
 
     if (req.method === 'GET' && staticRoot) {
-      void serveStaticFile(staticRoot, url.pathname, res)
+      void serveStaticFile(staticRoot, url.pathname, res, acceptsHtml(req))
       return
     }
 
@@ -50,10 +50,17 @@ function sendJson(res: ServerResponse, statusCode: number, body: unknown): void 
   res.end(JSON.stringify(body))
 }
 
+function acceptsHtml(req: IncomingMessage): boolean {
+  const accept = req.headers.accept
+  if (!accept) return false
+  return accept.includes('text/html') || accept.includes('*/*')
+}
+
 async function serveStaticFile(
   staticRoot: string,
   pathname: string,
-  res: ServerResponse
+  res: ServerResponse,
+  fallbackToIndex: boolean
 ): Promise<void> {
   const requestedPath = pathname === '/' ? '/index.html' : pathname
   const candidate = resolve(join(staticRoot, decodeURIComponent(requestedPath)))
@@ -71,6 +78,21 @@ async function serveStaticFile(
     }
     const body = await readFile(candidate)
     res.writeHead(200, { 'content-type': contentTypeForPath(candidate) })
+    res.end(body)
+  } catch {
+    if (fallbackToIndex && extname(pathname) === '') {
+      await serveIndexFallback(staticRoot, res)
+      return
+    }
+    sendJson(res, 404, { error: 'Not found' })
+  }
+}
+
+async function serveIndexFallback(staticRoot: string, res: ServerResponse): Promise<void> {
+  try {
+    const indexPath = resolve(join(staticRoot, 'index.html'))
+    const body = await readFile(indexPath)
+    res.writeHead(200, { 'content-type': contentTypeForPath(indexPath) })
     res.end(body)
   } catch {
     sendJson(res, 404, { error: 'Not found' })

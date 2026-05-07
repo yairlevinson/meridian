@@ -497,6 +497,33 @@ describe('Meridian server skeleton', () => {
     await expect(jsResponse.text()).resolves.toBe('window.__meridian = true')
   })
 
+  it('falls back to index.html for browser app routes', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'meridian-server-'))
+    await writeFile(join(tempDir, 'index.html'), '<main>Meridian</main>')
+    handle = await startMeridianServer({ staticDir: tempDir })
+
+    const response = await fetch(`${handle.url}/plan/mission-42`, {
+      headers: { accept: 'text/html' }
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/html')
+    await expect(response.text()).resolves.toBe('<main>Meridian</main>')
+  })
+
+  it('keeps missing static assets as 404s', async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'meridian-server-'))
+    await writeFile(join(tempDir, 'index.html'), '<main>Meridian</main>')
+    handle = await startMeridianServer({ staticDir: tempDir })
+
+    const response = await fetch(`${handle.url}/missing.js`, {
+      headers: { accept: '*/*' }
+    })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({ error: 'Not found' })
+  })
+
   it('blocks static path traversal', async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'meridian-server-'))
     await writeFile(join(tempDir, 'index.html'), '<main>Meridian</main>')

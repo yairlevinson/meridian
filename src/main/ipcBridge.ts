@@ -4,7 +4,6 @@ import type { VehicleManager } from './vehicle/VehicleManager'
 import type { VideoManager } from './video/VideoManager'
 import type { LinkManager } from './links/LinkManager'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
-import { parseKmlFile } from './kml/KmlParser'
 import type { MissionItem } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
 import { createMavInspectorCommandHandlers } from '../core/mavlink/MavInspectorCommandHandlers'
@@ -68,6 +67,8 @@ import type {
 } from '@shared/ipc/MavInspectorTypes'
 import type { Parameter, ParameterLoadState } from '@shared/ipc/ParameterTypes'
 import { createParameterCommandHandlers } from '../core/parameters/ParameterCommandHandlers'
+import { createMissionCommandHandlers } from '../core/mission/MissionCommandHandlers'
+import { createKmlCommandHandlers } from '../core/maps/KmlCommandHandlers'
 
 export function startIpcBridge(
   vehicleManager: VehicleManager,
@@ -346,17 +347,16 @@ export function startIpcBridge(
   // KML IPC module (file-import commands, no events)
   disposers.push(
     registerIpcModule(kmlModule, {
-      commands: {
-        import: async () => {
+      commands: createKmlCommandHandlers({
+        pickImportFile: async () => {
           const result = await dialog.showOpenDialog({
             filters: [{ name: 'KML Files', extensions: ['kml'] }],
             properties: ['openFile']
           })
-          if (result.canceled || result.filePaths.length === 0) return { cancelled: true as const }
-          return parseKmlFile(result.filePaths[0]!)
-        },
-        importFromPath: async (filePath) => parseKmlFile(filePath)
-      },
+          if (result.canceled || result.filePaths.length === 0) return null
+          return result.filePaths[0]!
+        }
+      }),
       events: {}
     })
   )
@@ -588,57 +588,7 @@ export function startIpcBridge(
   // are fanned out through the captured emits wired in onVehicleAdded above.
   disposers.push(
     registerIpcModule(missionModule, {
-      commands: {
-        load: async (vehicleId) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) return { items: [], error: 'No vehicle' }
-          return new Promise((resolve) => {
-            const mm = vehicle.missionManager
-            const onComplete = (items: MissionItem[]): void => {
-              clearTimeout(timeout)
-              mm.off('error', onError)
-              resolve({ items })
-            }
-            const onError = (code: number): void => {
-              clearTimeout(timeout)
-              mm.off('loadComplete', onComplete)
-              resolve({ items: [], error: `Error code ${code}` })
-            }
-            const timeout = setTimeout(() => {
-              mm.off('loadComplete', onComplete)
-              mm.off('error', onError)
-              resolve({ items: [], error: 'Timeout' })
-            }, 30000)
-            mm.once('loadComplete', onComplete)
-            mm.once('error', onError)
-            mm.loadFromVehicle()
-          })
-        },
-        write: async (vehicleId, items) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) return { error: 'No vehicle' }
-          return new Promise((resolve) => {
-            const mm = vehicle.missionManager
-            const onComplete = (): void => {
-              clearTimeout(timeout)
-              mm.off('error', onError)
-              resolve({ success: true })
-            }
-            const onError = (code: number): void => {
-              clearTimeout(timeout)
-              mm.off('writeComplete', onComplete)
-              resolve({ error: `Error code ${code}` })
-            }
-            const timeout = setTimeout(() => {
-              mm.off('writeComplete', onComplete)
-              mm.off('error', onError)
-              resolve({ error: 'Timeout' })
-            }, 30000)
-            mm.once('writeComplete', onComplete)
-            mm.once('error', onError)
-            mm.writeToVehicle(items)
-          })
-        },
+      commands: createMissionCommandHandlers(vehicleManager, {
         savePlan: async (planData) => {
           const result = await dialog.showSaveDialog({
             filters: [{ name: 'Plan', extensions: ['plan'] }]
@@ -655,7 +605,7 @@ export function startIpcBridge(
           if (result.canceled || result.filePaths.length === 0) return { cancelled: true as const }
           return loadPlanFile(result.filePaths[0]!)
         }
-      },
+      }),
       events: {
         progress: (emit) => {
           emitMissionProgress = emit

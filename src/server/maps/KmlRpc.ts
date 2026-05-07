@@ -1,14 +1,11 @@
 import { kmlModule } from '@shared/ipc/modules/kml'
-import { parseKmlFile } from '../../main/kml/KmlParser'
+import { createKmlCommandHandlers } from '../../core/maps/KmlCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 export function registerKmlRpc(realtime: RpcRealtimeServer): void {
   realtime.registerModule(kmlModule, {
-    commands: {
-      import: async () => {
-        throw new Error('KML file dialogs are not available in browser server mode')
-      },
-      importFromPath: async (filePath) => parseKmlFile(filePath)
-    }
+    commands: createKmlCommandHandlers({
+      unavailableMessage: 'KML file dialogs are not available in browser server mode'
+    })
   })
 }
