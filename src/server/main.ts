@@ -1,4 +1,4 @@
-import { createServer, type Server as HttpServer } from 'http'
+import { createServer, type IncomingMessage, type Server as HttpServer } from 'http'
 import { resolve } from 'path'
 import { SettingsManager } from '../main/settings/SettingsManager'
 import { VideoManager } from '../main/video/VideoManager'
@@ -26,6 +26,8 @@ export interface MeridianServerOptions {
   host?: string
   staticDir?: string
   tileFetch?: typeof fetch
+  accessToken?: string | null
+  allowedOrigins?: string[]
   runtime?: MeridianServerRuntime
   settingsManager?: SettingsManager
   videoManager?: VideoManager
@@ -39,10 +41,66 @@ export interface MeridianServerHandle {
   close: () => Promise<void>
 }
 
+function isLoopbackHost(host: string): boolean {
+  return host === '127.0.0.1' || host === 'localhost' || host === '::1' || host === '[::1]'
+}
+
+function normalizeOrigin(origin: string): string | null {
+  try {
+    const url = new URL(origin)
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
+function tokenFromRequest(request: IncomingMessage): string | null {
+  const auth = request.headers.authorization
+  if (auth?.startsWith('Bearer ')) return auth.slice('Bearer '.length).trim()
+
+  const url = new URL(request.url ?? '/', 'http://127.0.0.1')
+  return url.searchParams.get('token')
+}
+
+function createUpgradeAuthorizer({
+  host,
+  port,
+  accessToken,
+  allowedOrigins
+}: {
+  host: string
+  port: number | null
+  accessToken: string | null
+  allowedOrigins: string[]
+}): (request: IncomingMessage) => boolean {
+  const normalizedOrigins = new Set(allowedOrigins.map(normalizeOrigin).filter(Boolean))
+  if (port !== null) {
+    normalizedOrigins.add(`http://${host}:${port}`)
+  }
+
+  return (request) => {
+    const origin = request.headers.origin
+    if (origin) {
+      const normalized = normalizeOrigin(origin)
+      if (!normalized || (normalizedOrigins.size > 0 && !normalizedOrigins.has(normalized))) {
+        return false
+      }
+    }
+
+    if (!accessToken) return true
+    return tokenFromRequest(request) === accessToken
+  }
+}
+
 export async function startMeridianServer(
   options: MeridianServerOptions = {}
 ): Promise<MeridianServerHandle> {
   const host = options.host ?? '127.0.0.1'
+  const accessToken = options.accessToken ?? process.env.MERIDIAN_SERVER_TOKEN ?? null
+  if (!isLoopbackHost(host) && !accessToken) {
+    throw new Error('MERIDIAN_SERVER_TOKEN is required when binding Meridian server off loopback')
+  }
+  const allowedOrigins = options.allowedOrigins ?? []
   const realtime = new RpcRealtimeServer()
   const staticRoot = options.staticDir ? resolve(options.staticDir) : null
   const tileFetch = options.tileFetch ?? fetch
@@ -74,10 +132,6 @@ export async function startMeridianServer(
   })
 
   const server = createServer(createHttpHandler({ host, staticRoot, tileFetch }))
-  const disposeVideoWebSocket = videoManager.attachWebSocketServer(server, '/video/live')
-
-  const disposeRealtimeUpgrade = realtime.attach(server)
-
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)
     server.listen(options.port ?? 0, host, () => {
@@ -88,6 +142,17 @@ export async function startMeridianServer(
 
   const address = server.address()
   const port = typeof address === 'object' && address ? address.port : options.port!
+  const authorizeUpgrade = createUpgradeAuthorizer({
+    host,
+    port,
+    accessToken,
+    allowedOrigins
+  })
+  const disposeVideoWebSocket = videoManager.attachWebSocketServer(server, '/video/live', {
+    authorizeUpgrade
+  })
+
+  const disposeRealtimeUpgrade = realtime.attach(server, '/realtime', { authorizeUpgrade })
 
   return {
     server,

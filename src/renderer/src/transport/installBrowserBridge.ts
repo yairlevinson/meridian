@@ -5,6 +5,7 @@ import { useConnectionStore } from '../store/connectionStore'
 export interface BrowserBridgeInstallOptions {
   serverUrl?: string
   realtimePath?: string
+  accessToken?: string | null
   replaceExisting?: boolean
   WebSocketCtor?: typeof WebSocket
 }
@@ -56,10 +57,19 @@ export function videoWebSocketUrlFromServerUrl(
   return url.toString()
 }
 
+function appendAccessToken(wsUrl: string, accessToken: string | null | undefined): string {
+  if (!accessToken) return wsUrl
+  const url = new URL(wsUrl)
+  url.searchParams.set('token', accessToken)
+  return url.toString()
+}
+
 export function installBrowserRpcBridge(
   options: BrowserBridgeInstallOptions = {}
 ): BrowserBridgeInstallResult {
   const serverUrl = options.serverUrl ?? window.location.origin
+  const pageToken = new URLSearchParams(window.location.search).get('token')
+  const accessToken = options.accessToken ?? import.meta.env.VITE_MERIDIAN_SERVER_TOKEN ?? pageToken
   markBrowserServerMode(serverUrl)
 
   const slot = bridgeSlot()
@@ -73,14 +83,14 @@ export function installBrowserRpcBridge(
   }
 
   const transport = new RpcTransport({
-    url: realtimeUrlFromServerUrl(serverUrl, options.realtimePath),
+    url: appendAccessToken(realtimeUrlFromServerUrl(serverUrl, options.realtimePath), accessToken),
     WebSocketCtor: options.WebSocketCtor
   })
   const disposeStatus = transport.onStatusChange((status) => {
     useConnectionStore.getState().setStatus(status)
   })
   const bridge = createBrowserRpcBridge(transport, {
-    videoWsUrl: videoWebSocketUrlFromServerUrl(serverUrl)
+    videoWsUrl: appendAccessToken(videoWebSocketUrlFromServerUrl(serverUrl), accessToken)
   })
   slot.bridge = bridge
 

@@ -8,6 +8,10 @@ import type {
   MagCalReport,
   RcCalibrationState
 } from '@shared/ipc/SetupTypes'
+import {
+  createCalibrationCommandHandlers,
+  createRcCalibrationCommandHandlers
+} from '../../main/calibration/CalibrationCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type CalibrationManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
@@ -38,19 +42,8 @@ export function registerCalibrationRpc(
   realtime: RpcRealtimeServer,
   vehicleManager: SetupVehicleManagerLike | null
 ): () => void {
-  const getCalibrationManager = (vehicleId: number): CalibrationManagerLike | undefined =>
-    vehicleManager?.getVehicle(vehicleId)?.calibrationManager
-
   realtime.registerModule(calibrationModule, {
-    commands: {
-      start: async (vehicleId, sensor) => {
-        getCalibrationManager(vehicleId)?.startCalibration(sensor)
-      },
-      cancel: async (vehicleId) => {
-        getCalibrationManager(vehicleId)?.cancelCalibration()
-      },
-      getState: async (vehicleId) => getCalibrationManager(vehicleId)?.state ?? null
-    }
+    commands: createCalibrationCommandHandlers(vehicleManager)
   })
 
   if (!vehicleManager) return () => {}
@@ -110,24 +103,8 @@ export function registerRcCalibrationRpc(
   realtime: RpcRealtimeServer,
   vehicleManager: SetupVehicleManagerLike | null
 ): () => void {
-  const getRcCalibrationManager = (vehicleId: number): RcCalibrationManagerLike | undefined =>
-    vehicleManager?.getVehicle(vehicleId)?.rcCalibrationManager
-
   realtime.registerModule(rcCalibrationModule, {
-    commands: {
-      start: async (vehicleId) => {
-        getRcCalibrationManager(vehicleId)?.start()
-      },
-      nextStep: async (vehicleId) => {
-        getRcCalibrationManager(vehicleId)?.nextStep()
-      },
-      cancel: async (vehicleId) => {
-        getRcCalibrationManager(vehicleId)?.cancel()
-      },
-      save: async (vehicleId) => {
-        await getRcCalibrationManager(vehicleId)?.save()
-      }
-    }
+    commands: createRcCalibrationCommandHandlers(vehicleManager)
   })
 
   if (!vehicleManager) return () => {}

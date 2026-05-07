@@ -1,6 +1,10 @@
 import type { EventEmitter } from 'events'
 import { actuatorModule } from '@shared/ipc/modules/actuator'
 import { mavConsoleModule } from '@shared/ipc/modules/mavConsole'
+import {
+  createActuatorCommandHandlers,
+  createMavConsoleCommandHandlers
+} from '../../main/vehicle/VehicleToolsCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type VehicleToolsVehicleLike = Pick<EventEmitter, 'on' | 'off'> & {
@@ -30,39 +34,11 @@ export function registerVehicleToolsRpc(
   vehicleManager: VehicleToolsVehicleManagerLike | null
 ): () => void {
   realtime.registerModule(mavConsoleModule, {
-    commands: {
-      write: async (vehicleId, text) => {
-        vehicleManager?.getVehicle(vehicleId)?.sendConsoleText?.(text)
-      }
-    }
+    commands: createMavConsoleCommandHandlers(vehicleManager)
   })
 
   realtime.registerModule(actuatorModule, {
-    commands: {
-      motorTest: async (vehicleId, motorInstance, throttlePercent) => {
-        const vehicle = vehicleManager?.getVehicle(vehicleId)
-        if (!vehicle?.commandQueue || !vehicle.actuatorMetadata) return
-        const throttleFraction = throttlePercent > 0 ? throttlePercent / 100 : NaN
-        const timeout = throttlePercent > 0 ? 1 : 0
-        const actuatorFunction = vehicle.actuatorMetadata.motorFunction(motorInstance)
-        await vehicle.commandQueue.sendCommand(310, vehicleId, 1, {
-          p1: throttleFraction,
-          p2: timeout,
-          p5: actuatorFunction
-        })
-      },
-      servoTest: async (vehicleId, servoInstance, pwmValue) => {
-        const vehicle = vehicleManager?.getVehicle(vehicleId)
-        if (!vehicle?.commandQueue || !vehicle.actuatorMetadata) return
-        const normalized = (pwmValue - 1500) / 500
-        const actuatorFunction = vehicle.actuatorMetadata.servoFunction(servoInstance)
-        await vehicle.commandQueue.sendCommand(310, vehicleId, 1, {
-          p1: normalized,
-          p2: 1,
-          p5: actuatorFunction
-        })
-      }
-    }
+    commands: createActuatorCommandHandlers(vehicleManager)
   })
 
   if (!vehicleManager) return () => {}

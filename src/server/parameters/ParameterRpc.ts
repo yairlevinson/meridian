@@ -1,6 +1,7 @@
 import type { EventEmitter } from 'events'
 import { parametersModule } from '@shared/ipc/modules/parameters'
 import type { Parameter, ParameterLoadState } from '@shared/ipc/ParameterTypes'
+import { createParameterCommandHandlers } from '../../main/parameters/ParameterCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type ParameterManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
@@ -24,16 +25,7 @@ export function registerParameterRpc(
   vehicleManager: ParameterVehicleManagerLike | null
 ): () => void {
   realtime.registerModule(parametersModule, {
-    commands: {
-      getAll: async (vehicleId) =>
-        vehicleManager?.getVehicle(vehicleId)?.parameterManager?.getAllParameters() ?? [],
-      set: async (vehicleId, name, value) => {
-        vehicleManager?.getVehicle(vehicleId)?.parameterManager?.setParameter(name, value)
-      },
-      refresh: async (vehicleId) => {
-        vehicleManager?.getVehicle(vehicleId)?.parameterManager?.requestAllParameters()
-      }
-    }
+    commands: createParameterCommandHandlers(vehicleManager)
   })
 
   if (!vehicleManager) return () => {}

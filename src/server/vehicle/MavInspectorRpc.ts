@@ -1,5 +1,6 @@
 import { mavInspectorModule } from '@shared/ipc/modules/mavInspector'
 import { MavlinkInspector } from '../../main/mavlink/MavlinkInspector'
+import { createMavInspectorCommandHandlers } from '../../main/mavlink/MavInspectorCommandHandlers'
 import type { DecodedMessage } from '../../main/mavlink/MavlinkChannel'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
@@ -17,12 +18,7 @@ export function registerMavInspectorRpc(
   )
 
   realtime.registerModule(mavInspectorModule, {
-    commands: {
-      enable: async () => inspector.enable(),
-      disable: async () => inspector.disable(),
-      select: async (sysid, compid, msgid) => inspector.select(sysid, compid, msgid),
-      deselect: async () => inspector.deselect()
-    }
+    commands: createMavInspectorCommandHandlers(inspector)
   })
 
   if (!vehicleManager) {

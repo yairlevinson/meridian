@@ -1,14 +1,13 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
+import type { EventEmitter } from 'events'
 import type { VehicleManager } from './vehicle/VehicleManager'
 import type { VideoManager } from './video/VideoManager'
 import type { LinkManager } from './links/LinkManager'
-import { SerialPort } from 'serialport'
-import { VideoSourceType } from '@shared/ipc/VideoTypes'
-import { CameraMode } from '@shared/ipc/CameraTypes'
 import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import { parseKmlFile } from './kml/KmlParser'
 import type { MissionItem } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
+import { createMavInspectorCommandHandlers } from './mavlink/MavInspectorCommandHandlers'
 import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 import type { SettingsManager } from './settings/SettingsManager'
 import type { RadarProxy } from './radar/RadarProxy'
@@ -37,6 +36,24 @@ import { missionModule } from '@shared/ipc/modules/mission'
 import { parametersModule } from '@shared/ipc/modules/parameters'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
 import { VehicleTelemetryPublisher } from './vehicle/VehicleTelemetryPublisher'
+import { createVehicleCommandHandlers } from './vehicle/VehicleCommandHandlers'
+import { createSettingsCommandHandlers } from './settings/SettingsCommandHandlers'
+import { createVideoCommandHandlers } from './video/VideoCommandHandlers'
+import { createLinksCommandHandlers } from './links/LinksCommandHandlers'
+import {
+  createForwardingCommandHandlers,
+  createRadarCommandHandlers
+} from './operations/OperationCommandHandlers'
+import { createCameraCommandHandlers } from './camera/CameraCommandHandlers'
+import {
+  createCalibrationCommandHandlers,
+  createRcCalibrationCommandHandlers
+} from './calibration/CalibrationCommandHandlers'
+import { createFirmwareCommandHandlers } from './firmware/FirmwareCommandHandlers'
+import {
+  createActuatorCommandHandlers,
+  createMavConsoleCommandHandlers
+} from './vehicle/VehicleToolsCommandHandlers'
 import type {
   CalibrationState,
   MagCalProgress,
@@ -49,8 +66,8 @@ import type {
   InspectorSnapshotPayload,
   InspectorFieldsPayload
 } from '@shared/ipc/MavInspectorTypes'
-import type { AppSettings } from '@shared/ipc/AppSettings'
 import type { Parameter, ParameterLoadState } from '@shared/ipc/ParameterTypes'
+import { createParameterCommandHandlers } from './parameters/ParameterCommandHandlers'
 
 export function startIpcBridge(
   vehicleManager: VehicleManager,
@@ -160,80 +177,101 @@ export function startIpcBridge(
   ipcMain.on('renderer:log', onRendererLog)
   disposers.push(() => ipcMain.removeListener('renderer:log', onRendererLog))
 
+  const vehicleListenerDisposers = new Map<number, () => void>()
+
+  const attachVehicleListeners = (sysid: number): void => {
+    if (vehicleListenerDisposers.has(sysid)) return
+    const vehicle = vehicleManager.getVehicle(sysid)
+    if (!vehicle) return
+
+    const disposersForVehicle: Array<() => void> = []
+    const addListener = (
+      target: Pick<EventEmitter, 'on' | 'removeListener'>,
+      event: string,
+      listener: Parameters<EventEmitter['on']>[1]
+    ): void => {
+      target.on(event, listener)
+      disposersForVehicle.push(() => target.removeListener(event, listener))
+    }
+
+    addListener(vehicle.missionManager, 'progress', (p: { current: number; total: number }) => {
+      emitMissionProgress({ vehicleId: sysid, ...p })
+    })
+    addListener(vehicle.missionManager, 'loadComplete', (items: MissionItem[]) => {
+      emitMissionComplete({ vehicleId: sysid, items })
+    })
+    addListener(vehicle.missionManager, 'currentChanged', (seq: number) => {
+      emitMissionCurrentChanged({ vehicleId: sysid, seq })
+    })
+
+    addListener(vehicle.parameterManager, 'parameterReceived', (param: Parameter) => {
+      emitParameterChanged({ vehicleId: sysid, parameter: param })
+    })
+    addListener(vehicle.parameterManager, 'parametersReady', () => {
+      emitParametersReady({ vehicleId: sysid })
+    })
+    addListener(vehicle.parameterManager, 'progress', (loadState: ParameterLoadState) => {
+      emitParametersProgress({ vehicleId: sysid, loadState })
+    })
+
+    addListener(vehicle, 'statusText', (payload: { severity: number; text: string }) => {
+      emitVehicleStatusText({ vehicleId: sysid, ...payload })
+    })
+
+    addListener(vehicle.calibrationManager, 'stateChanged', (state: CalibrationState) => {
+      emitCalibrationStateChanged({ vehicleId: sysid, state })
+    })
+    addListener(vehicle.calibrationManager, 'magProgress', (progress: MagCalProgress) => {
+      emitCalibrationMagProgress({ vehicleId: sysid, ...progress })
+    })
+    addListener(vehicle.calibrationManager, 'magReport', (report: MagCalReport) => {
+      emitCalibrationMagReport({ vehicleId: sysid, ...report })
+    })
+
+    addListener(vehicle.rcCalibrationManager, 'stateChanged', (state: RcCalibrationState) => {
+      emitRcCalibrationStateChanged({ vehicleId: sysid, state })
+    })
+
+    addListener(vehicle.firmwareManager, 'stateChanged', (state: FirmwareUpgradeState) => {
+      emitFirmwareUpgradeStateChanged({ vehicleId: sysid, state })
+    })
+
+    addListener(vehicle.cameraManager, 'stateChanged', (state: CameraState) => {
+      emitCameraStateChanged({ vehicleId: sysid, state })
+    })
+    addListener(
+      vehicle.cameraManager,
+      'imageCaptured',
+      (data: Omit<CameraImageCapturedPayload, 'vehicleId'>) => {
+        emitCameraImageCaptured({ vehicleId: sysid, ...data })
+      }
+    )
+
+    addListener(vehicle, 'consoleData', (payload: { text: string }) => {
+      emitMavConsoleData?.({ vehicleId: sysid, ...payload })
+    })
+
+    vehicleListenerDisposers.set(sysid, () => {
+      for (const dispose of disposersForVehicle) dispose()
+    })
+  }
+
+  const detachVehicleListeners = (sysid: number): void => {
+    vehicleListenerDisposers.get(sysid)?.()
+    vehicleListenerDisposers.delete(sysid)
+  }
+
   // Forward vehicle lifecycle events to all renderer windows
   const onVehicleAdded = (sysid: number): void => {
     emitVehicleAdded({ vehicleId: sysid })
-    const vehicle = vehicleManager.getVehicle(sysid)
-    if (vehicle) {
-      vehicle.missionManager.on('progress', (p: { current: number; total: number }) => {
-        emitMissionProgress({ vehicleId: sysid, ...p })
-      })
-      vehicle.missionManager.on('loadComplete', (items: MissionItem[]) => {
-        emitMissionComplete({ vehicleId: sysid, items })
-      })
-      vehicle.missionManager.on('currentChanged', (seq: number) => {
-        emitMissionCurrentChanged({ vehicleId: sysid, seq })
-      })
-
-      // Forward parameter events via parametersModule's captured emits
-      vehicle.parameterManager.on('parameterReceived', (param) => {
-        emitParameterChanged({ vehicleId: sysid, parameter: param })
-      })
-      vehicle.parameterManager.on('parametersReady', () => {
-        emitParametersReady({ vehicleId: sysid })
-      })
-      vehicle.parameterManager.on('progress', (loadState) => {
-        emitParametersProgress({ vehicleId: sysid, loadState })
-      })
-
-      // Forward STATUSTEXT
-      vehicle.on('statusText', (payload: { severity: number; text: string }) => {
-        emitVehicleStatusText({ vehicleId: sysid, ...payload })
-      })
-
-      // Forward calibration events via calibrationModule's captured emits
-      vehicle.calibrationManager.on('stateChanged', (state) => {
-        emitCalibrationStateChanged({ vehicleId: sysid, state })
-      })
-      vehicle.calibrationManager.on('magProgress', (progress) => {
-        emitCalibrationMagProgress({ vehicleId: sysid, ...progress })
-      })
-      vehicle.calibrationManager.on('magReport', (report) => {
-        emitCalibrationMagReport({ vehicleId: sysid, ...report })
-      })
-
-      // Forward RC calibration events via rcCalibrationModule's captured emit
-      vehicle.rcCalibrationManager.on('stateChanged', (state) => {
-        emitRcCalibrationStateChanged({ vehicleId: sysid, state })
-      })
-
-      // Forward firmware upgrade events via firmwareModule's captured emit
-      vehicle.firmwareManager.on('stateChanged', (state) => {
-        emitFirmwareUpgradeStateChanged({ vehicleId: sysid, state })
-      })
-
-      // Forward camera events via cameraModule's captured emits
-      vehicle.cameraManager.on('stateChanged', (state) => {
-        emitCameraStateChanged({ vehicleId: sysid, state })
-      })
-      vehicle.cameraManager.on('imageCaptured', (data) => {
-        emitCameraImageCaptured({ vehicleId: sysid, ...data })
-      })
-
-      // Forward MAVLink console data
-      const emitConsole = emitMavConsoleData
-      if (emitConsole) {
-        vehicle.on('consoleData', (payload: { text: string }) => {
-          emitConsole({ vehicleId: sysid, ...payload })
-        })
-      }
-    }
+    attachVehicleListeners(sysid)
   }
   vehicleManager.on('vehicleAdded', onVehicleAdded)
   disposers.push(() => vehicleManager.removeListener('vehicleAdded', onVehicleAdded))
 
   const onVehicleRemoved = (sysid: number): void => {
     emitVehicleRemoved({ vehicleId: sysid })
+    detachVehicleListeners(sysid)
   }
   vehicleManager.on('vehicleRemoved', onVehicleRemoved)
   disposers.push(() => vehicleManager.removeListener('vehicleRemoved', onVehicleRemoved))
@@ -253,21 +291,7 @@ export function startIpcBridge(
     const vm = videoManager
     disposers.push(
       registerIpcModule(videoModule, {
-        commands: {
-          start: (sourceType, uri) => {
-            vm.start(sourceType as VideoSourceType, uri)
-          },
-          stop: () => {
-            vm.stop()
-          },
-          startRecording: (fileName) => {
-            return { filePath: vm.startRecording(fileName) }
-          },
-          stopRecording: () => {
-            vm.stopRecording()
-          },
-          getState: () => vm.state
-        },
+        commands: createVideoCommandHandlers(vm),
         events: {
           stateChanged: (emit) => {
             const handler = (state: VideoStreamState): void => emit(state)
@@ -286,19 +310,7 @@ export function startIpcBridge(
     const fw = forwarder
     disposers.push(
       registerIpcModule(forwardingModule, {
-        commands: {
-          getState: async () => fw.getState(),
-          addTarget: async (host, port) => fw.addTarget(host, port),
-          removeTarget: async (id) => {
-            fw.removeTarget(id)
-          },
-          setEnabled: async (enabled) => {
-            fw.setEnabled(enabled)
-          },
-          setTargetEnabled: async (id, enabled) => {
-            fw.setTargetEnabled(id, enabled)
-          }
-        },
+        commands: createForwardingCommandHandlers(fw),
         events: {
           stateChanged: (emit) => {
             const handler = (state: unknown): void => emit(state as ReturnType<typeof fw.getState>)
@@ -317,18 +329,7 @@ export function startIpcBridge(
     const rm = radarManager
     disposers.push(
       registerIpcModule(radarModule, {
-        commands: {
-          enable: async () => {
-            rm.enable()
-          },
-          disable: async () => {
-            rm.disable()
-          },
-          getState: async () => rm.getState(),
-          setSimPosition: async (lat, lon) => {
-            rm.setSimulationPosition(lat, lon)
-          }
-        },
+        commands: createRadarCommandHandlers(rm),
         events: {
           stateChanged: (emit) => {
             const handler = (state: unknown): void => emit(state as ReturnType<typeof rm.getState>)
@@ -365,12 +366,7 @@ export function startIpcBridge(
   // onVehicleAdded via the captured emit callback.
   disposers.push(
     registerIpcModule(mavConsoleModule, {
-      commands: {
-        write: async (vehicleId, text) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          vehicle?.sendConsoleText(text)
-        }
-      },
+      commands: createMavConsoleCommandHandlers(vehicleManager),
       events: {
         data: (emit) => {
           emitMavConsoleData = emit
@@ -386,12 +382,7 @@ export function startIpcBridge(
   // above; emits are captured so the inspector's periodic pushes reach renderers.
   disposers.push(
     registerIpcModule(mavInspectorModule, {
-      commands: {
-        enable: async () => inspector.enable(),
-        disable: async () => inspector.disable(),
-        select: async (sysid, compid, msgid) => inspector.select(sysid, compid, msgid),
-        deselect: async () => inspector.deselect()
-      },
+      commands: createMavInspectorCommandHandlers(inspector),
       events: {
         snapshot: (emit) => {
           emitInspectorSnapshot = emit
@@ -414,16 +405,7 @@ export function startIpcBridge(
   // via the captured emit callbacks.
   disposers.push(
     registerIpcModule(calibrationModule, {
-      commands: {
-        start: async (vehicleId, sensor) => {
-          vehicleManager.getVehicle(vehicleId)?.calibrationManager.startCalibration(sensor)
-        },
-        cancel: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.calibrationManager.cancelCalibration()
-        },
-        getState: async (vehicleId) =>
-          vehicleManager.getVehicle(vehicleId)?.calibrationManager.state ?? null
-      },
+      commands: createCalibrationCommandHandlers(vehicleManager),
       events: {
         stateChanged: (emit) => {
           emitCalibrationStateChanged = emit
@@ -451,20 +433,7 @@ export function startIpcBridge(
   // emitted from per-vehicle rcCalibrationManager listeners via captured emit.
   disposers.push(
     registerIpcModule(rcCalibrationModule, {
-      commands: {
-        start: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.start()
-        },
-        nextStep: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.nextStep()
-        },
-        cancel: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.cancel()
-        },
-        save: async (vehicleId) => {
-          await vehicleManager.getVehicle(vehicleId)?.rcCalibrationManager.save()
-        }
-      },
+      commands: createRcCalibrationCommandHandlers(vehicleManager),
       events: {
         stateChanged: (emit) => {
           emitRcCalibrationStateChanged = emit
@@ -480,40 +449,7 @@ export function startIpcBridge(
   // emitted from per-vehicle firmwareManager listeners via captured emit.
   disposers.push(
     registerIpcModule(firmwareModule, {
-      commands: {
-        uploadFile: async (vehicleId, filePath) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) throw new Error('No vehicle')
-          await vehicle.firmwareManager.uploadFile(filePath)
-        },
-        uploadData: async (vehicleId, fileName, dataBase64) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) throw new Error('No vehicle')
-          await vehicle.firmwareManager.uploadData(fileName, Buffer.from(dataBase64, 'base64'))
-        },
-        cancel: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.firmwareManager.cancel()
-        },
-        reboot: async (vehicleId) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) throw new Error('No vehicle')
-          await vehicle.firmwareManager.reboot()
-        },
-        getBoardInfo: async (vehicleId) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) return null
-          const core = vehicle.state.getDelta().core
-          return core
-            ? {
-                firmwareVersionMajor: core.firmwareVersionMajor,
-                firmwareVersionMinor: core.firmwareVersionMinor,
-                firmwareVersionPatch: core.firmwareVersionPatch,
-                vehicleType: core.vehicleType,
-                autopilot: core.autopilot
-              }
-            : null
-        }
-      },
+      commands: createFirmwareCommandHandlers(vehicleManager),
       events: {
         upgradeStateChanged: (emit) => {
           emitFirmwareUpgradeStateChanged = emit
@@ -529,31 +465,7 @@ export function startIpcBridge(
   // per-vehicle cameraManager listeners via captured emits.
   disposers.push(
     registerIpcModule(cameraModule, {
-      commands: {
-        requestInfo: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.cameraManager.handleCameraHeartbeat()
-        },
-        takePhoto: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.cameraManager.takePhoto()
-        },
-        stopCapture: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.cameraManager.stopCapture()
-        },
-        startRecording: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.cameraManager.startRecording()
-        },
-        stopRecording: async (vehicleId) => {
-          vehicleManager.getVehicle(vehicleId)?.cameraManager.stopRecording()
-        },
-        setMode: async (vehicleId, mode) => {
-          vehicleManager.getVehicle(vehicleId)?.cameraManager.setMode(mode as CameraMode)
-        },
-        formatStorage: async (vehicleId, storageId) => {
-          vehicleManager.getVehicle(vehicleId)?.cameraManager.formatStorage(storageId)
-        },
-        getState: async (vehicleId) =>
-          vehicleManager.getVehicle(vehicleId)?.cameraManager.state ?? null
-      },
+      commands: createCameraCommandHandlers(vehicleManager),
       events: {
         stateChanged: (emit) => {
           emitCameraStateChanged = emit
@@ -579,32 +491,7 @@ export function startIpcBridge(
   // Must be refreshed every ~100ms or PX4 auto-stops the output.
   disposers.push(
     registerIpcModule(actuatorModule, {
-      commands: {
-        motorTest: async (vehicleId, motorInstance, throttlePercent, _timeoutSeconds) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) return
-          const throttleFraction = throttlePercent > 0 ? throttlePercent / 100 : NaN
-          const timeout = throttlePercent > 0 ? 1 : 0
-          const actuatorFunction = vehicle.actuatorMetadata.motorFunction(motorInstance)
-          await vehicle.commandQueue.sendCommand(310, vehicleId, 1, {
-            p1: throttleFraction,
-            p2: timeout,
-            p5: actuatorFunction
-          })
-        },
-        servoTest: async (vehicleId, servoInstance, pwmValue) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) return
-          const normalized = (pwmValue - 1500) / 500
-          const timeout = 1
-          const actuatorFunction = vehicle.actuatorMetadata.servoFunction(servoInstance)
-          await vehicle.commandQueue.sendCommand(310, vehicleId, 1, {
-            p1: normalized,
-            p2: timeout,
-            p5: actuatorFunction
-          })
-        }
-      },
+      commands: createActuatorCommandHandlers(vehicleManager),
       events: {}
     })
   )
@@ -613,27 +500,7 @@ export function startIpcBridge(
   // linkManager state changes via captured emit (wired above).
   disposers.push(
     registerIpcModule(linksModule, {
-      commands: {
-        create: async (config) => {
-          if (!linkManager) throw new Error('LinkManager not available')
-          const link = await linkManager.createLink(config)
-          return { id: link.id, status: link.status }
-        },
-        disconnect: async (id) => {
-          linkManager?.disconnectLink(id)
-        },
-        getAll: async () => linkManager?.getAllStates() ?? [],
-        listSerialPorts: async () => {
-          const ports = await SerialPort.list()
-          return ports.map((p) => ({
-            path: p.path,
-            manufacturer: p.manufacturer,
-            serialNumber: p.serialNumber,
-            vendorId: p.vendorId,
-            productId: p.productId
-          }))
-        }
-      },
+      commands: createLinksCommandHandlers(linkManager ?? null),
       events: {
         stateChanged: (emit) => {
           emitLinksStateChanged = emit
@@ -656,73 +523,7 @@ export function startIpcBridge(
   // are fanned out through the captured emits wired in above.
   disposers.push(
     registerIpcModule(vehicleModule, {
-      commands: {
-        arm: async (vehicleId) => {
-          await vehicleManager.getVehicle(vehicleId)?.arm()
-        },
-        forceArm: async (vehicleId) => {
-          await vehicleManager.getVehicle(vehicleId)?.forceArm()
-        },
-        disarm: async (vehicleId) => {
-          await vehicleManager.getVehicle(vehicleId)?.disarm()
-        },
-        sendMavCommand: async (req) => {
-          await vehicleManager
-            .getVehicle(req.vehicleId)
-            ?.commandQueue.sendCommand(req.command, req.vehicleId, req.componentId, {
-              p1: req.param1,
-              p2: req.param2,
-              p3: req.param3,
-              p4: req.param4,
-              p5: req.param5,
-              p6: req.param6,
-              p7: req.param7
-            })
-        },
-        setFlightMode: async (vehicleId, modeName) =>
-          vehicleManager.getVehicle(vehicleId)?.setFlightModeByName(modeName),
-        guidedTakeoff: async (vehicleId, altitude) =>
-          vehicleManager.getVehicle(vehicleId)?.guidedTakeoff(altitude),
-        guidedRTL: async (vehicleId) => {
-          await vehicleManager.getVehicle(vehicleId)?.guidedRTL()
-        },
-        guidedLand: async (vehicleId) => {
-          await vehicleManager.getVehicle(vehicleId)?.guidedLand()
-        },
-        guidedGoto: async (vehicleId, lat, lon, alt) => {
-          await vehicleManager.getVehicle(vehicleId)?.guidedGoto(lat, lon, alt)
-        },
-        guidedPause: async (vehicleId) => {
-          await vehicleManager.getVehicle(vehicleId)?.guidedPause()
-        },
-        missionStart: async (vehicleId) => {
-          await vehicleManager.getVehicle(vehicleId)?.missionStart()
-        },
-        emergencyStop: async (vehicleId) => {
-          await vehicleManager.getVehicle(vehicleId)?.emergencyStop()
-        },
-        guidedChangeAltitude: async (vehicleId, altitudeRel) =>
-          vehicleManager.getVehicle(vehicleId)?.guidedChangeAltitude(altitudeRel),
-        guidedChangeHeading: async (vehicleId, headingDeg) =>
-          vehicleManager.getVehicle(vehicleId)?.guidedChangeHeading(headingDeg),
-        guidedChangeSpeed: async (vehicleId, speed, speedType) =>
-          vehicleManager.getVehicle(vehicleId)?.guidedChangeSpeed(speed, speedType),
-        guidedOrbit: async (vehicleId, lat, lon, radius, altitudeRel) =>
-          vehicleManager.getVehicle(vehicleId)?.guidedOrbit(lat, lon, radius, altitudeRel),
-        landingGearDeploy: async (vehicleId) =>
-          vehicleManager.getVehicle(vehicleId)?.landingGearDeploy(),
-        landingGearRetract: async (vehicleId) =>
-          vehicleManager.getVehicle(vehicleId)?.landingGearRetract(),
-        trackingEngage: async (vehicleId, trackId) => {
-          if (!trackingManager) return { ok: false, error: 'Tracking manager not available' }
-          return trackingManager.engage(vehicleId, trackId)
-        },
-        trackingDisengage: async (vehicleId) => {
-          trackingManager?.disengage(vehicleId)
-        },
-        trackingGetEngagement: async (vehicleId) =>
-          trackingManager?.getEngagement(vehicleId) ?? null
-      },
+      commands: createVehicleCommandHandlers(vehicleManager, trackingManager ?? null),
       events: {
         added: (emit) => {
           emitVehicleAdded = emit
@@ -880,23 +681,7 @@ export function startIpcBridge(
 
   disposers.push(
     registerIpcModule(parametersModule, {
-      commands: {
-        getAll: (vehicleId) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) return []
-          return vehicle.parameterManager.getAllParameters()
-        },
-        set: (vehicleId, name, value) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) return
-          vehicle.parameterManager.setParameter(name, value)
-        },
-        refresh: (vehicleId) => {
-          const vehicle = vehicleManager.getVehicle(vehicleId)
-          if (!vehicle) return
-          vehicle.parameterManager.requestAllParameters()
-        }
-      },
+      commands: createParameterCommandHandlers(vehicleManager),
       events: {
         changed: (emit) => {
           emitParameterChanged = emit
@@ -927,12 +712,7 @@ export function startIpcBridge(
     const sm = settingsManager
     disposers.push(
       registerIpcModule(settingsModule, {
-        commands: {
-          getAll: async () => sm.getAll(),
-          set: async (key, value) => {
-            sm.set(key as keyof AppSettings, value as never)
-          }
-        },
+        commands: createSettingsCommandHandlers(sm),
         events: {
           changed: (emit) => {
             const handler = (key: string, value: unknown): void => emit({ key, value })
@@ -949,6 +729,8 @@ export function startIpcBridge(
   return () => {
     inspector.disable()
     telemetryPublisher.dispose()
+    for (const dispose of vehicleListenerDisposers.values()) dispose()
+    vehicleListenerDisposers.clear()
     for (const dispose of disposers) dispose()
   }
 }

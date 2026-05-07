@@ -9,6 +9,10 @@ const log = createLogger('VideoWS')
 
 const MAX_BUFFERED = 1 * 1024 * 1024 // 1 MB backpressure threshold
 
+export interface VideoWebSocketAttachOptions {
+  authorizeUpgrade?: (request: IncomingMessage) => boolean
+}
+
 /**
  * Read a 32-bit big-endian unsigned int from a buffer.
  */
@@ -95,11 +99,20 @@ export class VideoWebSocketServer extends EventEmitter {
     })
   }
 
-  attach(server: HttpServer, path = '/video/live'): () => void {
+  attach(
+    server: HttpServer,
+    path = '/video/live',
+    options: VideoWebSocketAttachOptions = {}
+  ): () => void {
     const wss = new WebSocketServer({ noServer: true })
     const onUpgrade = (request: IncomingMessage, socket: Duplex, head: Buffer): void => {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1')
       if (url.pathname !== path) return
+      if (options.authorizeUpgrade && !options.authorizeUpgrade(request)) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
+        socket.destroy()
+        return
+      }
       wss.handleUpgrade(request, socket, head, (ws) => {
         this.handleConnection(ws)
       })

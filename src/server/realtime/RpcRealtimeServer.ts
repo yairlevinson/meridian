@@ -15,12 +15,16 @@ interface RpcClient {
   subscriptions: Set<string>
 }
 
+export interface RealtimeAuthOptions {
+  authorizeUpgrade?: (request: IncomingMessage) => boolean
+}
+
 export class RpcRealtimeServer {
   private wss = new WebSocketServer({ noServer: true })
   private clients = new Set<RpcClient>()
   private modules = new Map<string, RpcModuleImpl<IpcModuleSpec>>()
 
-  constructor() {
+  constructor(private readonly options: RealtimeAuthOptions = {}) {
     this.wss.on('connection', (ws) => {
       const client: RpcClient = { ws, subscriptions: new Set() }
       this.clients.add(client)
@@ -43,10 +47,19 @@ export class RpcRealtimeServer {
     this.modules.set(module.name, impl as RpcModuleImpl<IpcModuleSpec>)
   }
 
-  attach(server: HttpServer, path = '/realtime'): () => void {
+  attach(
+    server: HttpServer,
+    path = '/realtime',
+    options: RealtimeAuthOptions = this.options
+  ): () => void {
     const onUpgrade = (request: IncomingMessage, socket: Duplex, head: Buffer): void => {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1')
       if (url.pathname !== path) return
+      if (options.authorizeUpgrade && !options.authorizeUpgrade(request)) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n')
+        socket.destroy()
+        return
+      }
       this.wss.handleUpgrade(request, socket, head, (ws) => {
         this.wss.emit('connection', ws, request)
       })

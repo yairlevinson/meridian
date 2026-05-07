@@ -4,7 +4,7 @@ import { basename, join } from 'path'
 import type { Server as HttpServer } from 'http'
 import { FfmpegProcess, type FfmpegOptions } from './FfmpegProcess'
 import { VideoReceiver } from './VideoReceiver'
-import { VideoWebSocketServer } from './VideoWebSocketServer'
+import { VideoWebSocketServer, type VideoWebSocketAttachOptions } from './VideoWebSocketServer'
 import { VideoSourceType, type VideoStreamState } from '@shared/ipc/VideoTypes'
 import { createLogger } from '../logger'
 
@@ -156,8 +156,12 @@ export class VideoManager extends EventEmitter {
     })
   }
 
-  attachWebSocketServer(server: HttpServer, path = '/video/live'): () => void {
-    return this.wsServer.attach(server, path)
+  attachWebSocketServer(
+    server: HttpServer,
+    path = '/video/live',
+    options: VideoWebSocketAttachOptions = {}
+  ): () => void {
+    return this.wsServer.attach(server, path, options)
   }
 
   /** Choose which pipeline to use based on source type and URI. */

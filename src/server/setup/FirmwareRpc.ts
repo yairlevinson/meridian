@@ -1,6 +1,7 @@
 import type { EventEmitter } from 'events'
 import { firmwareModule } from '@shared/ipc/modules/firmware'
 import type { FirmwareUpgradeState } from '@shared/ipc/SetupTypes'
+import { createFirmwareCommandHandlers } from '../../main/firmware/FirmwareCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type FirmwareManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
@@ -35,42 +36,8 @@ export function registerFirmwareRpc(
   realtime: RpcRealtimeServer,
   vehicleManager: FirmwareVehicleManagerLike | null
 ): () => void {
-  const getFirmwareManager = (vehicleId: number): FirmwareManagerLike | undefined =>
-    vehicleManager?.getVehicle(vehicleId)?.firmwareManager
-
   realtime.registerModule(firmwareModule, {
-    commands: {
-      uploadFile: async (vehicleId, filePath) => {
-        const firmwareManager = getFirmwareManager(vehicleId)
-        if (!firmwareManager) throw new Error('No vehicle')
-        await firmwareManager.uploadFile(filePath)
-      },
-      uploadData: async (vehicleId, fileName, dataBase64) => {
-        const firmwareManager = getFirmwareManager(vehicleId)
-        if (!firmwareManager) throw new Error('No vehicle')
-        await firmwareManager.uploadData(fileName, Buffer.from(dataBase64, 'base64'))
-      },
-      cancel: async (vehicleId) => {
-        getFirmwareManager(vehicleId)?.cancel()
-      },
-      reboot: async (vehicleId) => {
-        const firmwareManager = getFirmwareManager(vehicleId)
-        if (!firmwareManager) throw new Error('No vehicle')
-        await firmwareManager.reboot()
-      },
-      getBoardInfo: async (vehicleId) => {
-        const core = vehicleManager?.getVehicle(vehicleId)?.state?.getDelta().core
-        return core
-          ? {
-              firmwareVersionMajor: core.firmwareVersionMajor,
-              firmwareVersionMinor: core.firmwareVersionMinor,
-              firmwareVersionPatch: core.firmwareVersionPatch,
-              vehicleType: core.vehicleType,
-              autopilot: core.autopilot
-            }
-          : null
-      }
-    }
+    commands: createFirmwareCommandHandlers(vehicleManager)
   })
 
   if (!vehicleManager) return () => {}

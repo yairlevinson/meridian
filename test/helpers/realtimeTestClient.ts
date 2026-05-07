@@ -21,8 +21,15 @@ export class RealtimeTestClient {
     })
   }
 
-  static async connect(port: number): Promise<RealtimeTestClient> {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/realtime`)
+  static async connect(
+    port: number,
+    options: { token?: string; origin?: string } = {}
+  ): Promise<RealtimeTestClient> {
+    const url = new URL(`ws://127.0.0.1:${port}/realtime`)
+    if (options.token) url.searchParams.set('token', options.token)
+    const ws = new WebSocket(url, {
+      headers: options.origin ? { Origin: options.origin } : undefined
+    })
     await new Promise<void>((resolve) => ws.once('open', resolve))
     return new RealtimeTestClient(ws)
   }

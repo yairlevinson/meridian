@@ -75,6 +75,40 @@ class FakeVehicle extends EventEmitter {
     servoFunction: (instance: number): number => 1200 + instance
   }
 
+  async arm(): Promise<void> {}
+  async forceArm(): Promise<void> {}
+  async disarm(): Promise<void> {}
+  async setFlightModeByName(): Promise<number> {
+    return 0
+  }
+  async guidedTakeoff(): Promise<number> {
+    return 0
+  }
+  async guidedRTL(): Promise<void> {}
+  async guidedLand(): Promise<void> {}
+  async guidedGoto(): Promise<void> {}
+  async guidedPause(): Promise<void> {}
+  async missionStart(): Promise<void> {}
+  async emergencyStop(): Promise<void> {}
+  async guidedChangeAltitude(): Promise<number> {
+    return 0
+  }
+  async guidedChangeHeading(): Promise<number> {
+    return 0
+  }
+  async guidedChangeSpeed(): Promise<number> {
+    return 0
+  }
+  async guidedOrbit(): Promise<number> {
+    return 0
+  }
+  async landingGearDeploy(): Promise<number> {
+    return 0
+  }
+  async landingGearRetract(): Promise<number> {
+    return 0
+  }
+
   sendConsoleText(text: string): void {
     this.consoleWrites.push(text)
   }
@@ -329,6 +363,65 @@ afterEach(async () => {
 })
 
 describe('Meridian server skeleton', () => {
+  it('requires an access token when binding off loopback', async () => {
+    await expect(startMeridianServer({ host: '0.0.0.0' })).rejects.toThrow(
+      'MERIDIAN_SERVER_TOKEN is required when binding Meridian server off loopback'
+    )
+  })
+
+  it('rejects unauthenticated realtime sockets when an access token is configured', async () => {
+    handle = await startMeridianServer({ accessToken: 'secret' })
+
+    await expect(
+      new Promise<void>((resolve, reject) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${handle!.port}/realtime`)
+        ws.once('open', () => {
+          ws.close()
+          resolve()
+        })
+        ws.once('error', reject)
+        ws.once('unexpected-response', (_req, res) => {
+          reject(new Error(`unexpected response ${res.statusCode}`))
+        })
+      })
+    ).rejects.toThrow('unexpected response 401')
+  })
+
+  it('accepts realtime sockets with the configured access token', async () => {
+    handle = await startMeridianServer({ accessToken: 'secret' })
+
+    const client = await RealtimeTestClient.connect(handle.port, { token: 'secret' })
+    await expect(client.command('settings-auth', 'settings', 'getAll')).resolves.toMatchObject({
+      id: 'settings-auth',
+      type: 'reply',
+      ok: true
+    })
+    client.close()
+  })
+
+  it('rejects realtime sockets from disallowed origins', async () => {
+    handle = await startMeridianServer({
+      accessToken: 'secret',
+      allowedOrigins: ['http://trusted.local']
+    })
+
+    await expect(
+      new Promise<void>((resolve, reject) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${handle!.port}/realtime?token=secret`, {
+          headers: { Origin: 'http://evil.local' }
+        })
+        ws.once('open', () => {
+          ws.close()
+          resolve()
+        })
+        ws.once('error', reject)
+        ws.once('unexpected-response', (_req, res) => {
+          reject(new Error(`unexpected response ${res.statusCode}`))
+        })
+      })
+    ).rejects.toThrow('unexpected response 401')
+  })
+
   it('serves a health endpoint', async () => {
     handle = await startMeridianServer()
 
@@ -681,6 +774,27 @@ describe('Meridian server skeleton', () => {
       error: 'VehicleManager not available'
     })
     ws.close()
+  })
+
+  it('returns a structured error for vehicle commands targeting a missing vehicle', async () => {
+    handle = await startMeridianServer({
+      runtime: {
+        settingsManager: new SettingsManager(),
+        videoManager: new VideoManager(),
+        linkManager: new LinkManager(new MavlinkProtocol()),
+        vehicleManager: new FakeVehicleManager(),
+        trackingManager: null as never
+      }
+    })
+
+    const client = await RealtimeTestClient.connect(handle.port)
+    await expect(client.command('vehicle-missing', 'vehicle', 'arm', [99])).resolves.toEqual({
+      id: 'vehicle-missing',
+      type: 'reply',
+      ok: false,
+      error: 'Vehicle 99 not available'
+    })
+    client.close()
   })
 
   it('publishes runtime vehicle lifecycle and delta events', async () => {

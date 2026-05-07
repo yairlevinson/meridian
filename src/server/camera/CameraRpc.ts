@@ -1,6 +1,7 @@
 import type { EventEmitter } from 'events'
 import { cameraModule, type CameraImageCapturedPayload } from '@shared/ipc/modules/camera'
 import type { CameraState } from '@shared/ipc/CameraTypes'
+import { createCameraCommandHandlers } from '../../main/camera/CameraCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type CameraManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
@@ -28,34 +29,8 @@ export function registerCameraRpc(
   realtime: RpcRealtimeServer,
   vehicleManager: CameraVehicleManagerLike | null
 ): () => void {
-  const getCameraManager = (vehicleId: number): CameraManagerLike | undefined =>
-    vehicleManager?.getVehicle(vehicleId)?.cameraManager
-
   realtime.registerModule(cameraModule, {
-    commands: {
-      requestInfo: async (vehicleId) => {
-        getCameraManager(vehicleId)?.handleCameraHeartbeat()
-      },
-      takePhoto: async (vehicleId) => {
-        getCameraManager(vehicleId)?.takePhoto()
-      },
-      stopCapture: async (vehicleId) => {
-        getCameraManager(vehicleId)?.stopCapture()
-      },
-      startRecording: async (vehicleId) => {
-        getCameraManager(vehicleId)?.startRecording()
-      },
-      stopRecording: async (vehicleId) => {
-        getCameraManager(vehicleId)?.stopRecording()
-      },
-      setMode: async (vehicleId, mode) => {
-        getCameraManager(vehicleId)?.setMode(mode)
-      },
-      formatStorage: async (vehicleId, storageId) => {
-        getCameraManager(vehicleId)?.formatStorage(storageId)
-      },
-      getState: async (vehicleId) => getCameraManager(vehicleId)?.state ?? null
-    }
+    commands: createCameraCommandHandlers(vehicleManager)
   })
 
   if (!vehicleManager) return () => {}
