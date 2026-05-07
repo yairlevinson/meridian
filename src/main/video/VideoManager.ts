@@ -1,4 +1,6 @@
 import { EventEmitter } from 'events'
+import { mkdirSync } from 'fs'
+import { basename, join } from 'path'
 import type { Server as HttpServer } from 'http'
 import { FfmpegProcess, type FfmpegOptions } from './FfmpegProcess'
 import { VideoReceiver } from './VideoReceiver'
@@ -41,6 +43,7 @@ export class VideoManager extends EventEmitter {
   }
 
   private restartTimer: ReturnType<typeof setTimeout> | null = null
+  private recordingDirectory: string | null = null
   private _autoRestartOpts: FfmpegOptions | null = null
   private _restartCount = 0
   private _lastStderrLines: string[] = []
@@ -49,6 +52,23 @@ export class VideoManager extends EventEmitter {
 
   get state(): VideoStreamState {
     return { ...this._state }
+  }
+
+  setRecordingDirectory(directory: string | null): void {
+    this.recordingDirectory = directory
+  }
+
+  static resolveRecordingFilePath(
+    recordingDirectory: string | null,
+    requestedName: string
+  ): string {
+    if (!recordingDirectory) return requestedName
+
+    const baseName = basename(requestedName || 'video.mp4')
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/^\.+/, '')
+    const safeName = baseName || 'video.mp4'
+    return join(recordingDirectory, safeName)
   }
 
   async init(): Promise<void> {
@@ -203,11 +223,14 @@ export class VideoManager extends EventEmitter {
     this._emitState()
   }
 
-  startRecording(filePath: string): void {
-    if (!this._state.streaming) return
+  startRecording(fileName: string): string | null {
+    if (!this._state.streaming) return null
+    const filePath = VideoManager.resolveRecordingFilePath(this.recordingDirectory, fileName)
+    if (this.recordingDirectory) mkdirSync(this.recordingDirectory, { recursive: true })
     this.wsServer.startRecording(filePath)
     this._state.recording = true
     this._emitState()
+    return filePath
   }
 
   stopRecording(): void {

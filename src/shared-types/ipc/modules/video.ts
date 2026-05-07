@@ -6,7 +6,7 @@ export const videoModule = defineIpcModule({
   commands: {
     start: command<[sourceType: string, uri: string], void>(),
     stop: command<[], void>(),
-    startRecording: command<[filePath: string], void>(),
+    startRecording: command<[fileName: string], { filePath: string | null }>(),
     stopRecording: command<[], void>(),
     getState: command<[], VideoStreamState | null>()
   },

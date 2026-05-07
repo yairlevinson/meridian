@@ -69,8 +69,8 @@ export function registerServerModules({
       stop: async () => {
         videoManager.stop()
       },
-      startRecording: async (filePath) => {
-        videoManager.startRecording(filePath)
+      startRecording: async (fileName) => {
+        return { filePath: videoManager.startRecording(fileName) }
       },
       stopRecording: async () => {
         videoManager.stopRecording()

@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { FfmpegProcess } from '../src/main/video/FfmpegProcess'
+import { VideoManager } from '../src/main/video/VideoManager'
 import { VideoWebSocketServer } from '../src/main/video/VideoWebSocketServer'
 import { VideoSourceType } from '../src/shared-types/ipc/VideoTypes'
 import { createServer, type Server as HttpServer } from 'http'
@@ -170,6 +171,20 @@ describe('FfmpegProcess', () => {
       proc.stop()
       proc.destroy()
     })
+  })
+})
+
+describe('VideoManager recording paths', () => {
+  it('preserves explicit paths when no recording directory is configured', () => {
+    expect(VideoManager.resolveRecordingFilePath(null, '/tmp/recording.mp4')).toBe(
+      '/tmp/recording.mp4'
+    )
+  })
+
+  it('keeps server-managed recordings inside the configured directory', () => {
+    expect(
+      VideoManager.resolveRecordingFilePath('/srv/meridian/recordings', '../bad name.mp4')
+    ).toBe('/srv/meridian/recordings/bad_name.mp4')
   })
 })
 

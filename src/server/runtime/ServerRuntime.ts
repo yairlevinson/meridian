@@ -141,6 +141,7 @@ export async function createServerRuntime(
     filePath: join(userDataPath, 'settings.json')
   })
   const videoManager = new VideoManager()
+  videoManager.setRecordingDirectory(join(userDataPath, 'recordings'))
   await videoManager.init()
 
   const vehicleManager = new VehicleManager()

@@ -260,8 +260,8 @@ export function startIpcBridge(
           stop: () => {
             vm.stop()
           },
-          startRecording: (filePath) => {
-            vm.startRecording(filePath)
+          startRecording: (fileName) => {
+            return { filePath: vm.startRecording(fileName) }
           },
           stopRecording: () => {
             vm.stopRecording()

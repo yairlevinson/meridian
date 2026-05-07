@@ -147,6 +147,7 @@ export async function createMeridianRuntime(
 
   // --- Video streaming ---
   const videoManager = new VideoManager()
+  videoManager.setRecordingDirectory(join(options.userDataPath, 'recordings'))
   await videoManager.init()
 
   // --- MAVLink stack ---
