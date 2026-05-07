@@ -63,7 +63,6 @@ export class FirmwareManager extends EventEmitter {
     this._cancelled = false
 
     try {
-      // Validate file exists and get size
       const fileStat = await stat(filePath)
       const fileName = basename(filePath)
       const fileSize = fileStat.size
@@ -85,7 +84,6 @@ export class FirmwareManager extends EventEmitter {
         fileSize
       })
 
-      // Read firmware file
       const content = await readFile(filePath)
 
       if (this._cancelled) {
@@ -97,7 +95,63 @@ export class FirmwareManager extends EventEmitter {
         return
       }
 
-      // Listen for FTP progress
+      await this.uploadData(fileName, content, fileSize)
+    } catch (err) {
+      this._progressUnsub?.()
+      this._progressUnsub = null
+      const msg = err instanceof Error ? err.message : String(err)
+      this._setState({
+        status: FirmwareUpgradeStatus.Failed,
+        progress: 0,
+        message: `Upload failed: ${msg}`
+      })
+    }
+  }
+
+  /** Upload firmware bytes that were provided by a browser client. */
+  async uploadData(
+    fileName: string,
+    content: Uint8Array,
+    fileSize = content.byteLength
+  ): Promise<void> {
+    if (!this._ftpManager) {
+      this._setState({
+        status: FirmwareUpgradeStatus.Failed,
+        progress: 0,
+        message: 'No FTP connection to vehicle'
+      })
+      return
+    }
+
+    this._cancelled = false
+
+    try {
+      if (fileSize === 0) {
+        this._setState({
+          status: FirmwareUpgradeStatus.Failed,
+          progress: 0,
+          message: 'Firmware file is empty'
+        })
+        return
+      }
+
+      this._setState({
+        status: FirmwareUpgradeStatus.Uploading,
+        progress: 0,
+        message: `Reading ${fileName}...`,
+        fileName,
+        fileSize
+      })
+
+      if (this._cancelled) {
+        this._setState({
+          status: FirmwareUpgradeStatus.Idle,
+          progress: 0,
+          message: 'Cancelled'
+        })
+        return
+      }
+
       const onProgress = (p: { bytesSent?: number; totalBytes?: number }): void => {
         if (p.bytesSent != null && p.totalBytes != null && p.totalBytes > 0) {
           const progress = p.bytesSent / p.totalBytes
@@ -122,7 +176,7 @@ export class FirmwareManager extends EventEmitter {
       })
 
       // Upload via FTP
-      await this._ftpManager.upload(FIRMWARE_REMOTE_PATH, content)
+      await this._ftpManager.upload(FIRMWARE_REMOTE_PATH, Buffer.from(content))
 
       this._progressUnsub?.()
       this._progressUnsub = null

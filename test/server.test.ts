@@ -148,11 +148,16 @@ class FakeRcCalibrationManager extends EventEmitter {
 
 class FakeFirmwareManager extends EventEmitter {
   uploadedFilePath: string | null = null
+  uploadedData: { fileName: string; content: Uint8Array } | null = null
   cancelled = false
   rebooted = false
 
   async uploadFile(filePath: string): Promise<void> {
     this.uploadedFilePath = filePath
+  }
+
+  async uploadData(fileName: string, content: Uint8Array): Promise<void> {
+    this.uploadedData = { fileName, content }
   }
 
   cancel(): void {
@@ -1219,6 +1224,15 @@ describe('Meridian server skeleton', () => {
     )
     ws.send(
       JSON.stringify({
+        id: 'firmware-upload-data',
+        type: 'command',
+        module: 'firmware',
+        command: 'uploadData',
+        args: [1, 'browser.bin', Buffer.from([1, 2, 3]).toString('base64')]
+      })
+    )
+    ws.send(
+      JSON.stringify({
         id: 'firmware-cancel',
         type: 'command',
         module: 'firmware',
@@ -1252,10 +1266,19 @@ describe('Meridian server skeleton', () => {
         autopilot: 12
       }
     })
-    for (const id of ['firmware-upload', 'firmware-cancel', 'firmware-reboot']) {
+    for (const id of [
+      'firmware-upload',
+      'firmware-upload-data',
+      'firmware-cancel',
+      'firmware-reboot'
+    ]) {
       expect(messages).toContainEqual({ id, type: 'reply', ok: true })
     }
     expect(vehicleManager.vehicle.firmwareManager.uploadedFilePath).toBe('/tmp/firmware.bin')
+    expect(vehicleManager.vehicle.firmwareManager.uploadedData).toEqual({
+      fileName: 'browser.bin',
+      content: Buffer.from([1, 2, 3])
+    })
     expect(vehicleManager.vehicle.firmwareManager.cancelled).toBe(true)
     expect(vehicleManager.vehicle.firmwareManager.rebooted).toBe(true)
     expect(messages).toContainEqual({

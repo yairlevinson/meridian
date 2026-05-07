@@ -486,6 +486,11 @@ export function startIpcBridge(
           if (!vehicle) throw new Error('No vehicle')
           await vehicle.firmwareManager.uploadFile(filePath)
         },
+        uploadData: async (vehicleId, fileName, dataBase64) => {
+          const vehicle = vehicleManager.getVehicle(vehicleId)
+          if (!vehicle) throw new Error('No vehicle')
+          await vehicle.firmwareManager.uploadData(fileName, Buffer.from(dataBase64, 'base64'))
+        },
         cancel: async (vehicleId) => {
           vehicleManager.getVehicle(vehicleId)?.firmwareManager.cancel()
         },

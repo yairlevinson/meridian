@@ -122,6 +122,21 @@ describe('FirmwareManager — state transitions', () => {
     expect(manager.state.fileName).toBe('firmware.apj')
     expect(manager.state.fileSize).toBe(2048)
   })
+
+  it('uploads provided firmware bytes without reading a local file path', async () => {
+    vi.mocked(fs.stat).mockClear()
+    vi.mocked(fs.readFile).mockClear()
+    const upload = vi.spyOn(ftp, 'upload').mockResolvedValue(undefined)
+
+    await manager.uploadData('browser.bin', Buffer.from([1, 2, 3]))
+
+    expect(upload).toHaveBeenCalledWith('/fs/microsd/firmware.bin', Buffer.from([1, 2, 3]))
+    expect(fs.stat).not.toHaveBeenCalled()
+    expect(fs.readFile).not.toHaveBeenCalled()
+    expect(manager.state.status).toBe(FirmwareUpgradeStatus.Complete)
+    expect(manager.state.fileName).toBe('browser.bin')
+    expect(manager.state.fileSize).toBe(3)
+  })
 })
 
 describe('FirmwareManager — reboot', () => {

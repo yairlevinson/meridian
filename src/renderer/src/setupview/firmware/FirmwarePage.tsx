@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useVehicleStore } from '../../store/vehicleStore'
 import { useSetupStore } from '../../store/setupStore'
 import { FirmwareUpgradeStatus } from '../../../../shared-types/ipc/SetupTypes'
+import { firmwareFileToBase64, type SelectedFirmwareFile } from './firmwareFile'
 import styles from './FirmwarePage.module.css'
 
 const ALLOWED_EXTENSIONS = ['.apj', '.px4', '.bin']
@@ -28,7 +29,7 @@ export function FirmwarePage(): React.JSX.Element {
     return vid !== null ? s.vehicles[vid] : undefined
   })
   const firmwareState = useSetupStore((s) => s.firmwareUpgradeState)
-  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<SelectedFirmwareFile | null>(null)
 
   const core = vehicle?.core
 
@@ -39,21 +40,27 @@ export function FirmwarePage(): React.JSX.Element {
     input.onchange = () => {
       const file = input.files?.[0]
       if (file) {
-        // Use webkitRelativePath or name — the main process will receive the path via IPC
-        setSelectedFile(file.name)
-        // Store the file path for upload. In Electron, file inputs provide the real path.
-        ;(input as unknown as { _filePath: string })._filePath = (
-          file as unknown as { path: string }
-        ).path
-        setSelectedFile((file as unknown as { path: string }).path || file.name)
+        const path = (file as unknown as { path?: string }).path
+        setSelectedFile({ name: file.name, path, file: path ? undefined : file })
       }
     }
     input.click()
   }, [])
 
-  const handleUpload = useCallback(() => {
+  const handleUpload = useCallback(async () => {
     if (!selectedFile || activeVehicleId === null) return
-    window.bridge?.firmwareUploadFile(activeVehicleId, selectedFile)
+    if (selectedFile.path) {
+      await window.bridge?.firmwareUploadFile(activeVehicleId, selectedFile.path)
+      return
+    }
+
+    if (selectedFile.file) {
+      await window.bridge?.firmwareUploadData(
+        activeVehicleId,
+        selectedFile.name,
+        await firmwareFileToBase64(selectedFile.file)
+      )
+    }
   }, [selectedFile, activeVehicleId])
 
   const handleCancel = useCallback(() => {
@@ -123,7 +130,7 @@ export function FirmwarePage(): React.JSX.Element {
               Browse...
             </button>
             <span className={styles.fileName}>
-              {selectedFile ? selectedFile.split('/').pop() : 'No file selected'}
+              {selectedFile ? selectedFile.name : 'No file selected'}
             </span>
           </div>
 

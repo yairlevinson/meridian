@@ -5,6 +5,7 @@ import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type FirmwareManagerLike = Pick<EventEmitter, 'on' | 'off'> & {
   uploadFile: (filePath: string) => Promise<void> | void
+  uploadData: (fileName: string, content: Uint8Array) => Promise<void> | void
   cancel: () => void
   reboot: () => Promise<void> | void
 }
@@ -43,6 +44,11 @@ export function registerFirmwareRpc(
         const firmwareManager = getFirmwareManager(vehicleId)
         if (!firmwareManager) throw new Error('No vehicle')
         await firmwareManager.uploadFile(filePath)
+      },
+      uploadData: async (vehicleId, fileName, dataBase64) => {
+        const firmwareManager = getFirmwareManager(vehicleId)
+        if (!firmwareManager) throw new Error('No vehicle')
+        await firmwareManager.uploadData(fileName, Buffer.from(dataBase64, 'base64'))
       },
       cancel: async (vehicleId) => {
         getFirmwareManager(vehicleId)?.cancel()
