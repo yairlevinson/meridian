@@ -31,6 +31,22 @@ export function realtimeUrlFromServerUrl(serverUrl: string, realtimePath = '/rea
   return url.toString()
 }
 
+export function videoWebSocketUrlFromServerUrl(
+  serverUrl: string,
+  videoPath = '/video/live'
+): string {
+  const url = new URL(serverUrl)
+  if (url.protocol === 'http:') url.protocol = 'ws:'
+  else if (url.protocol === 'https:') url.protocol = 'wss:'
+  else if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+    throw new Error(`Unsupported Meridian server protocol: ${url.protocol}`)
+  }
+  url.pathname = videoPath.startsWith('/') ? videoPath : `/${videoPath}`
+  url.search = ''
+  url.hash = ''
+  return url.toString()
+}
+
 export function installBrowserRpcBridge(
   options: BrowserBridgeInstallOptions = {}
 ): BrowserBridgeInstallResult {
@@ -49,7 +65,9 @@ export function installBrowserRpcBridge(
     url: realtimeUrlFromServerUrl(serverUrl, options.realtimePath),
     WebSocketCtor: options.WebSocketCtor
   })
-  const bridge = createBrowserRpcBridge(transport)
+  const bridge = createBrowserRpcBridge(transport, {
+    videoWsUrl: videoWebSocketUrlFromServerUrl(serverUrl)
+  })
   slot.bridge = bridge
 
   return {

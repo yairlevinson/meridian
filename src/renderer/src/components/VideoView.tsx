@@ -12,15 +12,16 @@ export function VideoView(): React.JSX.Element {
   const streamState = useVideoStore((s) => s.streamState)
   const gridLines = useVideoStore((s) => s.gridLines)
   const wsPort = streamState?.wsPort ?? null
+  const wsUrl = streamState?.wsUrl ?? (wsPort ? `ws://127.0.0.1:${wsPort}` : null)
   const streaming = streamState?.streaming ?? false
   const pipeline = streamState?.pipeline ?? 'ffmpeg'
 
   // Use the appropriate hook based on the active pipeline
-  useVideoStream(videoRef, pipeline === 'ffmpeg' ? wsPort : null, streamState?.sourceType)
+  useVideoStream(videoRef, pipeline === 'ffmpeg' ? wsUrl : null, streamState?.sourceType)
   useWebCodecsStream(
     rawVideoRef,
     av1CanvasRef,
-    pipeline === 'webcodecs' ? wsPort : null,
+    pipeline === 'webcodecs' ? wsUrl : null,
     streamState?.sourceType
   )
 

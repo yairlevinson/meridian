@@ -20,16 +20,16 @@ function mseCodecForSource(sourceType: VideoSourceType | undefined): string {
  */
 export function useVideoStream(
   videoRef: React.RefObject<HTMLVideoElement | null>,
-  wsPort: number | null,
+  wsUrl: string | null,
   sourceType?: VideoSourceType
 ): void {
   const cleanupRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !wsPort) return
+    if (!video || !wsUrl) return
 
-    console.log('[VideoStream] init wsPort=', wsPort)
+    console.log('[VideoStream] init wsUrl=', wsUrl)
 
     let destroyed = false
     let sb: SourceBuffer | null = null
@@ -94,7 +94,7 @@ export function useVideoStream(
     video.addEventListener('error', onVideoError)
 
     // Connect WebSocket
-    const ws = new WebSocket(`ws://127.0.0.1:${wsPort}`)
+    const ws = new WebSocket(wsUrl)
     ws.binaryType = 'arraybuffer'
 
     ws.onopen = () => console.log('[VideoStream] ws connected')
@@ -163,5 +163,5 @@ export function useVideoStream(
 
     cleanupRef.current = cleanup
     return cleanup
-  }, [wsPort, videoRef, sourceType])
+  }, [wsUrl, videoRef, sourceType])
 }

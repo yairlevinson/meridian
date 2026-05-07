@@ -8,6 +8,7 @@ import {
 import { rpcEventTopic } from '@shared/rpc'
 import { allIpcModules } from '@shared/ipc/modules'
 import type { PopoutView } from '@shared/ipc/modules/popout'
+import type { VideoStreamState } from '@shared/ipc/VideoTypes'
 import { RpcTransport } from './RpcTransport'
 
 export function bindRpcModule<M extends IpcModuleSpec>(
@@ -33,6 +34,15 @@ export function bindRpcModule<M extends IpcModuleSpec>(
 export type BrowserRpcBridge = BridgeOf<typeof allIpcModules>
 export type BrowserRpcBridgeWithLog = BrowserRpcBridge & {
   log: (level: 'info' | 'warn' | 'error' | 'debug', tag: string, message: string) => void
+}
+
+export interface BrowserRpcBridgeOptions {
+  videoWsUrl?: string | null
+}
+
+interface BrowserVideoBridge {
+  videoGetState: () => Promise<VideoStreamState | null>
+  onVideoStateChanged: (cb: (state: VideoStreamState) => void) => () => void
 }
 
 interface BrowserPopoutBridge {
@@ -97,8 +107,36 @@ function createBrowserPopoutBridge(): BrowserPopoutBridge {
   }
 }
 
-export function createBrowserRpcBridge(transport: RpcTransport): BrowserRpcBridgeWithLog {
-  return Object.assign(
+function withVideoWebSocketUrl(
+  state: VideoStreamState | null,
+  videoWsUrl: string | null | undefined
+): VideoStreamState | null {
+  if (!state || !videoWsUrl) return state
+  return { ...state, wsUrl: videoWsUrl }
+}
+
+function decorateBrowserVideoBridge(
+  bridge: BrowserRpcBridgeWithLog,
+  videoWsUrl: string | null | undefined
+): void {
+  if (!videoWsUrl) return
+
+  const videoBridge = bridge as BrowserRpcBridgeWithLog & BrowserVideoBridge
+  const videoGetState = videoBridge.videoGetState.bind(videoBridge)
+  videoBridge.videoGetState = async () => withVideoWebSocketUrl(await videoGetState(), videoWsUrl)
+
+  const onVideoStateChanged = videoBridge.onVideoStateChanged.bind(videoBridge)
+  videoBridge.onVideoStateChanged = (cb) =>
+    onVideoStateChanged((state) => {
+      cb(withVideoWebSocketUrl(state, videoWsUrl)!)
+    })
+}
+
+export function createBrowserRpcBridge(
+  transport: RpcTransport,
+  options: BrowserRpcBridgeOptions = {}
+): BrowserRpcBridgeWithLog {
+  const bridge = Object.assign(
     {
       // rlog() already writes to the browser console. Server-side log forwarding
       // can become an RPC command later without changing the renderer surface.
@@ -107,4 +145,7 @@ export function createBrowserRpcBridge(transport: RpcTransport): BrowserRpcBridg
     ...allIpcModules.map((module) => bindRpcModule(module, transport)),
     createBrowserPopoutBridge()
   )
+
+  decorateBrowserVideoBridge(bridge, options.videoWsUrl)
+  return bridge
 }

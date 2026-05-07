@@ -5,9 +5,11 @@ import { bindRpcModule, createBrowserRpcBridge } from '../src/renderer/src/trans
 import { RpcTransport } from '../src/renderer/src/transport/RpcTransport'
 import {
   installBrowserRpcBridge,
-  realtimeUrlFromServerUrl
+  realtimeUrlFromServerUrl,
+  videoWebSocketUrlFromServerUrl
 } from '../src/renderer/src/transport/installBrowserBridge'
 import { RpcRealtimeServer } from '../src/server/realtime/RpcRealtimeServer'
+import { VideoSourceType } from '../src/shared-types/ipc/VideoTypes'
 import { createServer } from 'http'
 import { WebSocket } from 'ws'
 
@@ -99,6 +101,47 @@ describe('browser RPC bridge binding', () => {
 
     vi.unstubAllGlobals()
   })
+
+  it('decorates video state with the browser server websocket URL', async () => {
+    const videoState = {
+      sourceType: VideoSourceType.RTSP,
+      uri: 'rtsp://camera.local/live',
+      streaming: true,
+      recording: false,
+      wsPort: 49321,
+      error: null,
+      pipeline: 'ffmpeg' as const
+    }
+    let videoStateHandler: ((state: typeof videoState) => void) | null = null
+    const transport = {
+      command: vi.fn(async (moduleName: string, commandName: string) => {
+        if (moduleName === 'video' && commandName === 'getState') return videoState
+        return null
+      }),
+      on: vi.fn((topic: string, cb: (state: typeof videoState) => void) => {
+        if (topic === 'video:stateChanged') videoStateHandler = cb
+        return vi.fn()
+      })
+    }
+
+    const bridge = createBrowserRpcBridge(transport as any, {
+      videoWsUrl: 'ws://server.local:8080/video/live'
+    })
+
+    await expect(bridge.videoGetState()).resolves.toMatchObject({
+      wsPort: 49321,
+      wsUrl: 'ws://server.local:8080/video/live'
+    })
+
+    const eventHandler = vi.fn()
+    bridge.onVideoStateChanged(eventHandler)
+    videoStateHandler?.(videoState)
+
+    expect(eventHandler).toHaveBeenCalledWith({
+      ...videoState,
+      wsUrl: 'ws://server.local:8080/video/live'
+    })
+  })
 })
 
 describe('browser RPC bridge installer', () => {
@@ -109,6 +152,18 @@ describe('browser RPC bridge installer', () => {
     )
     expect(realtimeUrlFromServerUrl('ws://127.0.0.1:8080/realtime')).toBe(
       'ws://127.0.0.1:8080/realtime'
+    )
+  })
+
+  it('builds video websocket URLs from server URLs', () => {
+    expect(videoWebSocketUrlFromServerUrl('http://localhost:8080')).toBe(
+      'ws://localhost:8080/video/live'
+    )
+    expect(videoWebSocketUrlFromServerUrl('https://meridian.local/app', 'video')).toBe(
+      'wss://meridian.local/video'
+    )
+    expect(videoWebSocketUrlFromServerUrl('ws://127.0.0.1:8080/realtime')).toBe(
+      'ws://127.0.0.1:8080/video/live'
     )
   })
 

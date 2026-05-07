@@ -11,13 +11,13 @@ import { unpackAv1Chunk } from '../../../shared-types/ipc/VideoChunkProtocol'
 export function useWebCodecsStream(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  wsPort: number | null,
+  wsUrl: string | null,
   sourceType?: VideoSourceType
 ): void {
   const cleanupRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
-    if (!wsPort) return
+    if (!wsUrl) return
 
     const video = videoRef.current
     const canvas = canvasRef.current
@@ -43,7 +43,7 @@ export function useWebCodecsStream(
         debug: false
       })
 
-      ws = new WebSocket(`ws://127.0.0.1:${wsPort}`)
+      ws = new WebSocket(wsUrl)
       ws.binaryType = 'arraybuffer'
 
       ws.onmessage = (ev: MessageEvent) => {
@@ -116,7 +116,7 @@ export function useWebCodecsStream(
 
     const connectWs = (): void => {
       if (destroyed) return
-      ws = new WebSocket(`ws://127.0.0.1:${wsPort}`)
+      ws = new WebSocket(wsUrl)
       ws.binaryType = 'arraybuffer'
       ws.onmessage = (ev: MessageEvent) => {
         if (destroyed) return
@@ -187,5 +187,5 @@ export function useWebCodecsStream(
       }
     }
     return cleanupRef.current
-  }, [canvasRef, sourceType, videoRef, wsPort])
+  }, [canvasRef, sourceType, videoRef, wsUrl])
 }
