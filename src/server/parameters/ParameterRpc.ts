@@ -1,7 +1,7 @@
 import type { EventEmitter } from 'events'
 import { parametersModule } from '@shared/ipc/modules/parameters'
 import type { Parameter, ParameterLoadState } from '@shared/ipc/ParameterTypes'
-import { createParameterCommandHandlers } from '../../main/parameters/ParameterCommandHandlers'
+import { createParameterCommandHandlers } from '../../core/parameters/ParameterCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type ParameterManagerLike = Pick<EventEmitter, 'on' | 'off'> & {

@@ -1,6 +1,6 @@
 import type { RpcCommandImpls } from '@shared/rpc'
 import type { MavInspectorModule } from '@shared/ipc/modules/mavInspector'
-import type { MavlinkInspector } from './MavlinkInspector'
+import type { MavlinkInspector } from '../../main/mavlink/MavlinkInspector'
 
 export function createMavInspectorCommandHandlers(
   inspector: MavlinkInspector

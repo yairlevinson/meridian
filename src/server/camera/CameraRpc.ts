@@ -1,7 +1,7 @@
 import type { EventEmitter } from 'events'
 import { cameraModule, type CameraImageCapturedPayload } from '@shared/ipc/modules/camera'
 import type { CameraState } from '@shared/ipc/CameraTypes'
-import { createCameraCommandHandlers } from '../../main/camera/CameraCommandHandlers'
+import { createCameraCommandHandlers } from '../../core/camera/CameraCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type CameraManagerLike = Pick<EventEmitter, 'on' | 'off'> & {

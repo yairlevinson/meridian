@@ -1,7 +1,7 @@
 import type { EventEmitter } from 'events'
 import { firmwareModule } from '@shared/ipc/modules/firmware'
 import type { FirmwareUpgradeState } from '@shared/ipc/SetupTypes'
-import { createFirmwareCommandHandlers } from '../../main/firmware/FirmwareCommandHandlers'
+import { createFirmwareCommandHandlers } from '../../core/firmware/FirmwareCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type FirmwareManagerLike = Pick<EventEmitter, 'on' | 'off'> & {

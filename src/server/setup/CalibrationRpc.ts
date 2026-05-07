@@ -11,7 +11,7 @@ import type {
 import {
   createCalibrationCommandHandlers,
   createRcCalibrationCommandHandlers
-} from '../../main/calibration/CalibrationCommandHandlers'
+} from '../../core/calibration/CalibrationCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type CalibrationManagerLike = Pick<EventEmitter, 'on' | 'off'> & {

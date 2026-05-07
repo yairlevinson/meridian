@@ -1,7 +1,7 @@
 import type { RpcCommandImpls } from '@shared/rpc'
 import type { VideoModule } from '@shared/ipc/modules/video'
 import { VideoSourceType } from '@shared/ipc/VideoTypes'
-import type { VideoManager } from './VideoManager'
+import type { VideoManager } from '../../main/video/VideoManager'
 
 export function createVideoCommandHandlers(
   videoManager: VideoManager

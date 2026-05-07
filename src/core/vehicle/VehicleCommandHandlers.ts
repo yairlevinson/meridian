@@ -1,7 +1,7 @@
 import type { RpcCommandImpls } from '@shared/rpc'
 import type { VehicleModule } from '@shared/ipc/modules/vehicle'
-import type { TargetTrackingManager } from '../tracking/TargetTrackingManager'
-import type { VehicleManager } from './VehicleManager'
+import type { TargetTrackingManager } from '../../main/tracking/TargetTrackingManager'
+import type { VehicleManager } from '../../main/vehicle/VehicleManager'
 
 export function createVehicleCommandHandlers(
   vehicleManager: VehicleManager | null,

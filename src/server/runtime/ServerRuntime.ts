@@ -1,6 +1,6 @@
 import { join } from 'path'
 import { homedir } from 'os'
-import { createCoreRuntime, type CoreRuntime } from '../../main/runtime/CoreRuntime'
+import { createCoreRuntime, type CoreRuntime } from '../../core/runtime/CoreRuntime'
 import { ServerRadarManager } from '../operations/ServerRadarManager'
 
 export interface ServerRuntimeOptions {

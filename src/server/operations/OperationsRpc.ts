@@ -7,10 +7,10 @@ import {
   createRadarCommandHandlers,
   type ForwarderLike,
   type RadarManagerLike
-} from '../../main/operations/OperationCommandHandlers'
+} from '../../core/operations/OperationCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
-export type { RadarManagerLike } from '../../main/operations/OperationCommandHandlers'
+export type { RadarManagerLike } from '../../core/operations/OperationCommandHandlers'
 
 export function registerForwardingRpc(
   realtime: RpcRealtimeServer,

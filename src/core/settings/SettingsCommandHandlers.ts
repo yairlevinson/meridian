@@ -1,7 +1,7 @@
 import type { RpcCommandImpls } from '@shared/rpc'
 import type { SettingsModule } from '@shared/ipc/modules/settings'
 import type { AppSettings } from '@shared/ipc/AppSettings'
-import type { SettingsManager } from './SettingsManager'
+import type { SettingsManager } from '../../main/settings/SettingsManager'
 
 export function createSettingsCommandHandlers(
   settingsManager: SettingsManager

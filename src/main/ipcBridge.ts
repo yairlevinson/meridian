@@ -7,7 +7,7 @@ import { savePlanFile, loadPlanFile } from './mission/PlanFileIO'
 import { parseKmlFile } from './kml/KmlParser'
 import type { MissionItem } from '@shared/ipc/MissionTypes'
 import { MavlinkInspector } from './mavlink/MavlinkInspector'
-import { createMavInspectorCommandHandlers } from './mavlink/MavInspectorCommandHandlers'
+import { createMavInspectorCommandHandlers } from '../core/mavlink/MavInspectorCommandHandlers'
 import type { MavlinkForwarder } from './forwarding/MavlinkForwarder'
 import type { SettingsManager } from './settings/SettingsManager'
 import type { RadarProxy } from './radar/RadarProxy'
@@ -36,24 +36,24 @@ import { missionModule } from '@shared/ipc/modules/mission'
 import { parametersModule } from '@shared/ipc/modules/parameters'
 import type { VideoStreamState } from '@shared/ipc/VideoTypes'
 import { VehicleTelemetryPublisher } from './vehicle/VehicleTelemetryPublisher'
-import { createVehicleCommandHandlers } from './vehicle/VehicleCommandHandlers'
-import { createSettingsCommandHandlers } from './settings/SettingsCommandHandlers'
-import { createVideoCommandHandlers } from './video/VideoCommandHandlers'
-import { createLinksCommandHandlers } from './links/LinksCommandHandlers'
+import { createVehicleCommandHandlers } from '../core/vehicle/VehicleCommandHandlers'
+import { createSettingsCommandHandlers } from '../core/settings/SettingsCommandHandlers'
+import { createVideoCommandHandlers } from '../core/video/VideoCommandHandlers'
+import { createLinksCommandHandlers } from '../core/links/LinksCommandHandlers'
 import {
   createForwardingCommandHandlers,
   createRadarCommandHandlers
-} from './operations/OperationCommandHandlers'
-import { createCameraCommandHandlers } from './camera/CameraCommandHandlers'
+} from '../core/operations/OperationCommandHandlers'
+import { createCameraCommandHandlers } from '../core/camera/CameraCommandHandlers'
 import {
   createCalibrationCommandHandlers,
   createRcCalibrationCommandHandlers
-} from './calibration/CalibrationCommandHandlers'
-import { createFirmwareCommandHandlers } from './firmware/FirmwareCommandHandlers'
+} from '../core/calibration/CalibrationCommandHandlers'
+import { createFirmwareCommandHandlers } from '../core/firmware/FirmwareCommandHandlers'
 import {
   createActuatorCommandHandlers,
   createMavConsoleCommandHandlers
-} from './vehicle/VehicleToolsCommandHandlers'
+} from '../core/vehicle/VehicleToolsCommandHandlers'
 import type {
   CalibrationState,
   MagCalProgress,
@@ -67,7 +67,7 @@ import type {
   InspectorFieldsPayload
 } from '@shared/ipc/MavInspectorTypes'
 import type { Parameter, ParameterLoadState } from '@shared/ipc/ParameterTypes'
-import { createParameterCommandHandlers } from './parameters/ParameterCommandHandlers'
+import { createParameterCommandHandlers } from '../core/parameters/ParameterCommandHandlers'
 
 export function startIpcBridge(
   vehicleManager: VehicleManager,

@@ -4,7 +4,7 @@ import { mavConsoleModule } from '@shared/ipc/modules/mavConsole'
 import {
   createActuatorCommandHandlers,
   createMavConsoleCommandHandlers
-} from '../../main/vehicle/VehicleToolsCommandHandlers'
+} from '../../core/vehicle/VehicleToolsCommandHandlers'
 import type { RpcRealtimeServer } from '../realtime/RpcRealtimeServer'
 
 type VehicleToolsVehicleLike = Pick<EventEmitter, 'on' | 'off'> & {
